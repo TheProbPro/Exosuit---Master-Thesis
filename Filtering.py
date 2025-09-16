@@ -105,12 +105,22 @@ class filtering:
 
         return freqs, magnitude
 
+    def Windowed_RMS(self, filtered_data, window_size=100):
+        rms_values = []
+        for i in range(0, len(filtered_data), window_size):
+            window = filtered_data[i:i+window_size]
+            rms = np.sqrt(np.mean(np.square(window)))
+            rms_values.append(rms)
+        return rms_values
+
 if __name__ == "__main__":
     # Sample rate
     sample_rate = 2148  # Hz
     # Cutoff Fequencies
-    low_cutoff = 10  # Hz
-    high_cutoff = 20  # Hz
+    #low_cutoff = 10  # Hz
+    #high_cutoff = 20  # Hz
+    high_cutoff = 20
+    low_cutoff = 300
     notch_freq = 50  # Hz
     order = 6  # Order of the filter
 
@@ -166,6 +176,26 @@ if __name__ == "__main__":
             filter_instance.ButterworthHighPass(data, cutoff=high_cutoff, order=order), notch_freq=notch_freq), cutoff=low_cutoff, order=order)
     print(f"Combined filter processing time: {time.time() - start_time:.4f} seconds")
     filter_instance.PlotFilter(data, combined_filtered_data_3, title="Highpass_Notch_Lowpass_Result", savepath=savepath)
+
+    # band-pass filter
+    start_time = time.time()
+    band_passed_data = filter_instance.ButterworthBandPassFilter(data, lowcut=high_cutoff, highcut=low_cutoff, order=order)
+    print(f"Band-pass filter processing time: {time.time() - start_time:.4f} seconds")
+    filter_instance.PlotFilter(data, band_passed_data, title="Band-Pass_Filter_Result", savepath=savepath)
+
+    # RMS on band-passed data
+    rms_value = filter_instance.Windowed_RMS(band_passed_data, window_size=100)
+    #plot RMS signal
+    plt.figure(figsize=(12, 4))
+    plt.plot(rms_value, label='RMS of Band-Passed Signal', color='green')
+    plt.title("Windowed RMS of Band-Passed Signal")
+    plt.xlabel("Window Index")
+    plt.ylabel("RMS Value")
+    plt.legend()
+    plt.grid(True)
+    plt.savefig(savepath + "RMS_Band-Pass_Signal.png")
+    plt.show()
+    
 
 
 
