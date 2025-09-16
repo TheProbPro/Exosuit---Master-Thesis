@@ -1,6 +1,6 @@
 import numpy as np
 import matplotlib.pyplot as plt
-from scipy.signal import butter, filtfilt, iirnotch
+from scipy.signal import butter, filtfilt, iirnotch, sosfilt, sosfilt_zi, tf2sos
 import time
 
 ### This class implements various filtering techniques to clean the EMG signal. This is a temporary class that will be optimized to use actual equations later. ###
@@ -96,7 +96,8 @@ class filtering:
         if plot:
             plt.figure(figsize=(8,4))
             plt.plot(freqs, magnitude)
-            plt.xlim(0, self.fs/2)                   # Nyquist limit
+            #plt.xlim(0, self.fs/2)                   # Nyquist limit
+            plt.xlim(0, 200)  # Limit x-axis to 500 Hz for better visibility
             plt.xlabel("Frequency (Hz)")
             plt.ylabel("Magnitude")
             plt.title("FFT Magnitude Spectrum of sEMG signal")
@@ -122,7 +123,7 @@ if __name__ == "__main__":
     high_cutoff = 20
     low_cutoff = 300
     notch_freq = 50  # Hz
-    order = 6  # Order of the filter
+    order = 4  # Order of the filter
 
     # Create an instance of the filtering class
     filter_instance = filtering(sample_rate)
@@ -199,3 +200,60 @@ if __name__ == "__main__":
 
 
 
+class rt_filtering:
+    def __init__(self, sample_rate, lp_cutoff=450, hp_cutoff=20, order=4, mains=50.0, notch_bw=1.0):
+        self.fs = sample_rate       # Sample rate in Hz
+        self.nyq = 0.5 * self.fs    # Nyquist frequency
+
+        # --- design filters (SOS) ---
+        self.lp_sos = butter(order, lp_cutoff / self.nyq, btype='lowpass', output='sos')
+        self.lp_zi  = sosfilt_zi(self.lp_sos)
+
+        self.hp_sos = butter(order, hp_cutoff / self.nyq, btype='highpass', output='sos')
+        self.hp_zi  = sosfilt_zi(self.hp_sos)
+
+        self.bandpass_sos = butter(order, [hp_cutoff / self.nyq, lp_cutoff / self.nyq], btype='bandpass', output='sos')
+        self.bandpass_zi  = sosfilt_zi(self.bandpass_sos)
+
+        self.bandstop_sos = butter(order, [ (mains-2)/self.nyq, (mains+2)/self.nyq ], btype='bandstop', output='sos')
+        self.bandstop_zi  = sosfilt_zi(self.bandstop_sos)
+
+        # Notch (use fs= to specify Hz directly)
+        Q = mains / notch_bw
+        b_notch, a_notch = iirnotch(mains, Q, fs=self.fs)
+        self.notch_sos = tf2sos(b_notch, a_notch)
+        self.notch_zi  = sosfilt_zi(self.notch_sos)
+
+    def Windowed_RMS(self, filtered_data, window_size=50):
+        rms_values = []
+        for i in range(0, len(filtered_data), window_size):
+            window = filtered_data[i:i+window_size]
+            rms = np.sqrt(np.mean(np.square(window)))
+            rms_values.append(rms)
+        return rms_values
+
+    # --- mockup: per-sample processing ---
+    def process_sample(self, x):
+        y_notch,   self.notch_zi   = sosfilt(self.notch_sos,   x, zi=self.notch_zi)
+        y_bandpass,self.bandpass_zi = sosfilt(self.bandpass_sos, y_notch, zi=self.bandpass_zi)
+        # or try other branches:
+        y_lp,      self.lp_zi      = sosfilt(self.lp_sos,      x, zi=self.lp_zi)
+        y_hp,      self.hp_zi      = sosfilt(self.hp_sos,      x, zi=self.hp_zi)
+
+        # return whatever branch you care about; here: notch->bandpass
+        return float(y_bandpass[-1])
+
+    # --- mockup: chunk processing ---
+    def process_chunk(self, chunk):
+        x = np.asarray(chunk, dtype=float)
+        if x.size == 0:
+            return x
+        self._maybe_scale_zi(x[0])
+
+        y_notch,   self.notch_zi    = sosfilt(self.notch_sos,    x,        zi=self.notch_zi)
+        y_bandpass,self.bandpass_zi = sosfilt(self.bandpass_sos, y_notch,  zi=self.bandpass_zi)
+        # optional parallel branches:
+        y_lp,      self.lp_zi       = sosfilt(self.lp_sos,       x,        zi=self.lp_zi)
+        y_hp,      self.hp_zi       = sosfilt(self.hp_sos,       x,        zi=self.hp_zi)
+
+        return y_bandpass  # or dict of branches if you prefer
