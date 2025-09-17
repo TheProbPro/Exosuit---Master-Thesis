@@ -102,6 +102,7 @@ class filtering:
             plt.ylabel("Magnitude")
             plt.title("FFT Magnitude Spectrum of sEMG signal")
             plt.grid(True)
+            plt.savefig("AttemptedFiltering/FFT_Original_Signal.png")
             plt.show()
 
         return freqs, magnitude
@@ -110,93 +111,138 @@ class filtering:
         rms_values = []
         for i in range(0, len(filtered_data), window_size):
             window = filtered_data[i:i+window_size]
-            rms = np.sqrt(np.mean(np.square(window)))
+            rms = np.sqrt(np.mean(np.square(np.abs(window))))
             rms_values.append(rms)
         return rms_values
 
-if __name__ == "__main__":
-    # Sample rate
-    sample_rate = 2148  # Hz
-    # Cutoff Fequencies
-    #low_cutoff = 10  # Hz
-    #high_cutoff = 20  # Hz
-    high_cutoff = 20
-    low_cutoff = 300
-    notch_freq = 50  # Hz
-    order = 4  # Order of the filter
+# if __name__ == "__main__":
+#     # Sample rate
+#     sample_rate = 2148  # Hz
+#     # Cutoff Fequencies
+#     #low_cutoff = 10  # Hz
+#     #high_cutoff = 20  # Hz
+#     #high_cutoff = 40 #20
+#     high_cutoff = 20 #40
+#     low_cutoff = 300 #300
+#     #low_cutoff = 50 #300
+#     notch_freq = 45  # Hz
+#     order = 2  # Order of the filter
 
-    # Create an instance of the filtering class
-    filter_instance = filtering(sample_rate)
+#     # Create an instance of the filtering class
+#     filter_instance = filtering(sample_rate)
 
-    # define read and save paths
-    readpath = "./RecordedEMG/"
-    savepath = "./AttemptedFiltering/"
-    # Read recorded EMG data from a CSV file
-    data = np.loadtxt(readpath + "EMG_SlowMovement.csv", delimiter=",")
+#     # define read and save paths
+#     readpath = "./RecordedEMG/"
+#     savepath = "./AttemptedFiltering/"
+#     # Read recorded EMG data from a CSV file
+#     # data = np.loadtxt(readpath + "EMG_Rest.csv", delimiter=",")
+#     # data = np.loadtxt(readpath + "EMG_SlowMovement.csv", delimiter=",")
+#     data = np.loadtxt(readpath + "EMG_FastMovement.csv", delimiter=",")
 
-    # Calculate FFT of original signal
-    freqs, magnitude = filter_instance.FFT(data, plot=True)
+#     # Calculate FFT of original signal
+#     freqs, magnitude = filter_instance.FFT(data, plot=True)
 
-    # Apply filters, plot results and check processing time
-    # High-pass filter
-    start_time = time.time()
-    high_passed_data = filter_instance.ButterworthHighPass(data, cutoff=high_cutoff, order=order)
-    print(f"High-pass filter processing time: {time.time() - start_time:.4f} seconds")
-    filter_instance.PlotFilter(data, high_passed_data, title="High-Pass_Filter_Result", savepath=savepath)
+#     # # Apply filters, plot results and check processing time
+#     # # High-pass filter
+#     # start_time = time.time()
+#     # high_passed_data = filter_instance.ButterworthHighPass(data, cutoff=high_cutoff, order=order)
+#     # print(f"High-pass filter processing time: {time.time() - start_time:.4f} seconds")
+#     # filter_instance.PlotFilter(data, high_passed_data, title="High-Pass_Filter_Result", savepath=savepath)
 
-    # Low-pass filter
-    start_time = time.time()
-    low_passed_data = filter_instance.ButterworthLowPass(data, cutoff=low_cutoff, order=order)
-    print(f"Low-pass filter processing time: {time.time() - start_time:.4f} seconds")
-    filter_instance.PlotFilter(data, low_passed_data, title="Low-Pass_Filter_Result", savepath=savepath)
+#     # # Low-pass filter
+#     # start_time = time.time()
+#     # low_passed_data = filter_instance.ButterworthLowPass(data, cutoff=low_cutoff, order=order)
+#     # print(f"Low-pass filter processing time: {time.time() - start_time:.4f} seconds")
+#     # filter_instance.PlotFilter(data, low_passed_data, title="Low-Pass_Filter_Result", savepath=savepath)
 
-    # Notch filter
-    start_time = time.time()
-    notch_filtered_data = filter_instance.NotchFilter(data, notch_freq=notch_freq)
-    print(f"Notch filter processing time: {time.time() - start_time:.4f} seconds")
-    filter_instance.PlotFilter(data, notch_filtered_data, title="Notch_Filter_Result", savepath=savepath)
+#     # # Notch filter
+#     # start_time = time.time()
+#     # notch_filtered_data = filter_instance.NotchFilter(data, notch_freq=notch_freq)
+#     # print(f"Notch filter processing time: {time.time() - start_time:.4f} seconds")
+#     # filter_instance.PlotFilter(data, notch_filtered_data, title="Notch_Filter_Result", savepath=savepath)
     
-    # Combined high-pass and low-pass filter
-    start_time = time.time()
-    combined_filtered_data = filter_instance.ButterworthLowPass(
-        filter_instance.ButterworthHighPass(data, cutoff=high_cutoff, order=order), cutoff=low_cutoff, order=order)
-    print(f"Combined filter processing time: {time.time() - start_time:.4f} seconds")
-    filter_instance.PlotFilter(data, combined_filtered_data, title="Highpass_Lowpass_Result", savepath=savepath)
+#     # # Combined high-pass and low-pass filter
+#     # start_time = time.time()
+#     # combined_filtered_data = filter_instance.ButterworthLowPass(
+#     #     filter_instance.ButterworthHighPass(data, cutoff=high_cutoff, order=order), cutoff=low_cutoff, order=order)
+#     # print(f"Combined filter processing time: {time.time() - start_time:.4f} seconds")
+#     # filter_instance.PlotFilter(data, combined_filtered_data, title="Highpass_Lowpass_Result", savepath=savepath)
 
-    # Combined low-pass and high-pass filter
-    start_time = time.time()
-    combined_filtered_data_2 = filter_instance.ButterworthHighPass(
-        filter_instance.ButterworthLowPass(data, cutoff=low_cutoff, order=order), cutoff=high_cutoff, order=order)
-    print(f"Combined filter processing time: {time.time() - start_time:.4f} seconds")
-    filter_instance.PlotFilter(data, combined_filtered_data_2, title="Lowpass_Highpass_Result", savepath=savepath)
+#     # # Combined low-pass and high-pass filter
+#     # start_time = time.time()
+#     # combined_filtered_data_2 = filter_instance.ButterworthHighPass(
+#     #     filter_instance.ButterworthLowPass(data, cutoff=low_cutoff, order=order), cutoff=high_cutoff, order=order)
+#     # print(f"Combined filter processing time: {time.time() - start_time:.4f} seconds")
+#     # filter_instance.PlotFilter(data, combined_filtered_data_2, title="Lowpass_Highpass_Result", savepath=savepath)
 
-    # Combined High-pass, Notch, and low-pass filter
-    start_time = time.time()
-    combined_filtered_data_3 = filter_instance.ButterworthLowPass(
-        filter_instance.NotchFilter(
-            filter_instance.ButterworthHighPass(data, cutoff=high_cutoff, order=order), notch_freq=notch_freq), cutoff=low_cutoff, order=order)
-    print(f"Combined filter processing time: {time.time() - start_time:.4f} seconds")
-    filter_instance.PlotFilter(data, combined_filtered_data_3, title="Highpass_Notch_Lowpass_Result", savepath=savepath)
+#     # # Combined High-pass, Notch, and low-pass filter
+#     # start_time = time.time()
+#     # combined_filtered_data_3 = filter_instance.ButterworthLowPass(
+#     #     filter_instance.NotchFilter(
+#     #         filter_instance.ButterworthHighPass(data, cutoff=high_cutoff, order=order), notch_freq=notch_freq), cutoff=low_cutoff, order=order)
+#     # print(f"Combined filter processing time: {time.time() - start_time:.4f} seconds")
+#     # filter_instance.PlotFilter(data, combined_filtered_data_3, title="Highpass_Notch_Lowpass_Result", savepath=savepath)
 
-    # band-pass filter
-    start_time = time.time()
-    band_passed_data = filter_instance.ButterworthBandPassFilter(data, lowcut=high_cutoff, highcut=low_cutoff, order=order)
-    print(f"Band-pass filter processing time: {time.time() - start_time:.4f} seconds")
-    filter_instance.PlotFilter(data, band_passed_data, title="Band-Pass_Filter_Result", savepath=savepath)
+#     # # band-pass filter
+#     # start_time = time.time()
+#     # band_passed_data = filter_instance.ButterworthBandPassFilter(data, lowcut=high_cutoff, highcut=low_cutoff, order=order)
+#     # print(f"Band-pass filter processing time: {time.time() - start_time:.4f} seconds")
+#     # filter_instance.PlotFilter(data, band_passed_data, title="Band-Pass_Filter_Result", savepath=savepath)
 
-    # RMS on band-passed data
-    rms_value = filter_instance.Windowed_RMS(band_passed_data, window_size=100)
-    #plot RMS signal
-    plt.figure(figsize=(12, 4))
-    plt.plot(rms_value, label='RMS of Band-Passed Signal', color='green')
-    plt.title("Windowed RMS of Band-Passed Signal")
-    plt.xlabel("Window Index")
-    plt.ylabel("RMS Value")
-    plt.legend()
-    plt.grid(True)
-    plt.savefig(savepath + "RMS_Band-Pass_Signal.png")
-    plt.show()
+#     # # RMS on band-passed data
+#     # rms_value = filter_instance.Windowed_RMS(band_passed_data, window_size=100)
+#     # #plot RMS signal
+#     # plt.figure(figsize=(12, 4))
+#     # plt.plot(rms_value, label='RMS of Band-Passed Signal', color='green')
+#     # plt.title("Windowed RMS of Band-Passed Signal")
+#     # plt.xlabel("Window Index")
+#     # plt.ylabel("RMS Value")
+#     # plt.legend()
+#     # plt.grid(True)
+#     # plt.savefig(savepath + "RMS_Band-Pass_Signal.png")
+#     # plt.show()
+
+#     # Attempt at full preprossessing pipeline
+#     # bandpass
+#     start_time = time.time()
+#     band_passed_data = filter_instance.ButterworthBandPassFilter(data, lowcut=high_cutoff, highcut=low_cutoff, order=order)
+#     print(f"Band-pass filter processing time: {time.time() - start_time:.4f} seconds")
+#     filter_instance.PlotFilter(data, band_passed_data, title="Band-Pass_Filter_Result", savepath=savepath)
+#     # Take abs of signal
+#     band_passed_data = np.abs(band_passed_data)
+#     # # notch
+#     # start_time = time.time()
+#     # notch_filtered_data = filter_instance.NotchFilter(band_passed_data, notch_freq=notch_freq)
+#     # print(f"Notch filter processing time: {time.time() - start_time:.4f} seconds")
+#     # filter_instance.PlotFilter(band_passed_data, notch_filtered_data, title="Notch_After_Bandpass_Result", savepath=savepath)
+#     # # Extreme lowpass
+#     # start_time = time.time()
+#     # final_filtered_data = filter_instance.ButterworthLowPass(notch_filtered_data, cutoff=20, order=order)
+#     # print(f"Low-pass filter processing time: {time.time() - start_time:.4f} seconds")
+#     # filter_instance.PlotFilter(notch_filtered_data, final_filtered_data, title="Final_Filtered_Result", savepath=savepath)
+#     # RMS on data both with extreme lowpass and without
+#     # rms_value = filter_instance.Windowed_RMS(final_filtered_data, window_size=100)
+#     rms_value_2 = filter_instance.Windowed_RMS(band_passed_data, window_size=100)
+#     #plot RMS signal
+#     plt.figure(figsize=(12, 4))
+#     # plt.plot(rms_value, label='RMS of Fully Filtered Signal', color='blue')
+#     plt.plot(rms_value_2, label='RMS of Notch + Bandpass Signal', color='orange', alpha=0.7)
+#     plt.title("Windowed RMS Comparison")
+#     plt.xlabel("Window Index")
+#     plt.ylabel("RMS Value")
+#     plt.legend()
+#     plt.grid(True)
+#     plt.savefig(savepath + "RMS_final.png")
+#     plt.show()
     
+#     # FFT of fully filtered signal
+#     freqs, magnitude = filter_instance.FFT(band_passed_data, plot=True)
+
+#     # # Lowpass filter
+#     # start_time = time.time()
+#     # low_passed_data = filter_instance.ButterworthLowPass(filter_instance.ButterworthHighPass(data, cutoff=20, order=order), cutoff=10, order=order)
+#     # print(f"Low-pass filter processing time: {time.time() - start_time:.4f} seconds")
+#     # filter_instance.PlotFilter(data, low_passed_data, title="Low-Pass_Filter_Result", savepath=savepath)
 
 
 
@@ -228,32 +274,65 @@ class rt_filtering:
         rms_values = []
         for i in range(0, len(filtered_data), window_size):
             window = filtered_data[i:i+window_size]
-            rms = np.sqrt(np.mean(np.square(window)))
+            rms = np.sqrt(np.mean(np.square(np.abs(window))))
             rms_values.append(rms)
         return rms_values
 
-    # --- mockup: per-sample processing ---
-    def process_sample(self, x):
-        y_notch,   self.notch_zi   = sosfilt(self.notch_sos,   x, zi=self.notch_zi)
-        y_bandpass,self.bandpass_zi = sosfilt(self.bandpass_sos, y_notch, zi=self.bandpass_zi)
-        # or try other branches:
-        y_lp,      self.lp_zi      = sosfilt(self.lp_sos,      x, zi=self.lp_zi)
-        y_hp,      self.hp_zi      = sosfilt(self.hp_sos,      x, zi=self.hp_zi)
-
-        # return whatever branch you care about; here: notch->bandpass
-        return float(y_bandpass[-1])
-
-    # --- mockup: chunk processing ---
+    # --- Chunk processing ---
     def process_chunk(self, chunk):
         x = np.asarray(chunk, dtype=float)
-        if x.size == 0:
-            return x
-        self._maybe_scale_zi(x[0])
+        if x.size < 50:
+            return [], x
+        start_time = time.time()
+        # Bandpass
+        y_bandpass,self.bandpass_zi = sosfilt(self.bandpass_sos, x,  zi=self.bandpass_zi)
+        # Windowed RMS
+        rms_values = self.Windowed_RMS(y_bandpass, window_size=50)
+        print(f"Chunk processing time: {time.time() - start_time:.4f} seconds")
 
-        y_notch,   self.notch_zi    = sosfilt(self.notch_sos,    x,        zi=self.notch_zi)
-        y_bandpass,self.bandpass_zi = sosfilt(self.bandpass_sos, y_notch,  zi=self.bandpass_zi)
-        # optional parallel branches:
-        y_lp,      self.lp_zi       = sosfilt(self.lp_sos,       x,        zi=self.lp_zi)
-        y_hp,      self.hp_zi       = sosfilt(self.hp_sos,       x,        zi=self.hp_zi)
+        return y_bandpass, rms_values
+    
 
-        return y_bandpass  # or dict of branches if you prefer
+if __name__ == "__main__":
+    sample_rate = 2148  # Hz
+    # Create an instance of the real-time filtering class
+    rt_filter_instance = rt_filtering(sample_rate, lp_cutoff=300, hp_cutoff=20, order=2)
+    # define read and save paths
+    readpath = "./RecordedEMG/"
+    savepath = "./AttemptedFiltering/"
+    # Read recorded EMG data from a CSV file
+    data = np.loadtxt(readpath + "EMG_FastMovement.csv", delimiter=",")
+    chunk_size = 50  # samples
+    all_rms = []
+    all_filtered = []
+    for start in range(0, len(data), chunk_size):
+        chunk = data[start:start+chunk_size]
+        filtered, rms_values = rt_filter_instance.process_chunk(chunk)
+        all_rms.extend(rms_values)
+        all_filtered.extend(filtered)
+    # Plot RMS and bandpass of all chunks, and original signal
+    plt.figure(figsize=(12, 6))
+    plt.subplot(3,1,1)
+    plt.plot(data, label='Original Data', alpha=0.7)
+    plt.title("Original Signal")
+    plt.xlabel("Sample Index")
+    plt.ylabel("Amplitude")
+    plt.legend()
+    plt.grid(True)
+    plt.subplot(3,1,2)
+    plt.plot(all_filtered, label='Band-Passed Signal', color='green')
+    plt.title("Band-Passed Signal (Real-Time Processing)")
+    plt.xlabel("Sample Index")
+    plt.ylabel("Amplitude")
+    plt.legend()
+    plt.grid(True)
+    plt.subplot(3,1,3)
+    plt.plot(all_rms, label='RMS of Band-Passed Signal', color='orange')
+    plt.title("Windowed RMS of Band-Passed Signal (Real-Time Processing)")
+    plt.xlabel("Window Index")
+    plt.ylabel("RMS Value")
+    plt.legend()
+    plt.grid(True)
+    plt.tight_layout()
+    plt.savefig(savepath + "RMS_Band-Pass_Signal_RT.png")
+    plt.show()
