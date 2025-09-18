@@ -288,7 +288,7 @@ class rt_filtering:
         y_bandpass,self.bandpass_zi = sosfilt(self.bandpass_sos, x,  zi=self.bandpass_zi)
         # Windowed RMS
         rms_values = self.Windowed_RMS(y_bandpass, window_size=50)
-        print(f"Chunk processing time: {time.time() - start_time:.4f} seconds")
+        #print(f"Chunk processing time: {time.time() - start_time:.4f} seconds")
 
         return y_bandpass, rms_values
     
@@ -299,7 +299,7 @@ if __name__ == "__main__":
     rt_filter_instance = rt_filtering(sample_rate, lp_cutoff=300, hp_cutoff=20, order=2)
     # define read and save paths
     readpath = "./RecordedEMG/"
-    savepath = "./AttemptedFiltering/"
+    savepath = "./AttemptedFiltering/"  
     # Read recorded EMG data from a CSV file
     data = np.loadtxt(readpath + "EMG_FastMovement.csv", delimiter=",")
     chunk_size = 50  # samples
