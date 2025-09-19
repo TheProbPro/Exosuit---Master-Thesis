@@ -10,21 +10,24 @@ from Filtering import rt_filtering
 from EMGSensor import DelsysEMG
 
 # Thread function that reads the EMG data and appends to queue
+# IMPORTANT: DO NOT READ FROM THREAD. We lose around 14000 samples over 10 seconds if we do that.
 def read_EMG(emg, data, stop_event):
     while not stop_event.is_set():
+        TIME = time.time()
         reading = emg.read()
-        print(reading)
         data.put(reading)
+        print("Read time: ", time.time() - TIME)
 
 # Thread function that processes the EMG data from queue and appends to lists
 def filter_EMG(filter, data, filtered_signal, rms_signal, window_size, stop_event):
     while not stop_event.is_set():
-
+        TIME = time.time()
         if data.qsize() >= window_size:
             chunk = np.asarray([data.get() for _ in range(window_size)]).squeeze().ravel()
             filtered, rms = filter.process_chunk(chunk)
             filtered_signal.extend(filtered)
             rms_signal.extend(rms)
+        print("Filter time: ", time.time() - TIME)
 
 # def wait_for_q(stop_event):
 #     for line in sys.stdin:
@@ -39,7 +42,8 @@ if __name__ == "__main__":
     stop_event = threading.Event()
 
     # Define filter parameters
-    sample_rate = 2148  # Hz
+    sample_rate = 2148  # Hz # This one is correct according to Trigno Utility control panel
+    # sample_rate = 2000  # Hz # This one is maybe more correct according to the EMG sensor documentation
     lp_cutoff = 300  # Hz
     hp_cutoff = 20  # Hz
     filter_order = 2
@@ -70,6 +74,7 @@ if __name__ == "__main__":
     while ((time.time() - TIME < seconds)):
         reading = emg.read()
         data.put(reading)
+        
     print("Time elapsed: ", time.time() - TIME)
         
     stop_event.set()
