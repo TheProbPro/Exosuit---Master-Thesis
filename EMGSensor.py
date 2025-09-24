@@ -44,7 +44,12 @@ class DelsysEMGIMU:
             host=self.host,
             units=self.emg_units
         )
-        self.imu_dev = pytrigno.TrignoAccel(
+        # self.imu_dev = pytrigno.TrignoAccel(
+        #     channel_range=imu_channel_range,
+        #     samples_per_read=imu_samples_per_read,
+        #     host=self.host
+        # )
+        self.imu_dev = pytrigno.TrignoIMU(
             channel_range=imu_channel_range,
             samples_per_read=imu_samples_per_read,
             host=self.host
@@ -173,34 +178,26 @@ if __name__ == "__main__":
 
     # plot emg and accel from first sensor
     plt.figure(figsize=(10, 6))
-    plt.subplot(2, 1, 1)
+    plt.subplot(3, 1, 1)
     plt.plot(emg[0, :], label='EMG Channel 0', color='blue')
-    plt.plot(emg[1, :], label='EMG Channel 1', color='orange')
-    plt.plot(emg[2, :], label='EMG Channel 2', color='green')
-    plt.plot(emg[3, :], label='EMG Channel 3', color='red')
-    plt.plot(emg[4, :], label='EMG Channel 4', color='purple')
-    plt.plot(emg[5, :], label='EMG Channel 5', color='brown')
-    plt.plot(emg[6, :], label='EMG Channel 6', color='pink')
-    plt.plot(emg[7, :], label='EMG Channel 7', color='gray')   
-    plt.plot(emg[8, :], label='EMG Channel 8', color='olive')
-    plt.plot(emg[9, :], label='EMG Channel 9', color='cyan')
-    plt.plot(emg[10, :], label='EMG Channel 10', color='magenta')
-    plt.plot(emg[11, :], label='EMG Channel 11', color='lime')
-    plt.plot(emg[12, :], label='EMG Channel 12', color='navy')
-    plt.plot(emg[13, :], label='EMG Channel 13', color='teal')
-    plt.plot(emg[14, :], label='EMG Channel 14', color='coral')
-    plt.plot(emg[15, :], label='EMG Channel 15', color='gold')
     plt.title('EMG Signal from Channel 0')
     plt.xlabel('Samples')
     plt.ylabel('Amplitude (mV)')
     plt.legend()
     plt.grid()
-    plt.subplot(2, 1, 2)
+    plt.subplot(3, 1, 2)
     plt.plot(accel[0:3, :].T)  # plot x, y, z
     plt.title('Accelerometer Signal from Channel 0')
     plt.xlabel('Samples')
     plt.ylabel('Acceleration (g)')
-    plt.legend(['X', 'Y', 'Z'])
+    plt.legend(['Acc.X', 'Acc.Y', 'Acc.Z'])
+    plt.grid()
+    plt.subplot(3, 1, 3)
+    plt.plot(accel[3:6, :].T)  # plot gyro x, y, z
+    plt.title('Gyroscope Signal from Channel 0')
+    plt.xlabel('Samples')
+    plt.ylabel('Angular Velocity (deg/s)')
+    plt.legend(['Gyro.X', 'Gyro.Y', 'Gyro.Z'])
     plt.grid()
     plt.tight_layout()
     plt.show()
