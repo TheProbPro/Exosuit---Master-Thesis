@@ -298,8 +298,8 @@ if __name__ == "__main__":
     # Create an instance of the real-time filtering class
     rt_filter_instance = rt_filtering(sample_rate, lp_cutoff=300, hp_cutoff=20, order=2)
     # define read and save paths
-    readpath = "./RecordedEMG/"
-    savepath = "./AttemptedFiltering/"  
+    readpath = "./Outputs/RecordedEMG/"
+    savepath = "./Outputs/AttemptedFiltering/"
     # Read recorded EMG data from a CSV file
     data = np.loadtxt(readpath + "EMG_FastMovement.csv", delimiter=",")
     chunk_size = 50  # samples
