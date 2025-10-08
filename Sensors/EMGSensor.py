@@ -15,7 +15,7 @@ import time
 import csv
 import ast
 import sys
-from pytrigno import pytrigno # https://delsyseurope.com/downloads/USERSGUIDE/trigno/sdk.pdf https://github.com/axopy/pytrigno
+from Sensors.pytrigno import pytrigno # https://delsyseurope.com/downloads/USERSGUIDE/trigno/sdk.pdf https://github.com/axopy/pytrigno
 import signal
 import numpy as np
 import matplotlib.pyplot as plt

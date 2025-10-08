@@ -6,8 +6,8 @@ import threading
 import sys
 import time
 
-from Filtering import rt_filtering
-from EMGSensor import DelsysEMG
+from SignalProcessing.Filtering import rt_filtering
+from Sensors.EMGSensor import DelsysEMG
 
 # Thread function that reads the EMG data and appends to queue
 
