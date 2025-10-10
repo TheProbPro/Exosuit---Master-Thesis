@@ -68,23 +68,21 @@ if __name__ == "__main__":
     
     print("Test finished! plotting data...")
 
-    # Save RMS data as .csv file
-    df_rms = pd.DataFrame()
-    df_rms['Bicep_RMS'] = Bicep_RMS
-    df_rms['Tricep_RMS'] = Tricep_RMS
-    df_rms.to_csv(f'Calib/Users/{User_name}/test_rms_data.csv', index=False)
+    # # Save RMS data as .csv file
+    # df_rms = pd.DataFrame()
+    # df_rms['Bicep_RMS'] = Bicep_RMS
+    # df_rms['Tricep_RMS'] = Tricep_RMS
+    # df_rms.to_csv(f'Calib/Users/{User_name}/test_rms_data.csv', index=False)
 
-    df_filtered = pd.DataFrame()
-    df_filtered['Bicep_Filtered'] = filtered_Bicep
-    df_filtered['Tricep_Filtered'] = filtered_Tricep
-    df_filtered.to_csv(f'Calib/Users/{User_name}/test_filtered_data.csv', index=False)
+    # df_filtered = pd.DataFrame()
+    # df_filtered['Bicep_Filtered'] = filtered_Bicep
+    # df_filtered['Tricep_Filtered'] = filtered_Tricep
+    # df_filtered.to_csv(f'Calib/Users/{User_name}/test_filtered_data.csv', index=False)
 
-    df_raw = pd.DataFrame()
-    df_raw['Bicep_Raw'] = Bicep_data
-    df_raw['Tricep_Raw'] = Tricep_data
-    df_raw.to_csv(f'Calib/Users/{User_name}/test_raw_data.csv', index=False)
-
-
+    # df_raw = pd.DataFrame()
+    # df_raw['Bicep_Raw'] = Bicep_data
+    # df_raw['Tricep_Raw'] = Tricep_data
+    # df_raw.to_csv(f'Calib/Users/{User_name}/test_raw_data.csv', index=False)
 
     plt.figure()
     plt.subplot(3, 1, 1)
@@ -105,7 +103,7 @@ if __name__ == "__main__":
     plt.tight_layout()
     plt.savefig('Calib/Users/{}/test_emg_plot.png'.format(User_name))
     plt.show()
-    quit()
+    
     # clear all data
     Bicep_data.clear()
     Tricep_data.clear()
