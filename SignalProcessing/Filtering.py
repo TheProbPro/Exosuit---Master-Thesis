@@ -277,6 +277,17 @@ class rt_filtering:
             rms = np.sqrt(np.mean(np.square(np.abs(window))))
             rms_values.append(rms)
         return rms_values
+    
+    def RMS(self, window, window_size=50):
+        if len(window) < window_size:
+            return window[-1]
+        return float(np.sqrt(np.mean(np.square(np.abs(window)))))
+    
+    def bandpass(self, data):
+        y, self.bandpass_zi = sosfilt(self.bandpass_sos, data, zi=self.bandpass_zi)
+        return y
+    
+
 
     # --- Chunk processing ---
     def process_chunk(self, chunk):

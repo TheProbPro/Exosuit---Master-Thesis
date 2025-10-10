@@ -76,7 +76,7 @@ if __name__ == "__main__":
         data.put(reading)
         
     print("Time elapsed: ", time.time() - TIME)
-        
+    print("Shape of filtered signal: ", np.array(filtered_signal).shape)
     stop_event.set()
     #t_reader.join()
     t_filter.join()
