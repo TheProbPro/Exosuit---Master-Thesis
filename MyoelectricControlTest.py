@@ -8,15 +8,10 @@ import pandas as pd
 import os
 
 from SignalProcessing.Filtering import rt_filtering
-from Sensors.EMGSensor import DelsysEMG
+from SignalProcessing.Interpretors import ProportionalMyoelectricalControl as PMC
 
 Sensor_channels = [0, 10] # Bicep, Tricep
 User_name = 'VictorBNielsen'
-
-def _calc_MVC(signal, sampling_rate=2000, win_ms=800):
-        i = int(np.max(signal))
-        w = int(win_ms / 1000 * sampling_rate) // 2
-        return np.mean(signal[max(0,i-w): min(i+w+1,len(signal))])
 
 if __name__ == "__main__":
     # Initialize variables
@@ -35,193 +30,11 @@ if __name__ == "__main__":
     # Variables for plotting
     seconds = 10
 
-    # Initialize EMG class and filtering class
+    # Initialize filtering class and interpreter class
     filter = rt_filtering(sample_rate, 300, 20, 2)
-    emg = DelsysEMG(channel_range=(0,16))
-    emg.start()
+    interpreter = PMC(theta_min=0, theta_max=140, user_name=User_name, BicepEMG=True, TricepEMG=True)
 
-    print("EMG started!")
-
-    print("Starting test of data aquisition and filtering for {} seconds...".format(seconds))
-    TIME = time.time()
-    while ((time.time() - TIME < seconds)):
-        # Aquire data
-        reading = emg.read()
-        Bicep_data.append(reading[Sensor_channels[0]])
-        Tricep_data.append(reading[Sensor_channels[1]])
-
-        # Filter data
-        filtered_Bicep.append(filter.bandpass(reading[Sensor_channels[0]]))
-        filtered_Tricep.append(filter.bandpass(reading[Sensor_channels[1]]))
-
-        # Calculate RMS
-        if Bicep_RMS_queue.full():
-            Bicep_RMS_queue.get()
-        Bicep_RMS_queue.put(filtered_Bicep[-1].item())
-        if Tricep_RMS_queue.full():
-            Tricep_RMS_queue.get()
-        Tricep_RMS_queue.put(filtered_Tricep[-1].item())
-        Bicep_RMS.append(filter.RMS(list(Bicep_RMS_queue.queue)))
-        Tricep_RMS.append(filter.RMS(list(Tricep_RMS_queue.queue)))
-
-    emg.stop()
-    
-    print("Test finished! plotting data...")
-
-    # # Save RMS data as .csv file
-    # df_rms = pd.DataFrame()
-    # df_rms['Bicep_RMS'] = Bicep_RMS
-    # df_rms['Tricep_RMS'] = Tricep_RMS
-    # df_rms.to_csv(f'Calib/Users/{User_name}/test_rms_data.csv', index=False)
-
-    # df_filtered = pd.DataFrame()
-    # df_filtered['Bicep_Filtered'] = filtered_Bicep
-    # df_filtered['Tricep_Filtered'] = filtered_Tricep
-    # df_filtered.to_csv(f'Calib/Users/{User_name}/test_filtered_data.csv', index=False)
-
-    # df_raw = pd.DataFrame()
-    # df_raw['Bicep_Raw'] = Bicep_data
-    # df_raw['Tricep_Raw'] = Tricep_data
-    # df_raw.to_csv(f'Calib/Users/{User_name}/test_raw_data.csv', index=False)
-
-    plt.figure()
-    plt.subplot(3, 1, 1)
-    plt.plot(Bicep_data, label='Raw Bicep')
-    plt.plot(Tricep_data, label='Raw Tricep')
-    plt.title('Raw EMG Data')
-    plt.legend()
-    plt.subplot(3, 1, 2)
-    plt.plot(filtered_Bicep, label='Filtered Bicep')
-    plt.plot(filtered_Tricep, label='Filtered Tricep')
-    plt.title('Filtered EMG Data')
-    plt.legend()
-    plt.subplot(3, 1, 3)
-    plt.plot(Bicep_RMS, label='Bicep RMS')
-    plt.plot(Tricep_RMS, label='Tricep RMS')
-    plt.title('RMS of EMG Data')
-    plt.legend()
-    plt.tight_layout()
-    plt.savefig('Calib/Users/{}/test_emg_plot.png'.format(User_name))
-    plt.show()
-    
-    # clear all data
-    Bicep_data.clear()
-    Tricep_data.clear()
-    filtered_Bicep.clear()
-    filtered_Tricep.clear()
-    Bicep_RMS.clear()
-    Tricep_RMS.clear()
-    while not Bicep_RMS_queue.empty():
-        Bicep_RMS_queue.get()
-    while not Tricep_RMS_queue.empty():
-        Tricep_RMS_queue.get()
-
-    input("Press Enter to start calibration for Proportional Myoelectric Control...")
-    emg.start()
-    print("Rest your arm, for the next 10 seconds...")
-    TIME = time.time()
-    while (time.time() - TIME < 10):
-        reading = emg.read()
-        Bicep_data.append(reading[Sensor_channels[0]])
-        Tricep_data.append(reading[Sensor_channels[1]])
-
-        filtered_Bicep.append(filter.bandpass(reading[Sensor_channels[0]]))
-        filtered_Tricep.append(filter.bandpass(reading[Sensor_channels[1]]))
-        if Bicep_RMS_queue.full():
-            Bicep_RMS_queue.get()
-        Bicep_RMS_queue.put(filtered_Bicep[-1].item())
-        if Tricep_RMS_queue.full():
-            Tricep_RMS_queue.get()
-        Tricep_RMS_queue.put(filtered_Tricep[-1].item())
-        Bicep_RMS.append(filter.RMS(list(Bicep_RMS_queue.queue)))
-        Tricep_RMS.append(filter.RMS(list(Tricep_RMS_queue.queue)))
-
-    emg.stop()
-
-    mean_rest_bicep = np.mean(np.array(Bicep_RMS))
-    mean_rest_tricep = np.mean(np.array(Tricep_RMS))
-    print("Rest calibration done, mean rest bicep: {}, mean rest tricep: {}".format(mean_rest_bicep, mean_rest_tricep))
-    Bicep_data.clear()
-    Tricep_data.clear()
-    filtered_Bicep.clear()
-    filtered_Tricep.clear()
-    Bicep_RMS.clear()
-    Tricep_RMS.clear()
-    while not Bicep_RMS_queue.empty():
-        Bicep_RMS_queue.get()
-    while not Tricep_RMS_queue.empty():
-        Tricep_RMS_queue.get()
+    #Load emg data saved in user calibration folder
 
 
-    MVC_trials = 3
-    max_bicep = []
-    max_tricep = []
-    input("Press Enter to start Maximum Voluntary Contraction (MVC) for Proportional Myoelectric Control...")
-    emg.start()
-    for trial in range(MVC_trials):
-        input("Press Enter to start trial {} of {}. Then perform MAXIMUM contraction of Bicep for 5 seconds...".format(trial+1, MVC_trials))
-        print("Starting trial {}...".format(trial+1))
-        TIME = time.time()
-        while (time.time() - TIME < 5):
-            reading = emg.read()
-            Bicep_data.append(reading[Sensor_channels[0]])
-
-            filtered_Bicep.append(filter.bandpass(reading[Sensor_channels[0]]))
-            if Bicep_RMS_queue.full():
-                Bicep_RMS_queue.get()
-            Bicep_RMS_queue.put(filtered_Bicep[-1].item())
-            Bicep_RMS.append(filter.RMS(list(Bicep_RMS_queue.queue)))
-
-        input("Press enter to start trial {} of {}. Then perform MAXIMUM contraction of Tricep for 5 seconds...".format(trial+1, MVC_trials))
-        print("Starting trial {}...".format(trial+1))
-        TIME = time.time()
-        while (time.time() - TIME < 5):
-            reading = emg.read()
-            Tricep_data.append(reading[Sensor_channels[1]])
-
-            filtered_Tricep.append(filter.bandpass(reading[Sensor_channels[1]]))
-            if Tricep_RMS_queue.full():
-                Tricep_RMS_queue.get()
-            Tricep_RMS_queue.put(filtered_Tricep[-1].item())
-            Tricep_RMS.append(filter.RMS(list(Tricep_RMS_queue.queue)))
-
-        max_bicep.append(_calc_MVC(Bicep_RMS, sampling_rate=sample_rate, win_ms=800))
-        max_tricep.append(_calc_MVC(Tricep_RMS, sampling_rate=sample_rate, win_ms=800))
-        print("Trial {} done! Max bicep: {}, Max tricep: {}".format(trial+1, max_bicep[-1], max_tricep[-1]))
-        
-        Bicep_data.clear()
-        Tricep_data.clear()
-        filtered_Bicep.clear()
-        filtered_Tricep.clear()
-        Bicep_RMS.clear()
-        Tricep_RMS.clear()
-        while not Bicep_RMS_queue.empty():
-            Bicep_RMS_queue.get()
-        while not Tricep_RMS_queue.empty():
-            Tricep_RMS_queue.get()
-    emg.stop()
-
-    # calculate average max
-    avg_max_bicep = np.mean(np.array(max_bicep))
-    avg_max_tricep = np.mean(np.array(max_tricep))
-    print("MVC calibration done, average max bicep: {}, average max tricep: {}".format(avg_max_bicep, avg_max_tricep))
-    max_bicep.clear()
-    max_tricep.clear()
-
-    # save the calibration data to user csv files
-    print("Saving calibration data to Calib/Users/{}/".format(User_name))
-    #Check if directory exists, if not create it
-    if not os.path.exists("Calib/Users/{}".format(User_name)):
-        os.makedirs("Calib/Users/{}".format(User_name))
-
-    df_rest = pd.DataFrame()
-    df_rest['Bicep'] = [mean_rest_bicep]
-    df_rest['Tricep'] = [mean_rest_tricep]
-    df_rest.to_csv(f'Calib/Users/{User_name}/rest_signal.csv', index=False)
-
-    df_max = pd.DataFrame()
-    df_max['Bicep'] = [avg_max_bicep]
-    df_max['Tricep'] = [avg_max_tricep]
-    df_max.to_csv(f'Calib/Users/{User_name}/max_signal.csv', index=False)
-    print("Calibration data saved to Calib/Users/{}/".format(User_name))
     
