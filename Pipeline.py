@@ -9,15 +9,6 @@ import time
 from SignalProcessing.Filtering import rt_filtering
 from Sensors.EMGSensor import DelsysEMG
 
-# Thread function that reads the EMG data and appends to queue
-# IMPORTANT: DO NOT READ FROM THREAD. We lose around 14000 samples over 10 seconds if we do that.
-def read_EMG(emg, data, stop_event):
-    while not stop_event.is_set():
-        TIME = time.time()
-        reading = emg.read()
-        data.put(reading)
-        print("Read time: ", time.time() - TIME)
-
 # Thread function that processes the EMG data from queue and appends to lists
 def filter_EMG(filter, data, filtered_signal, rms_signal, window_size, stop_event):
     while not stop_event.is_set():
@@ -29,20 +20,15 @@ def filter_EMG(filter, data, filtered_signal, rms_signal, window_size, stop_even
             rms_signal.extend(rms)
         print("Filter time: ", time.time() - TIME)
 
-# def wait_for_q(stop_event):
-#     for line in sys.stdin:
-#         if line.strip().lower() == 'q':
-#             stop_event.set()
-#             break
 
 if __name__ == "__main__":
     # Initialize variables
     window_size = 50
-    data = queue.Queue(maxsize=2148)
+    data = queue.Queue(maxsize=2000)
     stop_event = threading.Event()
 
     # Define filter parameters
-    sample_rate = 2148  # Hz # This one is correct according to Trigno Utility control panel
+    sample_rate = 2000  # Hz # This one is correct according to Trigno Utility control panel
     # sample_rate = 2000  # Hz # This one is maybe more correct according to the EMG sensor documentation
     lp_cutoff = 300  # Hz
     hp_cutoff = 20  # Hz
@@ -61,13 +47,9 @@ if __name__ == "__main__":
     print("EMG started!")
 
     # Create and start threads
-    #t_reader = threading.Thread(target=read_EMG, args=(emg, data, stop_event))
     t_filter = threading.Thread(target=filter_EMG, args=(filter, data, filtered_signal, rms_signal, window_size, stop_event))
-    # t_listener = threading.Thread(target=wait_for_q, args=(stop_event,))
 
-    #t_reader.start()
     t_filter.start()
-    # t_listener.start()
 
     print("Threads started! To stop press q")
     TIME = time.time()
@@ -78,7 +60,6 @@ if __name__ == "__main__":
     print("Time elapsed: ", time.time() - TIME)
     print("Shape of filtered signal: ", np.array(filtered_signal).shape)
     stop_event.set()
-    #t_reader.join()
     t_filter.join()
     emg.stop()
 

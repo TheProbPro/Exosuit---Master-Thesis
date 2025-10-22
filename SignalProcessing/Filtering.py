@@ -252,7 +252,8 @@ class rt_filtering:
         self.nyq = 0.5 * self.fs    # Nyquist frequency
 
         # --- design filters (SOS) ---
-        self.lp_sos = butter(order, lp_cutoff / self.nyq, btype='lowpass', output='sos')
+        # This is for rectification after Bandpass
+        self.lp_sos = butter(2, 3 / self.nyq, btype='lowpass', output='sos')
         self.lp_zi  = sosfilt_zi(self.lp_sos)
 
         self.hp_sos = butter(order, hp_cutoff / self.nyq, btype='highpass', output='sos')
@@ -287,7 +288,14 @@ class rt_filtering:
         y, self.bandpass_zi = sosfilt(self.bandpass_sos, data, zi=self.bandpass_zi)
         return y
     
-
+    def notch(self, data):
+        y, self.notch_zi = sosfilt(self.notch_sos, data, zi=self.notch_zi)
+        return y
+    
+    def lowpass(self, data):
+        y, self.lp_zi = sosfilt(self.lp_sos, data, zi=self.lp_zi)
+        return y
+        
 
     # --- Chunk processing ---
     def process_chunk(self, chunk):

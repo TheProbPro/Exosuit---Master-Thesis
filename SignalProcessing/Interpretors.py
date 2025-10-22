@@ -1,13 +1,6 @@
 import numpy as np
-import matplotlib.pyplot as plt
 import pandas as pd
 import os
-import time
-
-from Sensors.EMGSensor import DelsysEMG
-from SignalProcessing.Filtering import rt_filtering
-
-# TODO: Test and make sure we can read and seperate Bicep and Tricep channels correctly
 
 class ProportionalMyoelectricalControl:
     def __init__(self, theta_min, theta_max, user_name='User', BicepEMG = True, TricepEMG = False):
@@ -18,13 +11,13 @@ class ProportionalMyoelectricalControl:
         :param user_name: Name of the user for calibration data storage
         :param BicepEMG: Boolean to indicate if bicep EMG is used
         :param TricepEMG: Boolean to indicate if tricep EMG is used
-        :param DelsysEMG: Instance of DelsysEMG class for reading EMG data
         """
         self.theta_min = theta_min
         self.theta_max = theta_max
         self.user_name = user_name
         self.Bicep_EMG = BicepEMG
         self.Tricep_EMG = TricepEMG
+        self.Kp = 1.0  # Proportional gain for torque computation
 
         # Check if there is a user with given name
         if not os.path.exists(f'Calib/Users/{self.user_name}'):
@@ -34,28 +27,35 @@ class ProportionalMyoelectricalControl:
         # Load users biscep and tricep rest signal from .csv file
         df = pd.read_csv(f'Calib/Users/{self.user_name}/rest_signal.csv')
         if BicepEMG:
-            self.bicep_rest = df['Bicep']
+            self.bicep_rest = float(df['Bicep'])
         if TricepEMG:
-            self.tricep_rest = df['Tricep']
+            self.tricep_rest = float(df['Tricep'])
         
         # Load users biscep and tricep max signal from .csv file
         df = pd.read_csv(f'Calib/Users/{self.user_name}/max_signal.csv')
         if BicepEMG:
-            self.bicep_max = df['Bicep']
+            self.bicep_max = float(df['Bicep'])
         if TricepEMG:
-            self.tricep_max = df['Tricep']
+            self.tricep_max = float(df['Tricep'])
 
     def compute_activation(self, env):
+        if not isinstance(env, (np.ndarray, list)):
+            if self.Bicep_EMG:
+                env = [env, 0.0]
+            elif self.Tricep_EMG:
+                env = [0.0, env]
+            else:
+                raise ValueError("At least BicepEMG or TricepEMG must be True")
         a_bicep = 0
         a_tricep = 0
         if self.Bicep_EMG:
-            a_bicep = np.clip(((env - self.bicep_rest) / (self.bicep_max - self.bicep_rest)), 0, 1)
+            a_bicep = np.clip(((env[0] - self.bicep_rest) / (self.bicep_max - self.bicep_rest)), 0, 1)
         if self.Tricep_EMG:
-            a_tricep = np.clip(((env - self.tricep_rest) / (self.tricep_max - self.tricep_rest)), 0, 1)
+            a_tricep = np.clip(((env[1] - self.tricep_rest) / (self.tricep_max - self.tricep_rest)), 0, 1)
 
         return a_bicep, a_tricep
     
-    def _deadband(x, eps):
+    def _deadband(self, x, eps):
         if abs(x) < eps:
             return 0.0
         return x - eps * (1 if x > 0 else -1)
@@ -72,6 +72,14 @@ class ProportionalMyoelectricalControl:
             raise ValueError("At least BicepEMG or BicepEMG and TricepEMG must be True")
 
         return theta
+
+    def set_Kp(self, Kp):
+        self.Kp = Kp
+    
+    def compute_torque(self, env):
+        torque = env * self.Kp
+        return torque
+
     
 
 class BiomechanicalMyoelectricalControl:

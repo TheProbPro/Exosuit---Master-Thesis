@@ -1,8 +1,6 @@
 import numpy as np
 import matplotlib.pyplot as plt
 import queue
-from collections import deque
-import sys
 import time
 import pandas as pd
 import os
@@ -13,7 +11,7 @@ from Sensors.EMGSensor import DelsysEMG
 Sensor_channels = [0, 10] # Bicep, Tricep
 User_name = 'VictorBNielsen'
 
-def _calc_MVC(signal, sampling_rate=2000, win_ms=800):
+def _calc_MVC(signal, sampling_rate=2000, win_ms=200):
         i = int(np.max(signal))
         w = int(win_ms / 1000 * sampling_rate) // 2
         return np.mean(signal[max(0,i-w): min(i+w+1,len(signal))])
@@ -28,6 +26,8 @@ if __name__ == "__main__":
     Tricep_RMS_queue = queue.Queue(maxsize=50)
     Bicep_RMS = []
     Tricep_RMS = []
+    filtered_Bicep_RMS = []
+    filtered_Tricep_RMS = []
 
     # Define filter parameters
     sample_rate = 2000  # Hz # This one is correct according to Trigno Utility control panel
@@ -36,7 +36,7 @@ if __name__ == "__main__":
     seconds = 10
 
     # Initialize EMG class and filtering class
-    filter = rt_filtering(sample_rate, 300, 20, 2)
+    filter = rt_filtering(sample_rate, 450, 20, 2)
     emg = DelsysEMG(channel_range=(0,16))
     emg.start()
 
@@ -64,14 +64,18 @@ if __name__ == "__main__":
         Bicep_RMS.append(filter.RMS(list(Bicep_RMS_queue.queue)))
         Tricep_RMS.append(filter.RMS(list(Tricep_RMS_queue.queue)))
 
+        # Rectify RMS signal with 3 Hz low-pass filter
+        filtered_Bicep_RMS.append(filter.lowpass(np.atleast_1d(Bicep_RMS[-1])))
+        filtered_Tricep_RMS.append(filter.lowpass(np.atleast_1d(Tricep_RMS[-1])))
+
     emg.stop()
     
     print("Test finished! plotting data...")
 
     # # Save RMS data as .csv file
     # df_rms = pd.DataFrame()
-    # df_rms['Bicep_RMS'] = Bicep_RMS
-    # df_rms['Tricep_RMS'] = Tricep_RMS
+    # df_rms['Bicep_RMS'] = filtered_Bicep_RMS
+    # df_rms['Tricep_RMS'] = filtered_Tricep_RMS
     # df_rms.to_csv(f'Calib/Users/{User_name}/test_rms_data.csv', index=False)
 
     # df_filtered = pd.DataFrame()
@@ -83,22 +87,28 @@ if __name__ == "__main__":
     # df_raw['Bicep_Raw'] = Bicep_data
     # df_raw['Tricep_Raw'] = Tricep_data
     # df_raw.to_csv(f'Calib/Users/{User_name}/test_raw_data.csv', index=False)
+    # quit()
 
     plt.figure()
-    plt.subplot(3, 1, 1)
+    plt.subplot(4, 1, 1)
     plt.plot(Bicep_data, label='Raw Bicep')
     plt.plot(Tricep_data, label='Raw Tricep')
     plt.title('Raw EMG Data')
     plt.legend()
-    plt.subplot(3, 1, 2)
+    plt.subplot(4, 1, 2)
     plt.plot(filtered_Bicep, label='Filtered Bicep')
     plt.plot(filtered_Tricep, label='Filtered Tricep')
     plt.title('Filtered EMG Data')
     plt.legend()
-    plt.subplot(3, 1, 3)
+    plt.subplot(4, 1, 3)
     plt.plot(Bicep_RMS, label='Bicep RMS')
     plt.plot(Tricep_RMS, label='Tricep RMS')
     plt.title('RMS of EMG Data')
+    plt.legend()
+    plt.subplot(4, 1, 4)
+    plt.plot(filtered_Bicep_RMS, label='Filtered Bicep RMS')
+    plt.plot(filtered_Tricep_RMS, label='Filtered Tricep RMS')
+    plt.title('Filtered RMS of EMG Data')
     plt.legend()
     plt.tight_layout()
     plt.savefig('Calib/Users/{}/test_emg_plot.png'.format(User_name))
@@ -111,6 +121,9 @@ if __name__ == "__main__":
     filtered_Tricep.clear()
     Bicep_RMS.clear()
     Tricep_RMS.clear()
+    filtered_Bicep_RMS.clear()
+    filtered_Tricep_RMS.clear()
+
     while not Bicep_RMS_queue.empty():
         Bicep_RMS_queue.get()
     while not Tricep_RMS_queue.empty():
@@ -136,10 +149,13 @@ if __name__ == "__main__":
         Bicep_RMS.append(filter.RMS(list(Bicep_RMS_queue.queue)))
         Tricep_RMS.append(filter.RMS(list(Tricep_RMS_queue.queue)))
 
+        filtered_Bicep_RMS.append(filter.lowpass(np.atleast_1d(Bicep_RMS[-1])))
+        filtered_Tricep_RMS.append(filter.lowpass(np.atleast_1d(Tricep_RMS[-1])))
+
     emg.stop()
 
-    mean_rest_bicep = np.mean(np.array(Bicep_RMS))
-    mean_rest_tricep = np.mean(np.array(Tricep_RMS))
+    mean_rest_bicep = np.mean(np.array(filtered_Bicep_RMS))
+    mean_rest_tricep = np.mean(np.array(filtered_Tricep_RMS))
     print("Rest calibration done, mean rest bicep: {}, mean rest tricep: {}".format(mean_rest_bicep, mean_rest_tricep))
     Bicep_data.clear()
     Tricep_data.clear()
@@ -147,6 +163,8 @@ if __name__ == "__main__":
     filtered_Tricep.clear()
     Bicep_RMS.clear()
     Tricep_RMS.clear()
+    filtered_Bicep_RMS.clear()
+    filtered_Tricep_RMS.clear()
     while not Bicep_RMS_queue.empty():
         Bicep_RMS_queue.get()
     while not Tricep_RMS_queue.empty():
@@ -171,6 +189,7 @@ if __name__ == "__main__":
                 Bicep_RMS_queue.get()
             Bicep_RMS_queue.put(filtered_Bicep[-1].item())
             Bicep_RMS.append(filter.RMS(list(Bicep_RMS_queue.queue)))
+            filtered_Bicep_RMS.append(filter.lowpass(np.atleast_1d(Bicep_RMS[-1])))
 
         input("Press enter to start trial {} of {}. Then perform MAXIMUM contraction of Tricep for 5 seconds...".format(trial+1, MVC_trials))
         print("Starting trial {}...".format(trial+1))
@@ -184,10 +203,15 @@ if __name__ == "__main__":
                 Tricep_RMS_queue.get()
             Tricep_RMS_queue.put(filtered_Tricep[-1].item())
             Tricep_RMS.append(filter.RMS(list(Tricep_RMS_queue.queue)))
+            filtered_Tricep_RMS.append(filter.lowpass(np.atleast_1d(Tricep_RMS[-1])))
 
-        max_bicep.append(_calc_MVC(Bicep_RMS, sampling_rate=sample_rate, win_ms=800))
-        max_tricep.append(_calc_MVC(Tricep_RMS, sampling_rate=sample_rate, win_ms=800))
+        max_bicep.append(_calc_MVC(filtered_Bicep_RMS, sampling_rate=sample_rate, win_ms=200))
+        max_tricep.append(_calc_MVC(filtered_Tricep_RMS, sampling_rate=sample_rate, win_ms=200))
         print("Trial {} done! Max bicep: {}, Max tricep: {}".format(trial+1, max_bicep[-1], max_tricep[-1]))
+        
+        plt.plot(filtered_Bicep_RMS, label='Bicep RMS')
+        plt.grid()
+        plt.show()
         
         Bicep_data.clear()
         Tricep_data.clear()
@@ -195,6 +219,8 @@ if __name__ == "__main__":
         filtered_Tricep.clear()
         Bicep_RMS.clear()
         Tricep_RMS.clear()
+        filtered_Bicep_RMS.clear()
+        filtered_Tricep_RMS.clear()
         while not Bicep_RMS_queue.empty():
             Bicep_RMS_queue.get()
         while not Tricep_RMS_queue.empty():
