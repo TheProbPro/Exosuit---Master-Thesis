@@ -17,7 +17,7 @@ PLOS One 11(2): e0148942, Feb 2016
 
 import numpy as np
 import matplotlib.pyplot as plt
-from pDMP.pDMP_functions import pDMP
+from pDMP_functions import pDMP
 
 
 
@@ -44,7 +44,6 @@ data = []
 
 # create a DMP object
 myDMP = pDMP(DOF, N, alpha, beta, lambd, dt)
-
 
 
 
@@ -76,7 +75,8 @@ for i in range ( samples ):
         elif ( mode == 2 ):
             myDMP.update(U) # update DMP based on an update factor
     else:
-        myDMP.repeat() # repeat the learned DMP
+        myDMP.update(U)
+        #myDMP.repeat() # repeat the learned DMP
     
     # DMP integration
     myDMP.integration()
@@ -90,7 +90,6 @@ for i in range ( samples ):
     x, dx, ph, ta = myDMP.get_state()
     time = dt*i
     data.append([time,phi,x[1],y[1]])
-
 
 
 
@@ -108,7 +107,7 @@ plt.ylabel('signal', fontsize='13')
 plt.legend(['input','DMP'])
 
 plt.title('Periodic DMP', fontsize='14')
-
+plt.show()
 
 
 
