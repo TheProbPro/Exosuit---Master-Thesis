@@ -1,0 +1,261 @@
+<mujoco model="Exoskeleton alone">
+    
+    <compiler meshdir=""/>
+
+    <option timestep=".002" solver="Newton" tolerance="1e-9"/>
+    <option cone="pyramidal" solver="Newton" timestep=".005" tolerance="1e-10"/>
+    <size nconmax="10" njmax="100"/>
+    <size njmax="9000" nconmax="2000"/>
+
+    <visual>
+    <rgba haze=".3 .3 .3 1"/>
+    </visual>
+    <!-- <这个class 19-47 叫exoskeleton的 是融合几何体 主要观察变或者不变化  > -->
+    <default>
+        <default class="exoskeleton">
+            <joint type="hinge" damping="1" limited="true" group="0"/>
+        </default>
+
+        <joint damping=".3"/>
+        <muscle ctrllimited="true" ctrlrange="0 1"/>
+        <site size=".005"/>
+        <tendon width=".002"/>
+        <default class="muscle">
+        <default class="elbow_muscles">
+            <default class="elbow_flex">
+            <tendon rgba=".9 .2 .2 1"/>
+            </default>
+            <default class="elbow_ext">
+            <tendon rgba=".2 .9 .2 1"/>
+            </default>
+        </default>
+        </default>
+        <default class="human_body">
+        <geom rgba=".1 .1 .1 .4"/>
+        <joint group="1"/>
+        <default class="arm">
+            <geom conaffinity="1" contype="1"/>
+        </default>
+        <default class="torso">
+            <geom conaffinity="7" contype="7"/>
+        </default>
+        </default>
+
+        <default class="exo_mesh">
+            <geom type="mesh" contype="0" conaffinity="0" group="0"/>
+            <default class="sAA">
+                <geom rgba=".1 .1 .1 1"/>
+            </default>
+            <default class="sFE">
+                <geom rgba=".34 .7 .3 1"/>
+            </default>
+            <default class="sIE">
+                <geom rgba=".35 .7 .87 1"/>
+            </default>
+            <default class="eFE">
+                <geom rgba=".93 .55 .16 1"/>
+            </default>
+        </default>
+
+        <default class="ua_support">
+            <geom contype="2" conaffinity="2" group="2" rgba=".35 .7 .87 1"/>
+        </default>
+
+        <default class="la_support">
+            <geom contype="4" conaffinity="4" group="2" rgba=".93 .55 .16 1"/>
+        </default>
+
+        <default class="exo_motor">
+            <motor ctrlrange="-1 1"/>
+        </default>
+
+        <default class="strap">
+            <equality solimp=".96 .99 .001 .5 2"/>
+        </default>
+
+        <!-- <default class="torso">
+            <geom rgba=".5 .5 .5 .4" group="0" contype="0" conaffinity="0"/>
+
+        </default> -->
+    </default>
+
+    <asset>
+        <mesh name="sAA_vsR" file="sAA_very_simple.stl" scale=".0007 .0007 .0007"/>
+        <mesh name="sFE_vsR" file="sFE_very_simple.stl" scale=".0007 .0007 .0007"/>
+        <mesh name="sIE_vsR" file="sIE_very_simple.stl" scale="-.0007 .0007 .0007"/>
+        <mesh name="eFE_vsR" file="eFE_very_simple.stl" scale=".001 .001 .001"/>
+        
+        <!-- <texture name="texplane" type="2d" builtin="checker" rgb1=".25 .25 .25" rgb2=".3 .3 .3" width="512" height="512" mark="cross" markrgb=".8 .8 .8"/> -->
+        <!-- <texture builtin="gradient" height="512" rgb1=".5 .5 .9" rgb2=".3 .3 .7" type="skybox" width="512"/>
+        <texture builtin="checker" height="512" mark="cross" markrgb=".8 .8 .8"  rgb1=".2 .2 .4" rgb2=".4 .4 .85" type="2d" width="512"/> -->
+        <material name="matplane" reflectance=".3" texrepeat="1 1" texuniform="true"/>
+    
+        <!-- <texture type="skybox" builtin="gradient" rgb1=".6 .6 .9" rgb2="0 0 0" width="512" height="512"/>
+
+        <material name="matplane" reflectance=".3" texrepeat="1 1" texuniform="true"/> -->
+      <texture builtin="gradient" height="512" rgb1=".5 .5 .9" rgb2=".3 .3 .7" type="skybox" width="512"/>
+      <texture builtin="checker" height="512" mark="cross" markrgb=".8 .8 .8" name="texplane" rgb1=".2 .2 .4" rgb2=".4 .4 .85" type="2d" width="512"/>
+    </asset>
+
+    <visual>
+        <rgba haze=".35 .35 .5 1"/>
+    </visual>
+
+    <worldbody>
+        <geom name="floor" pos=".0 .0 -1.0" size="0 0 1" type="plane" material="matplane"/>
+        <light directional="true" diffuse=".8 .8 .8" specular=".2 .2 .2" pos=".0 .0 5.0" dir="0 0 -1"/>
+
+        <!-- add human trunk for visualization purpose -->
+        <body name="thorax" pos="-.0157 .00005 .0231" euler="0 0 90" childclass="torso">
+            <geom name="torso1" type="capsule" fromto=".0634 -.0586 -.0437 .0634 .0814 -.0437" size=".07"/>
+            <geom name="head" type="sphere" pos=".0634 .0114 .1463" size=".09"/>
+            <geom name="uwaist" type="capsule" fromto=".0534 -.0486 -.1637 .0534 .0714 -.1637" size=".06"/>
+            <geom name="lwaist" type="capsule" fromto=".0534 -.0486 -.3037 .0534 .0714 -.3037" size=".06"/>
+            <geom name="butt" type="capsule" fromto=".033 -.0586 -.4687 .033 .0814 -.4687" size=".09"/>
+        </body>
+
+        <!-- <body childclass="torso" name="thorax" pos="-.0014 -.0152 .0028">
+      <geom fromto="-0.0586 -0.0634 -0.0437 0.0814 -0.0634 -0.0437" name="torso1" size="0.07" type="capsule"/>
+      <geom name="head" pos="0.0114 -0.0634 0.1463" size=".09" type="sphere"/>
+      <geom fromto="-0.0486 -0.0534 -0.1637 0.0714 -0.0534 -0.1637" name="uwaist" size="0.06" type="capsule"/>
+      <geom fromto="-0.0486 -0.0534 -0.3037 0.0714 -0.0534 -0.3037" name="lwaist" size="0.06" type="capsule"/>
+      <geom fromto="-0.0586 -0.033 -0.4687 0.0814 -0.033 -0.4687" name="butt" size="0.09" type="capsule"/>
+    </body> -->
+    <body childclass="arm" name="clavicle_r" pos="-.0014 -.0152 .0028">
+      <geom fromto=".0 .0 .0 -.2077 .0282 -.0001" name="clavicle_r" size=".01" type="cylinder"/>
+      <body name="scapula_r" pos="-.2077 .0282 -.0001">
+        <geom fromto=".0 .0 .0 -.002 -.0439 -.023" name="scapula_r" size=".01" type="cylinder"/>
+        <inertial diaginertia=".001 .001 .001" mass=".7054" pos=".053 -.0247 -.0229"/>
+        <!-- Elbow muscle sites -->
+        <site name="bic_l-P1" pos=".01401 -.04288 -.00249"/>
+        <site name="bic_b_avg-P1" pos=".00915 -.08244 -.00833"/>
+        <site name="tric_long_avg-P2" pos=".02581 -.03083 -.04169"/>
+        <!-- EXO -->
+        <body name="Link1" childclass="exoskeleton" xyaxes="0 0 1  -1 0 0">
+          <geom name="sAAr" mesh="sAA_vsR" pos="0 0 -.1421" xyaxes="0 0 -1 0 1 0" class="sAA"/>
+          <inertial pos="0 0.0191 -0.1279" mass="6.712" fullinertia="0.3787893 0.192833 0.1956839 -0.0006556 -0.0006709 0.0540633"/>
+        </body>
+
+        <body euler="-90 0 0" name="humerus_r" pos="-.002 0 0">
+          <geom fromto=".0 .0 .0 -.0058 .0049 -.2907" name="humerus_r" size=".01" type="cylinder"/>
+          <inertial diaginertia=".0132 .0132 .001988" mass="2.0519" pos="-.0064 -.0036 -.0776"/>
+          <!-- Elbow muscles sites -->
+          <site name="tric_med_avg-P1" pos=".001432 .00827 -.17415"/>
+          <site name="tric_lat_avg-P1" pos="-.00863 .010792 -.07102"/>
+          <site name="bic_l-P2" pos="-.0217 -.0011 .0001"/>
+          <site name="brachialis_avg-P1" pos=".00421 .00129 -.16994"/>
+          <site name="brachiorad_avg-P1" pos="-.00443 -.002 -.21716"/>
+          <site name="anconeus_avg-P1" pos="-.01346 .01568 -.30395"/>
+          <body name="Link3"  pos="-.06 -.009 -.29" quat="0 -0.1 0.1 0">
+              <geom name="sIEr" mesh="sIE_vsR" euler="0 -90 0" pos="0 0 -.375" class="sIE"/>
+              <include file="upper_arm_support.xml"/>
+              <inertial pos="0 0 0" mass="1.663" fullinertia=".0266938 .007941 .0235228 .0001282 -.0000556 .0038772"/>
+              <!-- <inertial pos="-0.0006 0.1679 -0.03" mass="1.663" fullinertia=".0266938 .007941 .0235228 .0001282 -.0000556 .0038772"/> 
+              axisangle="0 -1 0 -90"   <body name="Link3" pos="0 .25 0" quat="-0.5 0.5 -0.5 -0.5">  -->
+           </body>
+          <!-- EXO -->
+          <body name="Link2" quat="0.5 -0.5 0.5 -0.5">
+            <geom name="sFEr" mesh="sFE_vsR" pos="0 -.14189 0" quat="0.5 -0.5 0.5 -0.5" class="sFE"/>
+            <inertial pos="0 0 0" mass="3.487" fullinertia=".1108677 .0689688 .0569634 -.0000977 .0000399 .0384741"/>
+            <!-- <inertial pos="0.0001 0.0881 -0.1201" mass="3.487" fullinertia=".1108677 .0689688 .0569634 -.0000977 .0000399 .0384741"/> -->
+          </body>
+          
+          <body name="ulna_r" pos="-.0058 .0049 -.2907">
+            <joint axis="-1 0 0" limited="true" name="el_x" range="0 90" type="hinge" damping="0.01"/>
+            <geom fromto=".0 .0 .0 -.0171 -.0163 -.0133" name="ulna_r" size=".01" type="cylinder"/>
+            <inertial diaginertia=".0030585 .0030585 .00045325" mass=".5464" pos=".0003 -.0039 -.0634"/>
+            <!-- Elbow muscle sites -->
+            <site name="tric_long_avg-P1" pos=".00657 .02635 .01682"/>
+            <site name="tric_med_avg-P2" pos=".02561 .02364 .01771"/>
+            <site name="tric_lat_avg-P2" pos=".02012 .02043 .02348"/>
+            <site name="brachialis_avg-P2" pos=".01924 -.00854 -.03331"/>
+            <site name="anconeus_avg-P2" pos="-.00914 .00822 -.03161"/>
+            <!-- EXO -->
+          
+
+            <body name="radius_r" pos="-.0171 -.0163 -.0133">
+              <geom fromto="0 0 0 0 0 -.263" name="radius_r" size=".01" type="cylinder"/>
+              <inertial diaginertia=".0030585 .0030585 .00045325" mass=".5464" pos="-.0106 -.0129 -.1179"/>
+              <!-- Elbow muscles sites -->
+              <site name="bic_l-P3" pos=".00282 -.00202 -.03809"/>
+              <site name="bic_b_avg-P2" pos=".00282 -.00202 -.03809"/>
+              <site name="brachiorad_avg-P2" pos=".00412 -.01037 -.26513"/>
+              <body name="hand_r" pos=".005 0 -.3301">
+                <geom name="palm" size=".03 .01 .06" type="ellipsoid"/>
+                <geom euler="0 60 0" name="thumb" pos=".04 0 0" size=".03 .0075 .0075" type="ellipsoid"/>
+                <inertial diaginertia=".0006387 .0006387 .0001904" mass=".525" pos="0 0 0"/>
+              </body>
+              <!-- EXO -->
+              <body name="Link4" quat="-0.5 0.5 -0.5 0.5">
+                  <geom name="eFEr" mesh="eFE_vsR" pos="0 0 -.11" quat="0.61237244 -0.35355339 0.61237244 0.35355339" class="eFE"/>
+                  <include file="lower_arm_support.xml"/>
+                  <inertial pos="0 0 0" mass=".494" fullinertia=".0069974 .0035498 .0037622 -.0000009 -.0000004 .001812"/>
+                  <!-- <inertial pos="0 0.0707 -0.0803" mass=".494" fullinertia=".0069974 .0035498 .0037622 -.0000009 -.0000004 .001812"/> -->
+                  <!-- <joint name="J4" axis="0 0 -1" range="0 125" frictionloss="2.7868500893593593"/> 
+                  axisangle="0 1 0 90"-->
+              </body>
+
+            </body>
+          </body>
+        </body>
+      </body>
+    </body>
+
+    </worldbody>
+
+    <tendon>
+    <!-- Elbow flexion extension -->
+    <spatial class="elbow_flex" name="bic_l">
+      <site site="bic_l-P1"/>
+      <site site="bic_l-P2"/>
+      <site site="bic_l-P3"/>
+    </spatial>
+    <spatial class="elbow_flex" name="bic_b_avg">
+      <site site="bic_b_avg-P1"/>
+      <site site="bic_b_avg-P2"/>
+    </spatial>
+    <spatial class="elbow_flex" name="brachialis_avg">
+      <site site="brachialis_avg-P1"/>
+      <site site="brachialis_avg-P2"/>
+    </spatial>
+    <spatial class="elbow_flex" name="brachiorad_avg">
+      <site site="brachiorad_avg-P1"/>
+      <site site="brachiorad_avg-P2"/>
+    </spatial>
+    <spatial class="elbow_ext" name="tric_long_avg">
+      <site site="tric_long_avg-P1"/>
+      <site site="tric_long_avg-P2"/>
+    </spatial>
+    <spatial class="elbow_ext" name="tric_med_avg">
+      <site site="tric_med_avg-P1"/>
+      <site site="tric_med_avg-P2"/>
+    </spatial>
+    <spatial class="elbow_ext" name="tric_lat_avg">
+      <site site="tric_lat_avg-P1"/>
+      <site site="tric_lat_avg-P2"/>
+    </spatial>
+    <spatial class="elbow_ext" name="anconeus_avg">
+      <site site="anconeus_avg-P1"/>
+      <site site="anconeus_avg-P2"/>
+    </spatial>
+  </tendon>
+
+    <actuator>
+        <!-- Exoskeleton actuators -->
+        <!-- <motor name="sAA" gear="25" joint="J1" class="exo_motor"/>
+        <motor name="sFE" gear="25" joint="J2" class="exo_motor"/>
+        <motor name="sIE" gear="10" joint="J3" class="exo_motor"/>
+        <motor name="eFE" gear="10" joint="J4" class="exo_motor"/> -->
+        <motor name="elbow_motor" joint="el_x" gear="1" ctrlrange="-4.1 4.1"/>
+    </actuator>
+
+ <contact>
+    <exclude body1="clavicle_r" body2="scapula_r"/>
+    <exclude body1="scapula_r" body2="humerus_r"/>
+    <exclude body1="humerus_r" body2="ulna_r"/>
+    <exclude body1="humerus_r" body2="radius_r"/>
+    <exclude body1="ulna_r" body2="radius_r"/>
+    <exclude body1="radius_r" body2="hand_r"/>
+  </contact>
+
+</mujoco>
