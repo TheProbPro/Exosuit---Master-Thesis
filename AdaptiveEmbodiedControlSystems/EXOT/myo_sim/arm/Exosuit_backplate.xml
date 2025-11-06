@@ -1,0 +1,51 @@
+<!-- <mujoco model="MyoArm_Simple">
+
+    <include file="../scene/myosuite_scene.xml"/>
+    <include file="assets/myoarm_simpleR_assets.xml"/>
+    <include file="assets/myoarm_simpleL_assets.xml"/>
+    <compiler meshdir=".." texturedir=".."/>
+
+    <asset>
+        <mesh file="../myo_sim/meshes/hat_ribs_scap.stl" name="hat_ribs"/>
+    </asset>
+
+    <worldbody>
+        <body name="full_body" pos="0 0.1 1.0215" euler="1.57 -1.57 0">
+            <geom name="ribs" type="mesh" mesh="hat_ribs" euler="0 0 0" contype="0" conaffinity="0"/>
+            <include file="assets/myoarm_simpleR_chain.xml"/>
+            <include file="assets/myoarm_simpleL_chain.xml"/>
+        </body>
+    </worldbody>
+
+</mujoco > -->
+
+
+<mujoco model="Exosuit_backplate_1st">
+    <!-- <include file="../scene/myosuite_scene.xml"/>
+    <include file="assets/myoarm_simpleR_assets.xml"/>
+    <include file="assets/myoarm_simpleL_assets.xml"/> -->
+  <compiler meshdir="."/>
+  
+  <asset>
+    <!-- 引用 STL 文件 -->
+    <mesh name="my_mesh" file="Hand_exoskeleton_assembly.stl"/>
+    <!-- <mesh name="my_mesh1" file="Final_exosuit_backplate.stl"/>  -->
+     <mesh name="my_mesh2" file="Elbow_support_assembly.stl"/>
+    <mesh name="my_mesh3" file="Front_support_cable_amplificator.stl"/>
+  </asset>
+
+  <worldbody>
+    <body name="object" pos="0 0 0">
+      <!-- 使用 mesh 作为几何体 -->
+      <body name="my_mesh">
+        <geom type="mesh" mesh="my_mesh"/>
+      </body>  
+      <body name="my_mesh2">
+        <geom type="mesh" mesh="my_mesh2"/>
+      </body>  
+      <body name="my_mesh3">
+        <geom type="mesh" mesh="my_mesh3"/>
+      </body>  
+    </body>
+  </worldbody>
+</mujoco>
