@@ -14,7 +14,7 @@ import time
 import math
 
 SAMPLE_RATE = 2000  # Hz
-USER_NAME = 'VictorBNielsen'
+USER_NAME = 'zichen'
 ANGLE_MIN = 0
 ANGLE_MAX = 140
 
