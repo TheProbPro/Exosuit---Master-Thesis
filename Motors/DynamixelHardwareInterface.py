@@ -367,6 +367,7 @@ class Motors:
 if __name__ == "__main__":
     motors = Motors()
     
+    print("Initial positions:", motors.get_position())
     # Test position control
     motors.sendMotorCommand(motors.motor_ids[0], 1500)  # Move to middle position
     print(motors.get_velocity())

@@ -7,7 +7,7 @@ pDMP example adapted for EMG-driven phase (no autonomous replay).
 
 import numpy as np
 import matplotlib.pyplot as plt
-from ProjectInRobotics.pDMP.pDMP_functions import pDMP  # your class
+from ProjectInRobotics.pDMP.pDMP_functions import dDMP  # your class
 
 # ----------------------- Experiment params -----------------------
 dt        = 0.01         # 100 Hz typical
@@ -34,7 +34,7 @@ eps        = 0.06                 # EMG deadband (~6% MVC)
 tau_nom    = 1.2
 
 # ----------------------- Build pDMP -----------------------
-dmp = pDMP(DOF=DOF, N=N, alpha=alpha, beta=beta, lambd=lambd, dt=dt)
+dmp = dDMP(DOF=DOF, N=N, alpha=alpha, beta=beta, lambd=lambd, dt=dt)
 dmp.set_period(np.array([tau_nom]))
 dmp.g[:] = np.array([theta_mid])   # rhythmic DMP "center"
 dmp.r[:] = np.array([amp])         # amplitude scale

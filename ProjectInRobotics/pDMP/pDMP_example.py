@@ -75,7 +75,7 @@ for i in range ( samples ):
         elif ( mode == 2 ):
             myDMP.update(U) # update DMP based on an update factor
     else:
-        myDMP.update(U)
+        myDMP.update(U) 
         #myDMP.repeat() # repeat the learned DMP
     
     # DMP integration
