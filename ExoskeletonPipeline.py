@@ -37,19 +37,15 @@ def read_EMG(EMG_sensor, queue):
 def send_motor_command(motor, position_queue):
     while not stop_event.is_set():
         try:
-            position = position_queue.get(timeout=0.5)
+            position = position_queue.get_nowait()
         except queue.Empty:
-            # no command available yet; loop again and check stop_event
+            print("No position command available yet;)")
             continue
 
         try:
-            #motor.sendMotorCommand(motor.motor_ids[0], position)
-            i = 0
+            motor.sendMotorCommand(motor.motor_ids[0], position)
         except Exception as e:
             print(f"[motor send] error: {e}", file=sys.stderr)
-        finally:
-            # rate-limit motor commands
-            time.sleep(0.1)
 
 # Graceful Ctrl-C
 def handle_sigint(sig, frame):
@@ -68,6 +64,11 @@ if __name__ == "__main__":
     interpreter.set_Kp(8)
     motor = Motors()
 
+    # Wait a moment before starting
+    time.sleep(1.0)
+    motor.sendMotorCommand(motor.motor_ids[0], 2550)
+    time.sleep(1.0)
+
     emg.start()
     # Start EMG reading thread
     t_emg = threading.Thread(target=read_EMG, args=(emg, raw_data), daemon=True)
@@ -85,7 +86,7 @@ if __name__ == "__main__":
         # Use a blocking get with timeout to avoid busy-waiting and to
         # allow the reader thread to drive the queue at its own rate.
         try:
-            reading = raw_data.get(timeout=0.5)
+            reading = raw_data.get_nowait()
         except queue.Empty:
             # no new raw data; yield CPU briefly and continue
             time.sleep(0.001)
@@ -102,7 +103,7 @@ if __name__ == "__main__":
                     Bicep_RMS_queue.get_nowait()
                 except queue.Empty:
                     pass
-            Bicep_RMS_queue.put(filtered_Bicep, timeout=0.1)
+            Bicep_RMS_queue.put_nowait(filtered_Bicep)
         except queue.Full:
             # still full after attempt; log and skip this sample
             print("[RMS queue] full, skipping sample", file=sys.stderr)
@@ -116,14 +117,11 @@ if __name__ == "__main__":
         #joint_torque = interpreter.compute_torque(activation)
         #print(f"Joint torque: {int(joint_torque) - 4}")
         position = interpreter.compute_angle(activation[0], activation[1])
-        i += 1
-        if i % 100 == 0:
-            # periodic status: iteration and queue sizes
-            print(f"iteration={i}, raw_q={raw_data.qsize()}, pos_q={position_queue.qsize()}, rms_q={Bicep_RMS_queue.qsize()}")
-        print(f"Angle: {position}, iteration: {i}")
-        step = 1550/140
-        step_offset = 1000
-        position = 2550 - int(position*step + step_offset)
+        
+        step = 1500/140
+        step_offset = 1050
+        #position = 2550 - int(position*step + step_offset)
+        position = 2550 - int(position*step)
         print(f"Position: {position}\n")
 
         # TODO: Add OIAC and communication with the exoskeleton motor
@@ -131,30 +129,23 @@ if __name__ == "__main__":
         #Motor command
         # Put motor commands with a small timeout; if the queue is full
         # discard oldest entry and try again once. Avoid blocking forever.
-        if position == last_position:
-            # nothing changed; skip
-            pass
-        else:
+        try:
+            position_queue.put_nowait(position)
+        except queue.Full:
             try:
-                position_queue.put(position, timeout=0.1)
-            except queue.Full:
-                try:
-                    # discard oldest and try once more
-                    position_queue.get_nowait()
-                    position_queue.put_nowait(position)
-                except Exception as e:
-                    print(f"[position queue] could not enqueue: {e}", file=sys.stderr)
-        # if not position == last_position:
-        #     motor.sendMotorCommand(motor.motor_ids[0], position)
-        last_position = position
+                # discard oldest and try once more
+                position_queue.get_nowait()
+                position_queue.put_nowait(position)
+            except Exception as e:
+                print(f"[position queue] could not enqueue: {e}", file=sys.stderr)
 
     # Stop EMG reading thread and EMG sensor
     print("Shutting down...")
-    motor.close()
     stop_event.set()
     t_emg.join()
     t_motor.join()
     emg.stop()
+    motor.close()
     # empty all queues
     raw_data.queue.clear()
     Bicep_RMS_queue.queue.clear()

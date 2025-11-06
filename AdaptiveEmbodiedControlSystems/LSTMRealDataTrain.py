@@ -11,7 +11,7 @@ import pandas as pd
 
 TRAIN_CSV = "Outputs/RecordedEMG/EMG_Recording_LSTM.csv"
 TEST_CSV = "Outputs/RecordedEMG/EMG_Recording_LSTM_Test.csv"
-COL = 'Muscle Activation'#'Position'
+COL = 'Processed EMG'#'Muscle Activation'#'Position'
 
 class CSVWindowedDataset(Dataset):
     def __init__(self, csv_file, seq_len):
