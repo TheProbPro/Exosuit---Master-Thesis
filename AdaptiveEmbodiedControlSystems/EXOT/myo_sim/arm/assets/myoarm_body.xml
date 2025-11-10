@@ -8,6 +8,7 @@
 ====================================================== -->
 
     <body name="thorax" pos="0 0 0" childclass="arm" euler="1.57 -1.57 0">
+        <inertial diaginertia="0.0764928 0.0573742 0.0471" mass="8.09341" pos="-0.02118 -0.128888 -9.98087e-05" quat="0.988645 -0.00439528 0.000169877 0.150204"/>
         <!-- <geom mesh="ground_geom_1_thorax" name="ground_geom_1" type="mesh"/> -->
         <body euler="-1.57 0 0" pos=".1 -.455 -.02">
             <geom name="thorax_coll0" type="capsule" class="myoarm_coll" size="0.080 0.077" pos="-.065 0 .070" euler="1.57 0 0"/>
@@ -108,6 +109,7 @@
                     <joint axis="0.157095 0.947269 -0.279291" name="unrothum_r2" pos="0 0 0" range="0.0 0.152" user="4.70933e-07"/>
                     <body name="humphant" pos="0 0 0">
                         <inertial diaginertia="1 1 1" mass="0.001" pos="0 0 0"/>
+                        <joint axis="0.00479995 0.999089 0.0423995" name="elv_angle" pos="0 0 0" range="-1.658 2.269" user="0.251642"/>
                         <body name="humphant1" pos="0 0 0">
                             <inertial diaginertia="1 1 1" mass="0.001" pos="0 0 0"/>
                             <joint axis="-0.998261 0.00229991 0.0588977" name="shoulder_elv" pos="0 0 0" range="0 3.142" user="9.61084e-06"/>
@@ -158,6 +160,7 @@
                                 <geom class="wrap" name="Elbow_BIC_BRD_ellipsoid" pos="0.0019 -0.289 -0.014" quat="0.995526 -0.0630434 0.0695304 0.0108779" size="0.015"/>
                                 <geom class="wrap" name="TRIlonghh_ellipsoid" pos="-0.0078 -0.0041 -0.0014" quat="0.414166 0.226558 -0.879857 -0.0546691"  size="0.02"/>
                                 <geom class="wrap" name="TRI_cylinder" pos="0.0028 -0.2919 -0.0119" quat="0.994531 -0.0700249 0.0022946 0.0774514" size="0.016 0.05" type="cylinder" rgba="1 0 0 0"/>
+                                <geom class="wrap" name="ANC_ellipsoid" pos="0.0134 -0.2861 -0.0008" quat="0.86157 -0.0459397 -0.0868616 0.498038" size="0.02"/>
                                 <geom class="wrap" name="BIClong_ellipsoid" pos="0.0033 0.005 0.0003" quat="0.227685 -0.774064 0.117793 0.578886" size="0.02"/>
                                 <geom class="wrap" name="TMAJ_LAT_PEC_CORBhh_sphere" pos="0.0007 0 0.006" size="0.03" rgba="1 0 0 0"/>
                                 <geom class="wrap" name="DELT_TMAJ_LAT_PEC_CORBhh_sphere" pos="0.0007 0 0.006" size="0.03"/>

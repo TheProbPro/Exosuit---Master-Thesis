@@ -2,6 +2,7 @@
 
     <compiler inertiafromgeom="auto" angle="radian" balanceinertia="true" boundmass="0.001" boundinertia=".0001" meshdir=".." texturedir=".."/>
     <size njmax="1000" nconmax="400" nuser_jnt="1"/>
+    <option timestep="0.002"/>
 
     <visual>
         <headlight diffuse="1 1 1"/>
@@ -90,6 +91,13 @@
         <mesh name="triquetrum" file="../myo_sim/meshes/triquetrum.stl" scale="1 1 1"/>
         <mesh name="capitate" file="../myo_sim/meshes/capitate.stl" scale="1 1 1"/>
         <mesh name="trapezium" file="../myo_sim/meshes/trapezium.stl" scale="1 1 1"/>
+        <mesh name="1mc" file="../myo_sim/meshes/1mc.stl" scale="1 1 1"/>
+        <mesh name="thumbprox" file="../myo_sim/meshes/thumbprox.stl" scale="1 1 1"/>
+        <mesh name="thumbdist" file="../myo_sim/meshes/thumbdist.stl" scale="1 1 1"/>
+        <mesh name="trapezoid" file="../myo_sim/meshes/trapezoid.stl" scale="1 1 1"/>
+        <mesh name="hamate" file="../myo_sim/meshes/hamate.stl" scale="1 1 1"/>
+        <mesh name="2mc" file="../myo_sim/meshes/2mc.stl" scale="1 1 1"/>
+        <mesh name="2proxph" file="../myo_sim/meshes/2proxph.stl" scale="1 1 1"/>
         <mesh name="2midph" file="../myo_sim/meshes/2midph.stl" scale="1 1 1"/>
         <mesh name="2distph" file="../myo_sim/meshes/2distph.stl" scale="1 1 1"/>
         <mesh name="3mc" file="../myo_sim/meshes/3mc.stl" scale="1 1 1"/>
@@ -188,9 +196,9 @@
         <spatial name="D_tendon" class="special_muscle">
             
             <!-- <geom geom="lower_connectspher_geom" /> -->
-            <site site="forconnect_2"/>
+            <!-- <site site="forconnect_2"/>
             <site site="forconnect_1"/>
-            <site site="forconnect"/>
+            <site site="forconnect"/> -->
             <site site="D_P1"/>
             <geom geom="shoulder_connect_geom_here"/>
             <site site="D_P2"/>
@@ -226,6 +234,13 @@
             
         </spatial>
 
+        <spatial name="F2_tendon" class="special_muscle">
+            
+            <site site="F2_F2"/>
+            <geom geom="2_lower_connectspher_geom"/>
+            <site site="F2_F1"/>
+            
+        </spatial>
 
         <spatial name="F3_tendon" class="special_muscle">
             
@@ -491,6 +506,7 @@
         <spatial name="FDS3_tendon" class="forearm_muscle">
             <site site="FDS3-P1"/>
             <site site="FDS3-P2"/>
+            <geom geom="FDS_ellipsoid_wrap" sidesite="FDS_ellipsoid_site_FDS3_side"/>
             <site site="FDS3-P3"/>
             <site site="FDS3-P4"/>
             <!-- <site site="FDS3-P5"/> -->
@@ -875,5 +891,11 @@
         <muscle name="F_1" force = "180.1" class="special_muscle" tendon="F_tendon" lengthrange="0.253147 0.627478"/>
         <muscle name="F_2" force = "180.1" class="special_muscle" tendon="F1_tendon" lengthrange="0.253147 0.627478"/>
      </actuator>
+
+     <!-- 添加传感器监控肌腱力
+    <sensor>
+        <tendonforce name="DELT1_force" tendon="DELT1_tendon"/>
+        <tendonforce name="TMIN_force" tendon="TMIN_tendon"/>
+    </sensor> -->
 
 </mujocoinclude>
