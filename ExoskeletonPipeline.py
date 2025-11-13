@@ -122,7 +122,6 @@ if __name__ == "__main__":
         step_offset = 1050
         #position = 2550 - int(position*step + step_offset)
         position = 2550 - int(position*step)
-        print(f"Position: {position}\n")
 
         # TODO: Add OIAC and communication with the exoskeleton motor
         #Controller

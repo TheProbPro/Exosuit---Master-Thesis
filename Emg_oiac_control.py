@@ -14,7 +14,7 @@ import time
 import math
 
 SAMPLE_RATE = 2000  # Hz
-USER_NAME = 'zichen'
+USER_NAME = 'VictorBNielsen'
 ANGLE_MIN = 0
 ANGLE_MAX = 140
 
@@ -256,7 +256,8 @@ if __name__ == "__main__":
     emg = DelsysEMG()
     
     # 初始化滤波器和解释器
-    filter = rt_filtering(SAMPLE_RATE, 450, 20, 2)
+    filter_Bicep = rt_filtering(SAMPLE_RATE, 450, 20, 2)
+    filter_Tricep = rt_filtering(SAMPLE_RATE, 450, 20, 2)
     interpreter = PMC(theta_min=ANGLE_MIN, theta_max=ANGLE_MAX, 
                      user_name=USER_NAME, BicepEMG=True, TricepEMG=True)
     interpreter.set_Kp(8)
@@ -322,9 +323,9 @@ if __name__ == "__main__":
             dt = current_time - last_time
             
             # 滤波EMG数据
-            filtered_Bicep = filter.bandpass(reading[0])
-            filtered_Tricep = filter.bandpass(reading[1]) if len(reading) > 1 else 0.0
-            
+            filtered_Bicep = filter_Bicep.bandpass(reading[0])
+            filtered_Tricep = filter_Tricep.bandpass(reading[1]) if len(reading) > 1 else 0.0
+
             # 计算RMS
             try:
                 if Bicep_RMS_queue.full():
@@ -341,14 +342,15 @@ if __name__ == "__main__":
             Tricep_RMS = np.sqrt(np.mean(np.array(list(Tricep_RMS_queue.queue))**2))
             
             # 低通滤波RMS信号
-            filtered_bicep_RMS = filter.lowpass(np.atleast_1d(Bicep_RMS))
-            filtered_tricep_RMS = filter.lowpass(np.atleast_1d(Tricep_RMS))
+            filtered_bicep_RMS = filter_Bicep.lowpass(np.atleast_1d(Bicep_RMS))
+            filtered_tricep_RMS = filter_Tricep.lowpass(np.atleast_1d(Tricep_RMS))
             
             # 计算激活度
-            activation = interpreter.compute_activation(filtered_bicep_RMS, filtered_tricep_RMS)
-            
+            activation = interpreter.compute_activation([filtered_bicep_RMS, filtered_tricep_RMS])
+            print(f"Activation: {activation}")
             # 计算期望角度（从激活度）
             desired_angle_deg = interpreter.compute_angle(activation[0], activation[1])
+            print(f"Desired Angle: {desired_angle_deg}°")
             desired_angle_rad = math.radians(desired_angle_deg)
             
             # 估计期望角速度（简单差分）
@@ -405,6 +407,7 @@ if __name__ == "__main__":
             
             # 转换为电机位置命令（后备方案）
             position_motor = motor_center - int(desired_angle_deg * step)
+            print(f"Desired Angle: {desired_angle_deg}°, Motor Pos: {position_motor}")
             
             # 发送命令
             try:
@@ -422,21 +425,21 @@ if __name__ == "__main__":
             # 每2秒打印一次控制状态
             if current_time - last_debug_time > 2.0:
                 error_deg = math.degrees(position_error)
-                print(f"t={current_time:.1f}s | "
-                      f"Desired={desired_angle_deg:6.1f}° | "
-                      f"Current={math.degrees(current_angle):6.1f}° | "
-                      f"Error={error_deg:6.1f}° | "
-                      f"Torque={torque_clipped:6.2f}Nm | "
-                      f"K={K_mat[0,0]:5.1f} | "
-                      f"B={B_mat[0,0]:5.1f}")
+                # print(f"t={current_time:.1f}s | "
+                #       f"Desired={desired_angle_deg}° | "
+                #       f"Current={math.degrees(current_angle):6.1f}° | "
+                #       f"Error={error_deg:6.1f}° | "
+                #       f"Torque={torque_clipped:6.2f}Nm | "
+                #       f"K={K_mat[0,0]:5.1f} | "
+                #       f"B={B_mat[0,0]:5.1f}")
                 last_debug_time = current_time
             
             # 每3秒打印一次肌肉力信息
             if current_time - last_force_debug_time > 3.0:
-                print(f"Muscle Forces | "
-                      f"Bicep: {bicep_force:6.2f}N | "
-                      f"Tricep: {tricep_force:6.2f}N | "
-                      f"Penalty: {force_penalty:6.4f}Nm")
+                # print(f"Muscle Forces | "
+                #       f"Bicep: {bicep_force:6.2f}N | "
+                #       f"Tricep: {tricep_force:6.2f}N | "
+                #       f"Penalty: {force_penalty:6.4f}Nm")
                 last_force_debug_time = current_time
             
             last_time = current_time

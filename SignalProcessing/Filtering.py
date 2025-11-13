@@ -254,8 +254,8 @@ class rt_filtering:
         # --- design filters (SOS) ---
         # This is for rectification after Bandpass
         self.lp_sos = butter(2, 3 / self.nyq, btype='lowpass', output='sos')
-        self.lp_zi  = sosfilt_zi(self.lp_sos) * 0.0 # TODO: Check and see if this works against the initial windup.
-
+        self.lp_zi  = sosfilt_zi(self.lp_sos) * 0.0 
+        
         self.hp_sos = butter(order, hp_cutoff / self.nyq, btype='highpass', output='sos')
         self.hp_zi  = sosfilt_zi(self.hp_sos) * 0.0
 

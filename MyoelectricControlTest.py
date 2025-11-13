@@ -6,7 +6,7 @@ import pandas as pd
 from SignalProcessing.Filtering import rt_filtering
 from SignalProcessing.Interpretors import ProportionalMyoelectricalControl as PMC
 
-Sensor_channels = [0, 10] # Bicep, Tricep
+Sensor_channels = [0, 1] # Bicep, Tricep
 User_name = 'VictorBNielsen'
 
 if __name__ == "__main__":

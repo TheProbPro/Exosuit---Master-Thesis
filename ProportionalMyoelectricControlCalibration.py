@@ -8,7 +8,7 @@ import os
 from SignalProcessing.Filtering import rt_filtering
 from Sensors.EMGSensor import DelsysEMG
 
-Sensor_channels = [0, 10] # Bicep, Tricep
+Sensor_channels = [0, 1] # Bicep, Tricep
 User_name = 'VictorBNielsen'
 
 def _calc_MVC(signal, sampling_rate=2000, win_ms=200):
@@ -36,7 +36,8 @@ if __name__ == "__main__":
     seconds = 10
 
     # Initialize EMG class and filtering class
-    filter = rt_filtering(sample_rate, 450, 20, 2)
+    filter_bicep = rt_filtering(sample_rate, 450, 20, 2)
+    filter_tricep = rt_filtering(sample_rate, 450, 20, 2)
     emg = DelsysEMG(channel_range=(0,16))
     emg.start()
 
@@ -51,8 +52,8 @@ if __name__ == "__main__":
         Tricep_data.append(reading[Sensor_channels[1]])
 
         # Filter data
-        filtered_Bicep.append(filter.bandpass(reading[Sensor_channels[0]]))
-        filtered_Tricep.append(filter.bandpass(reading[Sensor_channels[1]]))
+        filtered_Bicep.append(filter_bicep.bandpass(reading[Sensor_channels[0]]))
+        filtered_Tricep.append(filter_tricep.bandpass(reading[Sensor_channels[1]]))
 
         # Calculate RMS
         if Bicep_RMS_queue.full():
@@ -61,12 +62,12 @@ if __name__ == "__main__":
         if Tricep_RMS_queue.full():
             Tricep_RMS_queue.get()
         Tricep_RMS_queue.put(filtered_Tricep[-1].item())
-        Bicep_RMS.append(filter.RMS(list(Bicep_RMS_queue.queue)))
-        Tricep_RMS.append(filter.RMS(list(Tricep_RMS_queue.queue)))
+        Bicep_RMS.append(filter_bicep.RMS(list(Bicep_RMS_queue.queue)))
+        Tricep_RMS.append(filter_tricep.RMS(list(Tricep_RMS_queue.queue)))
 
         # Rectify RMS signal with 3 Hz low-pass filter
-        filtered_Bicep_RMS.append(filter.lowpass(np.atleast_1d(Bicep_RMS[-1])))
-        filtered_Tricep_RMS.append(filter.lowpass(np.atleast_1d(Tricep_RMS[-1])))
+        filtered_Bicep_RMS.append(filter_bicep.lowpass(np.atleast_1d(Bicep_RMS[-1])))
+        filtered_Tricep_RMS.append(filter_tricep.lowpass(np.atleast_1d(Tricep_RMS[-1])))
 
     emg.stop()
     
@@ -138,19 +139,19 @@ if __name__ == "__main__":
         Bicep_data.append(reading[Sensor_channels[0]])
         Tricep_data.append(reading[Sensor_channels[1]])
 
-        filtered_Bicep.append(filter.bandpass(reading[Sensor_channels[0]]))
-        filtered_Tricep.append(filter.bandpass(reading[Sensor_channels[1]]))
+        filtered_Bicep.append(filter_bicep.bandpass(reading[Sensor_channels[0]]))
+        filtered_Tricep.append(filter_tricep.bandpass(reading[Sensor_channels[1]]))
         if Bicep_RMS_queue.full():
             Bicep_RMS_queue.get()
         Bicep_RMS_queue.put(filtered_Bicep[-1].item())
         if Tricep_RMS_queue.full():
             Tricep_RMS_queue.get()
         Tricep_RMS_queue.put(filtered_Tricep[-1].item())
-        Bicep_RMS.append(filter.RMS(list(Bicep_RMS_queue.queue)))
-        Tricep_RMS.append(filter.RMS(list(Tricep_RMS_queue.queue)))
+        Bicep_RMS.append(filter_bicep.RMS(list(Bicep_RMS_queue.queue)))
+        Tricep_RMS.append(filter_tricep.RMS(list(Tricep_RMS_queue.queue)))
 
-        filtered_Bicep_RMS.append(filter.lowpass(np.atleast_1d(Bicep_RMS[-1])))
-        filtered_Tricep_RMS.append(filter.lowpass(np.atleast_1d(Tricep_RMS[-1])))
+        filtered_Bicep_RMS.append(filter_bicep.lowpass(np.atleast_1d(Bicep_RMS[-1])))
+        filtered_Tricep_RMS.append(filter_tricep.lowpass(np.atleast_1d(Tricep_RMS[-1])))
 
     emg.stop()
 
@@ -184,12 +185,12 @@ if __name__ == "__main__":
             reading = emg.read()
             Bicep_data.append(reading[Sensor_channels[0]])
 
-            filtered_Bicep.append(filter.bandpass(reading[Sensor_channels[0]]))
+            filtered_Bicep.append(filter_bicep.bandpass(reading[Sensor_channels[0]]))
             if Bicep_RMS_queue.full():
                 Bicep_RMS_queue.get()
             Bicep_RMS_queue.put(filtered_Bicep[-1].item())
-            Bicep_RMS.append(filter.RMS(list(Bicep_RMS_queue.queue)))
-            filtered_Bicep_RMS.append(filter.lowpass(np.atleast_1d(Bicep_RMS[-1])))
+            Bicep_RMS.append(filter_bicep.RMS(list(Bicep_RMS_queue.queue)))
+            filtered_Bicep_RMS.append(filter_bicep.lowpass(np.atleast_1d(Bicep_RMS[-1])))
 
         input("Press enter to start trial {} of {}. Then perform MAXIMUM contraction of Tricep for 5 seconds...".format(trial+1, MVC_trials))
         print("Starting trial {}...".format(trial+1))
@@ -198,12 +199,12 @@ if __name__ == "__main__":
             reading = emg.read()
             Tricep_data.append(reading[Sensor_channels[1]])
 
-            filtered_Tricep.append(filter.bandpass(reading[Sensor_channels[1]]))
+            filtered_Tricep.append(filter_tricep.bandpass(reading[Sensor_channels[1]]))
             if Tricep_RMS_queue.full():
                 Tricep_RMS_queue.get()
             Tricep_RMS_queue.put(filtered_Tricep[-1].item())
-            Tricep_RMS.append(filter.RMS(list(Tricep_RMS_queue.queue)))
-            filtered_Tricep_RMS.append(filter.lowpass(np.atleast_1d(Tricep_RMS[-1])))
+            Tricep_RMS.append(filter_tricep.RMS(list(Tricep_RMS_queue.queue)))
+            filtered_Tricep_RMS.append(filter_tricep.lowpass(np.atleast_1d(Tricep_RMS[-1])))
 
         max_bicep.append(_calc_MVC(filtered_Bicep_RMS, sampling_rate=sample_rate, win_ms=200))
         max_tricep.append(_calc_MVC(filtered_Tricep_RMS, sampling_rate=sample_rate, win_ms=200))

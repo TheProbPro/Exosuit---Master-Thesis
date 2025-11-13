@@ -1,88 +1,122 @@
 import numpy as np
 import matplotlib.pyplot as plt
 import queue
-from collections import deque
 import threading
 import sys
 import time
 
-from SignalProcessing.Filtering import rt_filtering
+#==============================================================================
+# This code tests the emg part of the code
+#==============================================================================
+
+# My local imports (EMG sensor, filtering, interpretors, OIAC)
 from Sensors.EMGSensor import DelsysEMG
+from SignalProcessing.Filtering import rt_filtering
+from SignalProcessing.Interpretors import ProportionalMyoelectricalControl as PMC
 
-# Thread function that processes the EMG data from queue and appends to lists
-def filter_EMG(filter, data, filtered_signal, rms_signal, window_size, stop_event):
+import signal
+
+# General configuration parameters
+SAMPLE_RATE = 2000  # Hz
+USER_NAME = 'VictorBNielsen'
+ANGLE_MIN = 0
+ANGLE_MAX = 140
+
+stop_event = threading.Event()
+
+def read_EMG(EMG_sensor, queue):
     while not stop_event.is_set():
-        TIME = time.time()
-        if data.qsize() >= window_size:
-            chunk = np.asarray([data.get() for _ in range(window_size)]).squeeze().ravel()
-            filtered, rms = filter.process_chunk(chunk)
-            filtered_signal.extend(filtered)
-            rms_signal.extend(rms)
-        print("Filter time: ", time.time() - TIME)
+        reading = EMG_sensor.read()
+        try:
+            queue.put_nowait(reading)
+        except queue.Full:
+            try:
+                queue.get_nowait()  # Discard oldest data
+                queue.put_nowait(reading)
+            except queue.Full:
+                pass
+        except Exception as e:
+            print(f"[reader] error: {e}", file=sys.stderr)
 
+
+# Graceful Ctrl-C
+def handle_sigint(sig, frame):
+    stop_event.set()
+signal.signal(signal.SIGINT, handle_sigint)
 
 if __name__ == "__main__":
-    # Initialize variables
-    window_size = 50
-    data = queue.Queue(maxsize=2000)
-    stop_event = threading.Event()
+    # Create EMG sensor instance and setup thread
+    raw_data = queue.Queue(maxsize=SAMPLE_RATE)
+    emg = DelsysEMG(channel_range=(0,16))
 
-    # Define filter parameters
-    sample_rate = 2000  # Hz # This one is correct according to Trigno Utility control panel
-    # sample_rate = 2000  # Hz # This one is maybe more correct according to the EMG sensor documentation
-    lp_cutoff = 300  # Hz
-    hp_cutoff = 20  # Hz
-    filter_order = 2
+    # Initialize filtering and interpretors
+    filter_bicep = rt_filtering(SAMPLE_RATE, 450, 20, 2)
+    filter_tricep = rt_filtering(SAMPLE_RATE, 450, 20, 2)
+    interpreter = PMC(theta_min=ANGLE_MIN, theta_max=ANGLE_MAX, user_name=USER_NAME, BicepEMG=True, TricepEMG=True)
+    interpreter.set_Kp(8)
 
-    # Variables for plotting
-    seconds = 10
-    filtered_signal = []
-    rms_signal = []
-
-    # Initialize EMG class and filtering class
-    filter = rt_filtering(sample_rate, lp_cutoff, hp_cutoff, filter_order)
-    emg = DelsysEMG()
     emg.start()
+    # Start EMG reading thread
+    t_emg = threading.Thread(target=read_EMG, args=(emg, raw_data), daemon=True)
+    t_emg.start()
+    print("EMG reading thread started!")
 
-    print("EMG started!")
+    # Filter and interpret the raw data
+    Bicep_RMS_queue = queue.Queue(maxsize=50)
+    Tricep_RMS_queue = queue.Queue(maxsize=50)
+    joint_torque = 0.0
+    last_position = 0
+    i = 0
+    while not stop_event.is_set():
+        # Use a blocking get with timeout to avoid busy-waiting and to
+        # allow the reader thread to drive the queue at its own rate.
+        try:
+            reading = raw_data.get_nowait()
+        except queue.Empty:
+            # no new raw data; yield CPU briefly and continue
+            time.sleep(0.001)
+            continue
 
-    # Create and start threads
-    t_filter = threading.Thread(target=filter_EMG, args=(filter, data, filtered_signal, rms_signal, window_size, stop_event))
+        # Filter data
+        filtered_Bicep = filter_bicep.bandpass(reading[0])
+        filtered_Tricep = filter_tricep.bandpass(reading[1])
 
-    t_filter.start()
+        # Calculate RMS
+        try:
+            if Bicep_RMS_queue.full():
+                Bicep_RMS_queue.get_nowait()
+            Bicep_RMS_queue.put_nowait(filtered_Bicep)
+                
+            if Tricep_RMS_queue.full():
+                Tricep_RMS_queue.get_nowait()
+            Tricep_RMS_queue.put_nowait(filtered_Tricep)
+        except queue.Full:
+            pass
+            
+        Bicep_RMS = np.sqrt(np.mean(np.array(list(Bicep_RMS_queue.queue))**2))
+        Tricep_RMS = np.sqrt(np.mean(np.array(list(Tricep_RMS_queue.queue))**2))
+            
+        # Rectify RMS signal with 3 Hz low-pass filter
+        filtered_bicep_RMS = filter_bicep.lowpass(np.atleast_1d(Bicep_RMS))
+        filtered_tricep_RMS = filter_tricep.lowpass(np.atleast_1d(Tricep_RMS))
 
-    print("Threads started! To stop press q")
-    TIME = time.time()
-    while ((time.time() - TIME < seconds)):
-        reading = emg.read()
-        data.put(reading)
+        # Compute activation and joint torque
+        activation = interpreter.compute_activation([filtered_bicep_RMS, filtered_tricep_RMS])
+        #joint_torque = interpreter.compute_torque(activation)
+        #print(f"Joint torque: {int(joint_torque) - 4}")
+        position = interpreter.compute_angle(activation[0], activation[1])
         
-    print("Time elapsed: ", time.time() - TIME)
-    print("Shape of filtered signal: ", np.array(filtered_signal).shape)
+        step = 1500/140
+        step_offset = 1050
+        position = 2550 - int(position*step)
+
+
+    # Stop EMG reading thread and EMG sensor
+    print("Shutting down...")
     stop_event.set()
-    t_filter.join()
+    t_emg.join()
     emg.stop()
-
-    print("data length {}, filtered signal length {}, rms signal length {}".format(len(data.queue),len(filtered_signal), len(rms_signal)))
-
-    # Plot the recorded data
-    plt.figure(figsize=(10, 6))
-    plt.subplot(2, 1, 1)
-    plt.plot(filtered_signal, label='Filtered EMG', color='blue')
-    plt.title('Filtered EMG Signal')
-    plt.xlabel('Samples')
-    plt.ylabel('Amplitude (mV)')
-    plt.legend()
-    plt.grid()
-    plt.subplot(2, 1, 2)
-    plt.plot(rms_signal, label='RMS EMG', color='orange')
-    plt.title('RMS of EMG Signal')
-    plt.xlabel('Samples')
-    plt.ylabel('RMS Amplitude (mV)')
-    plt.legend()
-    plt.grid()
-    plt.tight_layout()
-    plt.show()
-    
-
-
+    # empty all queues
+    raw_data.queue.clear()
+    Bicep_RMS_queue.queue.clear()
+    print("Goodbye!")
