@@ -33,7 +33,8 @@ if __name__ == "__main__":
     seconds = 10
 
     # Initialize filtering class and interpreter class
-    filter = rt_filtering(sample_rate, 450, 20, 2)
+    filter_bicep = rt_filtering(sample_rate, 450, 20, 2)
+    filter_tricep = rt_filtering(sample_rate, 450, 20, 2)
     # interpreter = PMC(theta_min=0, theta_max=140, user_name=User_name, BicepEMG=True, TricepEMG=True)
     interpreter = PMC(theta_min=0, theta_max=140, user_name=User_name, BicepEMG=True, TricepEMG=False)
 
@@ -52,8 +53,8 @@ if __name__ == "__main__":
         Tricep_data.append(float(Tricep_data_file[i]))
 
         # Filter the Emg signal
-        filtered_Bicep.append(filter.bandpass(np.atleast_1d(Bicep_data[i])))
-        filtered_Tricep.append(filter.bandpass(np.atleast_1d(Tricep_data[i])))
+        filtered_Bicep.append(filter_bicep.bandpass(np.atleast_1d(Bicep_data[i])))
+        filtered_Tricep.append(filter_tricep.bandpass(np.atleast_1d(Tricep_data[i])))
         
         # Calculate RMS
         if Bicep_RMS_queue.full():
@@ -66,8 +67,8 @@ if __name__ == "__main__":
         Tricep_RMS.append(np.sqrt(np.mean(np.array(list(Tricep_RMS_queue.queue))**2)))
 
         # Rectify RMS signal with 3 Hz low-pass filter
-        filtered_bicep_RMS.append(filter.lowpass(np.atleast_1d(Bicep_RMS[-1])))
-        filtered_tricep_RMS.append(filter.lowpass(np.atleast_1d(Tricep_RMS[-1])))
+        filtered_bicep_RMS.append(filter_bicep.lowpass(np.atleast_1d(Bicep_RMS[-1])))
+        filtered_tricep_RMS.append(filter_tricep.lowpass(np.atleast_1d(Tricep_RMS[-1])))
 
         # Compute activation
         # a_bicep, a_tricep = interpreter.compute_activation([Bicep_RMS[-1].item(), Tricep_RMS[-1].item()])
