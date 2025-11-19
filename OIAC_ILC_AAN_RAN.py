@@ -283,7 +283,7 @@ class TrueRANMultifunctionalController:
                 self.current_mode = 'RAN'
                 self.ran_start_time = current_time
                 self.last_switch_time = current_time
-                print(f"🔄 AAN→RAN at t={t:.1f}s - Activating resistance during motion")
+                print(f" AAN→RAN at t={t:.1f}s - Activating resistance during motion")
                 
         else:
             # RAN mode: Only OIAC control (no ILC feedforward) + resistance
@@ -299,22 +299,22 @@ class TrueRANMultifunctionalController:
             if can_switch and abs(error) > self.error_threshold_ran_to_aan:
                 self.current_mode = 'AAN'
                 self.last_switch_time = current_time
-                print(f"🔄 RAN→AAN at t={t:.1f}s - Deactivating resistance")
+                print(f" RAN→AAN at t={t:.1f}s - Deactivating resistance")
         
         # Record mode
         self.mode_history.append(self.current_mode)
         
         return total_torque, q_des, error, self.current_mode
 
-# ==================== Control Parameters ====================
+# # ==================== Control Parameters ====================
 
-# Moderate torque limits
-TORQUE_MIN = -4.1
-TORQUE_MAX = 4.1
+# # Moderate torque limits
+# TORQUE_MIN = -4.1
+# TORQUE_MAX = 4.1
 
-# Desired trajectory
-AMP_DEG = 15.0
-FREQ = 0.16
+# # Desired trajectory
+# AMP_DEG = 15.0
+# FREQ = 0.16
 
 def target_angle_rad(t):
     phase = 2 * np.pi * FREQ * t
