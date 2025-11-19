@@ -256,6 +256,8 @@ class EnhancedILC:
             print(f"[ILC] Interpolation error: {e}")
             aligned_error = np.zeros_like(self.reference_time)
         
+        lr =0.01
+
         # 学习更新
         if not self.learned_feedforward:
             # 第一次trial，初始化为零
@@ -283,10 +285,10 @@ class EnhancedILC:
         max_error = np.max(np.abs(aligned_error))
         
         print(f"[ILC] Trial {self.current_trial} completed:")
-        print(f"      Learning rate: {lr:.2f}")
-        print(f"      Avg error: {math.degrees(avg_error):.2f}°")
-        print(f"      Max error: {math.degrees(max_error):.2f}°")
-        print(f"      Feedforward range: [{np.min(ff):.1f}, {np.max(ff):.1f}] Nm")
+        print(f"      Learning rate: {lr}")
+        print(f"      Avg error: {math.degrees(avg_error)}°")
+        print(f"      Max error: {math.degrees(max_error)}°")
+        print(f"      Feedforward range: [{np.min(ff)}, {np.max(ff)}] Nm")
         
         return ff
     
@@ -432,7 +434,7 @@ class TrueRANMultifunctionalController:
                 self.current_mode = 'RAN'
                 self.ran_start_time = current_time
                 self.last_switch_time = current_time
-                print(f"🔄 AAN→RAN at t={t:.1f}s (error={math.degrees(error):.1f}°) - Activating resistance")
+                print(f"🔄 AAN→RAN at t={t}s (error={math.degrees(error)}°) - Activating resistance")
                 
         else:
             # ===== RAN Mode: 阻力模式 =====
@@ -450,7 +452,7 @@ class TrueRANMultifunctionalController:
             if can_switch and abs(error) > self.error_threshold_ran_to_aan:
                 self.current_mode = 'AAN'
                 self.last_switch_time = current_time
-                print(f"🔄 RAN→AAN at t={t:.1f}s (error={math.degrees(error):.1f}°) - Deactivating resistance")
+                print(f"🔄 RAN→AAN at t={t}s (error={math.degrees(error)}°) - Deactivating resistance")
         
         # Record mode
         self.mode_history.append(self.current_mode)
@@ -772,16 +774,16 @@ if __name__ == "__main__":
                     else:
                         mode_info = f"🟢 AAN (ILC+OIAC)"
                     
-                    print(f"t={trial_time:.1f}s | {mode_info}")
-                    print(f"  Desired={desired_angle_deg:.1f}° | Current={math.degrees(current_angle):.1f}° | Error={error_deg:.1f}°")
-                    print(f"  Torque={torque_clipped:.1f}Nm | K={k_val:.1f} | B={b_val:.1f}")
+                    print(f"t={trial_time}s | {mode_info}")
+                    print(f"  Desired={desired_angle_deg}° | Current={math.degrees(current_angle)}° | Error={error_deg}°")
+                    print(f"  Torque={torque_clipped}Nm | K={k_val} | B={b_val}")
                     last_debug_time = current_time
                 
                 if current_time - last_force_debug_time > 3.0:
                     print(f"💪 Muscle | "
-                          f"Bicep: {bicep_force:6.2f}N | "
-                          f"Tricep: {tricep_force:6.2f}N | "
-                          f"Penalty: {force_penalty:6.4f}Nm")
+                          f"Bicep: {bicep_force}N | "
+                          f"Tricep: {tricep_force}N | "
+                          f"Penalty: {force_penalty}Nm")
                     last_force_debug_time = current_time
                 
                 last_time = current_time
@@ -835,19 +837,19 @@ if __name__ == "__main__":
             }
             all_trial_stats.append(trial_stats)
             
-            print(f"Average tracking error: {math.degrees(avg_error):.2f}°")
-            print(f"Maximum tracking error: {math.degrees(max_error):.2f}°")
-            print(f"Motion range: {min_angle:.1f}° to {max_angle:.1f}° (span: {motion_range:.1f}°)")
-            print(f"Average bicep force: {avg_bicep:.2f}N")
-            print(f"Average tricep force: {avg_tricep:.2f}N")
-            print(f"Average K: {avg_k:.1f}, Average B: {avg_b:.1f}")
+            print(f"Average tracking error: {math.degrees(avg_error)}°")
+            print(f"Maximum tracking error: {math.degrees(max_error)}°")
+            print(f"Motion range: {min_angle}° to {max_angle}° (span: {motion_range}°)")
+            print(f"Average bicep force: {avg_bicep}N")
+            print(f"Average tricep force: {avg_tricep}N")
+            print(f"Average K: {avg_k}, Average B: {avg_b}")
             print(f"Control cycles: {control_count}")
-            print(f"Mode distribution: 🟢 AAN={aan_ratio:.1f}%, 🔴 RAN={ran_ratio:.1f}%")
+            print(f"Mode distribution: 🟢 AAN={aan_ratio}%, 🔴 RAN={ran_ratio}%")
             
             # RAN mode analysis
             if ran_ratio > 0:
                 print(f"\n✅ RAN Mode Successfully Activated!")
-                print(f"   - Resistance applied during {ran_ratio:.1f}% of trial")
+                print(f"   - Resistance applied during {ran_ratio}% of trial")
                 print(f"   - This indicates good tracking performance")
             else:
                 print(f"\n⚠️  RAN Mode Not Activated")
@@ -856,7 +858,7 @@ if __name__ == "__main__":
             
             # Check motion range
             if motion_range < 20.0:
-                print(f"\n⚠️  Warning: Motion range too small ({motion_range:.1f}°)")
+                print(f"\n⚠️  Warning: Motion range too small ({motion_range}°)")
                 if trial_num == 0:
                     print("   This is normal for first trial - ILC needs learning")
             
@@ -897,25 +899,25 @@ if __name__ == "__main__":
             aan_symbol = "🟢"
             ran_symbol = "🔴" if stats['ran_ratio'] > 0 else "⚪"
             print(f"  Trial {stats['trial']}: "
-                  f"Avg Error={stats['avg_error_deg']:.2f}°, "
-                  f"Max Error={stats['max_error_deg']:.2f}°, "
-                  f"Range={stats['motion_range']:.1f}°, "
-                  f"{aan_symbol}AAN={stats['aan_ratio']:.0f}% {ran_symbol}RAN={stats['ran_ratio']:.0f}%, "
-                  f"K={stats['avg_k']:.1f}, B={stats['avg_b']:.1f}")
+                  f"Avg Error={stats['avg_error_deg']}°, "
+                  f"Max Error={stats['max_error_deg']}°, "
+                  f"Range={stats['motion_range']}°, "
+                  f"{aan_symbol}AAN={stats['aan_ratio']}% {ran_symbol}RAN={stats['ran_ratio']}%, "
+                  f"K={stats['avg_k']}, B={stats['avg_b']}")
         
         if len(all_trial_stats) > 1:
             improvement = (all_trial_stats[0]['avg_error_deg'] - 
                           all_trial_stats[-1]['avg_error_deg'])
-            print(f"\n📉 Error improvement: {improvement:.2f}° "
-                  f"({all_trial_stats[0]['avg_error_deg']:.2f}° → "
-                  f"{all_trial_stats[-1]['avg_error_deg']:.2f}°)")
+            print(f"\n📉 Error improvement: {improvement}° "
+                  f"({all_trial_stats[0]['avg_error_deg']}° → "
+                  f"{all_trial_stats[-1]['avg_error_deg']}°)")
         
         # Final mode distribution
         final_stats = all_trial_stats[-1]
         print(f"\n Final Performance:")
-        print(f"   - Mode distribution:  AAN={final_stats['aan_ratio']:.1f}%,  RAN={final_stats['ran_ratio']:.1f}%")
-        print(f"   - Motion range: {final_stats['motion_range']:.1f}°")
-        print(f"   - Avg error: {final_stats['avg_error_deg']:.2f}°")
+        print(f"   - Mode distribution:  AAN={final_stats['aan_ratio']}%,  RAN={final_stats['ran_ratio']}%")
+        print(f"   - Motion range: {final_stats['motion_range']}°")
+        print(f"   - Avg error: {final_stats['avg_error_deg']}°")
         
         # RAN effectiveness analysis
         if final_stats['ran_ratio'] > 0:
