@@ -67,7 +67,7 @@ class ProportionalMyoelectricalControl:
             theta = (self.theta_min + self.theta_max)/2 + (self.theta_max - self.theta_min)/2 * self._deadband(activation, 0.05) #TODO: Tune eps (threshold value to avoid small activations from noise)
         elif self.Bicep_EMG:
             activation = Bicep_activation
-            theta = self.theta_min + activation * (self.theta_max - self.theta_min)
+            theta = self.theta_min + self._deadband(activation, 0.1) * (self.theta_max - self.theta_min)
         else:
             raise ValueError("At least BicepEMG or BicepEMG and TricepEMG must be True")
 

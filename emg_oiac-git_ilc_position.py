@@ -18,7 +18,7 @@ import pickle
 import os
 
 SAMPLE_RATE = 2000  # Hz
-USER_NAME = 'zichen'
+USER_NAME = 'VictorBNielsen'
 ANGLE_MIN = 0
 ANGLE_MAX = 140
 
@@ -274,6 +274,9 @@ class EnhancedILC:
             print(f"[ILC] Interpolation error: {e}")
             aligned_error = np.zeros_like(self.reference_time)
         
+        # Test
+        lr = 0.1
+
         # 学习更新
         if not self.learned_feedforward:
             # 第一次trial，直接用误差初始化
@@ -301,10 +304,10 @@ class EnhancedILC:
         max_error = np.max(np.abs(aligned_error))
         
         print(f"[ILC] Trial {self.current_trial} completed:")
-        print(f"      Learning rate: {lr:.2f}")
-        print(f"      Avg error: {math.degrees(avg_error):.2f}°")
-        print(f"      Max error: {math.degrees(max_error):.2f}°")
-        print(f"      Feedforward range: [{np.min(ff):.2f}, {np.max(ff):.2f}] Nm")
+        print(f"      Learning rate: {lr}")
+        print(f"      Avg error: {math.degrees(avg_error)}°")
+        print(f"      Max error: {math.degrees(max_error)}°")
+        print(f"      Feedforward range: [{np.min(ff)}, {np.max(ff)}] Nm")
         
         return ff
     
@@ -377,17 +380,26 @@ class EnhancedILC:
         print("[ILC] Reset completed")
 
 
-def read_EMG(EMG_sensor, queue):
-    """EMG读取线程"""
+def read_EMG(EMG_sensor, raw_queue):
+    """EMG读取线程
+
+    Notes:
+    - Use a parameter name that does not shadow the imported `queue` module.
+    - Catch the correct exception type `queue.Full` (capital F) instead of
+      calling `queue.full()` which returns a bool and causes a TypeError
+      when used in an `except` clause.
+    """
     while not stop_event.is_set():
         reading = EMG_sensor.read()
         try:
-            queue.put_nowait(reading)
+            raw_queue.put_nowait(reading)
         except queue.Full:
             try:
-                queue.get_nowait()
-                queue.put_nowait(reading)
+                # discard oldest and try again
+                raw_queue.get_nowait()
+                raw_queue.put_nowait(reading)
             except queue.Full:
+                # still full after discard attempt; skip this sample
                 pass
         except Exception as e:
             print(f"[reader] error: {e}", file=sys.stderr)
@@ -437,9 +449,13 @@ if __name__ == "__main__":
     emg = DelsysEMG()
     
     # 初始化滤波器和解释器
-    filter = rt_filtering(SAMPLE_RATE, 450, 20, 2)
+    filter_bicep = rt_filtering(SAMPLE_RATE, 450, 20, 2)
+    filter_tricep = rt_filtering(SAMPLE_RATE, 450, 20, 2)
+    # interpreter = PMC(theta_min=ANGLE_MIN, theta_max=ANGLE_MAX, 
+    #                  user_name=USER_NAME, BicepEMG=True, TricepEMG=True)
     interpreter = PMC(theta_min=ANGLE_MIN, theta_max=ANGLE_MAX, 
-                     user_name=USER_NAME, BicepEMG=True, TricepEMG=True)
+                     user_name=USER_NAME, BicepEMG=True, TricepEMG=False)
+    
     interpreter.set_Kp(8)
     
     # 初始化电机
@@ -554,8 +570,8 @@ if __name__ == "__main__":
                 trial_time = current_time - trial_start_time
                 
                 # 滤波EMG数据
-                filtered_Bicep = filter.bandpass(reading[0])
-                filtered_Tricep = filter.bandpass(reading[1]) if len(reading) > 1 else 0.0
+                filtered_Bicep = filter_bicep.bandpass(reading[0])
+                filtered_Tricep = filter_tricep.bandpass(reading[1]) if len(reading) > 1 else 0.0
                 
                 # 计算RMS
                 try:
@@ -573,11 +589,12 @@ if __name__ == "__main__":
                 Tricep_RMS = np.sqrt(np.mean(np.array(list(Tricep_RMS_queue.queue))**2))
                 
                 # 低通滤波RMS信号
-                filtered_bicep_RMS = filter.lowpass(np.atleast_1d(Bicep_RMS))
-                filtered_tricep_RMS = filter.lowpass(np.atleast_1d(Tricep_RMS))
+                filtered_bicep_RMS = filter_bicep.lowpass(np.atleast_1d(Bicep_RMS))
+                filtered_tricep_RMS = filter_tricep.lowpass(np.atleast_1d(Tricep_RMS))
                 
                 # 计算激活度和期望角度
-                activation = interpreter.compute_activation(filtered_bicep_RMS, filtered_tricep_RMS)
+                #activation = interpreter.compute_activation([filtered_bicep_RMS, filtered_tricep_RMS])
+                activation = interpreter.compute_activation(filtered_bicep_RMS)
                 desired_angle_deg = interpreter.compute_angle(activation[0], activation[1])
                 desired_angle_rad = math.radians(desired_angle_deg)
                 
@@ -665,14 +682,14 @@ if __name__ == "__main__":
                     error_deg = math.degrees(position_error)
                     k_val = float(K_mat[0, 0])
                     b_val = float(B_mat[0, 0])
-                    print(f"t={trial_time:.1f}s | "
-                          f"Desired={desired_angle_deg:6.1f}° | "
-                          f"Current={math.degrees(current_angle):6.1f}° | "
-                          f"Error={error_deg:6.1f}° | "
-                          f"Torque={torque_clipped:6.2f}Nm | "
-                          f"FF={ff_torque:6.2f}Nm | "
-                          f"K={k_val:5.1f} | "
-                          f"B={b_val:5.1f}")
+                    print(f"t={trial_time}s | "
+                          f"Desired={desired_angle_deg}° | "
+                          f"Current={math.degrees(current_angle)}° | "
+                          f"Error={error_deg}° | "
+                          f"Torque={torque_clipped}Nm | "
+                          f"FF={ff_torque}Nm | "
+                          f"K={k_val} | "
+                          f"B={b_val}")
                     last_debug_time = current_time
                 
                 if current_time - last_force_debug_time > 3.0:
@@ -714,11 +731,11 @@ if __name__ == "__main__":
             }
             all_trial_stats.append(trial_stats)
             
-            print(f"Average tracking error: {math.degrees(avg_error):.2f}°")
-            print(f"Maximum tracking error: {math.degrees(max_error):.2f}°")
-            print(f"Average bicep force: {avg_bicep:.2f}N")
-            print(f"Average tricep force: {avg_tricep:.2f}N")
-            print(f"Average K: {avg_k:.1f}, Average B: {avg_b:.1f}")
+            print(f"Average tracking error: {math.degrees(avg_error)}°")
+            print(f"Maximum tracking error: {math.degrees(max_error)}°")
+            print(f"Average bicep force: {avg_bicep}N")
+            print(f"Average tricep force: {avg_tricep}N")
+            print(f"Average K: {avg_k}, Average B: {avg_b}")
             print(f"Control cycles: {control_count}")
             
             # ILC学习更新
@@ -754,19 +771,19 @@ if __name__ == "__main__":
         print("\nLearning Progress:")
         for stats in all_trial_stats:
             print(f"  Trial {stats['trial']}: "
-                  f"Avg Error={stats['avg_error_deg']:.2f}°, "
-                  f"Max Error={stats['max_error_deg']:.2f}°, "
-                  f"K={stats['avg_k']:.1f}, "
-                  f"B={stats['avg_b']:.1f}, "
-                  f"Bicep={stats['avg_bicep_force']:.2f}N, "
-                  f"Tricep={stats['avg_tricep_force']:.2f}N")
+                  f"Avg Error={stats['avg_error_deg']}°, "
+                  f"Max Error={stats['max_error_deg']}°, "
+                  f"K={stats['avg_k']}, "
+                  f"B={stats['avg_b']}, "
+                  f"Bicep={stats['avg_bicep_force']}N, "
+                  f"Tricep={stats['avg_tricep_force']}N")
         
         if len(all_trial_stats) > 1:
             improvement = (all_trial_stats[0]['avg_error_deg'] - 
                           all_trial_stats[-1]['avg_error_deg'])
-            print(f"\nError improvement: {improvement:.2f}° "
-                  f"({all_trial_stats[0]['avg_error_deg']:.2f}° → "
-                  f"{all_trial_stats[-1]['avg_error_deg']:.2f}°)")
+            print(f"\nError improvement: {improvement}° "
+                  f"({all_trial_stats[0]['avg_error_deg']}° → "
+                  f"{all_trial_stats[-1]['avg_error_deg']}°)")
     
     # 停止系统
     print("\n" + "="*60)
@@ -781,6 +798,8 @@ if __name__ == "__main__":
     motor.close()
     
     raw_data.queue.clear()
+    Bicep_RMS_queue.queue.clear()
+    Tricep_RMS_queue.queue.clear()
     command_queue.queue.clear()
     
     print("\nGoodbye!")
