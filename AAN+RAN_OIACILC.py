@@ -569,8 +569,6 @@ if __name__ == "__main__":
     
     # 等待并初始化电机位置
     time.sleep(1.0)
-    motor.sendMotorCommand(motor.motor_ids[0], motor_center)
-    time.sleep(1.0)
     
     # 启动EMG传感器
     emg.start()
