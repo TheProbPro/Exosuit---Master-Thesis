@@ -20,30 +20,37 @@ ANGLE_MAX = 140
 
 stop_event = threading.Event()
 
-def read_EMG(EMG_sensor, queue):
+def read_EMG(EMG_sensor, raw_queue):
+    """EMG读取线程"""
     while not stop_event.is_set():
         reading = EMG_sensor.read()
         try:
-            queue.put_nowait(reading)
+            raw_queue.put_nowait(reading)
         except queue.Full:
             try:
-                queue.get_nowait()  # Discard oldest data
-                queue.put_nowait(reading)
+                raw_queue.get_nowait()
+                raw_queue.put_nowait(reading)
             except queue.Full:
                 pass
         except Exception as e:
             print(f"[reader] error: {e}", file=sys.stderr)
 
-def send_motor_command(motor, position_queue):
+def send_motor_command(motor, command_queue, motor_state):
+    """电机命令发送线程"""
     while not stop_event.is_set():
         try:
-            position = position_queue.get_nowait()
+            # command = (torque, position_fallback)
+            command = command_queue.get(timeout=0.01)
         except queue.Empty:
-            print("No position command available yet;)")
             continue
 
         try:
-            motor.sendMotorCommand(motor.motor_ids[0], position)
+            # 如果电机支持扭矩控制，使用command[0]
+            # 如果只支持位置控制，使用command[1]
+            # 这里假设使用位置控制作为后备
+            motor.sendMotorCommand(motor.motor_ids[0], command[1])
+            motor_state['position'] = motor.get_position()[0]
+            motor_state['velocity'] = motor.get_velocity()[0]
         except Exception as e:
             print(f"[motor send] error: {e}", file=sys.stderr)
 
@@ -56,6 +63,7 @@ if __name__ == "__main__":
     # Create EMG sensor instance and setup thread
     raw_data = queue.Queue(maxsize=SAMPLE_RATE)
     position_queue = queue.Queue(maxsize=SAMPLE_RATE)
+    motor_state = {'position': 0, 'velocity': 0}
     emg = DelsysEMG()
 
     # Initialize filtering and interpretors
@@ -72,7 +80,7 @@ if __name__ == "__main__":
     emg.start()
     # Start EMG reading thread
     t_emg = threading.Thread(target=read_EMG, args=(emg, raw_data), daemon=True)
-    t_motor = threading.Thread(target=send_motor_command, args=(motor, position_queue), daemon=True)
+    t_motor = threading.Thread(target=send_motor_command, args=(motor, position_queue, motor_state), daemon=True)
     t_emg.start()
     t_motor.start()
     print("EMG and motor command threads started!")
@@ -120,7 +128,6 @@ if __name__ == "__main__":
         
         step = 1500/140
         step_offset = 1050
-        #position = 2550 - int(position*step + step_offset)
         position = 2550 - int(position*step)
 
         # TODO: Add OIAC and communication with the exoskeleton motor

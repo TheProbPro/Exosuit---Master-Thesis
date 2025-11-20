@@ -484,16 +484,19 @@ def read_EMG(EMG_sensor, raw_queue):
             print(f"[reader] error: {e}", file=sys.stderr)
 
 
-def send_motor_command(motor, command_queue):
+def send_motor_command(motor, command_queue, motor_state):
     """电机命令发送线程"""
     while not stop_event.is_set():
         try:
+            # command = (torque, position_fallback)
             command = command_queue.get(timeout=0.01)
         except queue.Empty:
             continue
 
         try:
             motor.sendMotorCommand(motor.motor_ids[0], command[1])
+            motor_state['position'] = motor.get_position()[0]
+            motor_state['velocity'] = motor.get_velocity()[0]
         except Exception as e:
             print(f"[motor send] error: {e}", file=sys.stderr)
 
@@ -534,6 +537,7 @@ if __name__ == "__main__":
     # 创建队列
     raw_data = queue.Queue(maxsize=SAMPLE_RATE)
     command_queue = queue.Queue(maxsize=10)
+    motor_state = {'position': 0, 'velocity': 0}
     
     # 初始化EMG传感器
     emg = DelsysEMG()
@@ -575,7 +579,7 @@ if __name__ == "__main__":
     
     # 启动线程
     t_emg = threading.Thread(target=read_EMG, args=(emg, raw_data), daemon=True)
-    t_motor = threading.Thread(target=send_motor_command, args=(motor, command_queue), daemon=True)
+    t_motor = threading.Thread(target=send_motor_command, args=(motor, command_queue, motor_state), daemon=True)
     t_emg.start()
     t_motor.start()
     print("\n✅ EMG and motor threads started!")
@@ -690,8 +694,11 @@ if __name__ == "__main__":
                 last_desired_angle = desired_angle_rad
                 
                 # 估计当前角速度
-                current_velocity = (desired_angle_rad - current_angle) / dt if dt > 0 else 0.0
-                current_angle += current_velocity * dt
+                #current_velocity = (desired_angle_rad - current_angle) / dt if dt > 0 else 0.0
+                #current_angle += current_velocity * dt
+                current_velocity = motor_state['velocity']
+                current_angle_deg = (motor_center - motor_state['position']) / step
+                current_angle = math.radians(current_angle_deg)
                 
                 # ========== 🔥 True RAN Multifunctional Control ==========
                 

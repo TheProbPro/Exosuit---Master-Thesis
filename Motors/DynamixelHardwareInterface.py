@@ -371,11 +371,11 @@ if __name__ == "__main__":
     # Test position control
     motors.sendMotorCommand(motors.motor_ids[0], 1500)  # Move to middle position
     print(motors.get_velocity())
-    time.sleep(2)
+    #time.sleep(2)
 
     print(motors.get_position())
     # wait for 2 seconds
-    time.sleep(2)
+    #time.sleep(2)
     
     print("Motors initialized successfully")
 
