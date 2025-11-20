@@ -485,8 +485,6 @@ if __name__ == "__main__":
     
     # 等待并初始化电机位置
     time.sleep(1.0)
-    motor.sendMotorCommand(motor.motor_ids[0], motor_center)
-    time.sleep(1.0)
     
     # 启动EMG传感器
     emg.start()
@@ -791,6 +789,64 @@ if __name__ == "__main__":
                   f"({all_trial_stats[0]['avg_error_deg']}° → "
                   f"{all_trial_stats[-1]['avg_error_deg']}°)")
     
+    # press 1 to enter run mode, 2 to exit
+    print("\n" + "="*60)
+    print("press 1 to enter run mode (no ILC), 2 to exit")
+    print("\n" + "="*60)
+    user_input = input("Your choice: ")
+    if user_input.strip() == '1':
+        #TODO: Import saved ILC data for run mode
+        
+
+        while not stop_event.is_set():
+            try:
+                reading = raw_data.get_nowait()
+            except queue.Empty:
+                time.sleep(0.001)
+                continue
+                
+            filtered_Bicep = filter_bicep.bandpass(reading[0])
+            filtered_Tricep = filter_tricep.bandpass(reading[1]) if len(reading) > 1 else 0.0
+                
+            # 计算RMS
+            try:
+                if Bicep_RMS_queue.full():
+                    Bicep_RMS_queue.get_nowait()
+                Bicep_RMS_queue.put_nowait(filtered_Bicep)
+                    
+                if Tricep_RMS_queue.full():
+                    Tricep_RMS_queue.get_nowait()
+                Tricep_RMS_queue.put_nowait(filtered_Tricep)
+            except queue.Full:
+                pass
+                
+            Bicep_RMS = np.sqrt(np.mean(np.array(list(Bicep_RMS_queue.queue))**2))
+            Tricep_RMS = np.sqrt(np.mean(np.array(list(Tricep_RMS_queue.queue))**2))
+                
+            # 低通滤波RMS信号
+            filtered_bicep_RMS = filter_bicep.lowpass(np.atleast_1d(Bicep_RMS))
+            filtered_tricep_RMS = filter_tricep.lowpass(np.atleast_1d(Tricep_RMS))
+                
+            # 计算激活度和期望角度
+            #activation = interpreter.compute_activation([filtered_bicep_RMS, filtered_tricep_RMS])
+            activation = interpreter.compute_activation(filtered_bicep_RMS)
+            desired_angle_deg = interpreter.compute_angle(activation[0], activation[1])
+            desired_angle_rad = math.radians(desired_angle_deg)
+            
+            # 估计期望角速度
+            desired_velocity_rad = (desired_angle_rad - last_desired_angle) / dt if dt > 0 else 0.0
+            last_desired_angle = desired_angle_rad
+                
+            # 估计当前角速度
+            current_velocity = motor_state['velocity']
+            current_angle_deg = (motor_center - motor_state['position']) / step
+            current_angle = math.radians(current_angle_deg)
+
+            #TODO: Implement controller
+
+    elif user_input.strip() == '2':
+        pass
+
     # 停止系统
     print("\n" + "="*60)
     print("SHUTTING DOWN")
