@@ -19,6 +19,7 @@ import os
 
 SAMPLE_RATE = 2000  # Hz
 USER_NAME = 'VictorBNielsen'
+# USER_NAME = 'XiaofengXiong'
 ANGLE_MIN = 0
 ANGLE_MAX = 140
 
@@ -941,6 +942,7 @@ if __name__ == "__main__":
     print("\n" + "="*60)
     user_input = input("Your choice: ")
     if user_input.strip() == '1':
+        # TODO: Load data from ILC
         while not stop_event.is_set():
             try:
                 reading = raw_data.get_nowait()
@@ -980,76 +982,13 @@ if __name__ == "__main__":
             last_desired_angle = desired_angle_rad
                 
             # 估计当前角速度
-            #current_velocity = (desired_angle_rad - current_angle) / dt if dt > 0 else 0.0
-            #current_angle += current_velocity * dt
             current_velocity = motor_state['velocity']
             current_angle_deg = (motor_center - motor_state['position']) / step
             current_angle = math.radians(current_angle_deg)
+
+            #TODO: Implement controller
                 
-            # ========== 🔥 True RAN Multifunctional Control ==========
-                
-            position_error = desired_angle_rad - current_angle
-                
-            if multi_controller:
-                # 使用True RAN多功能控制器（从仿真移植）
-                total_torque, current_mode = multi_controller.compute_control(
-                    trial_time, 
-                    current_angle, 
-                    current_velocity,
-                    desired_angle_rad,
-                    desired_velocity_rad,
-                    trial_num
-                )
-            else:
-                # Fallback to basic OIAC (without RAN)
-                K_mat, B_mat = oiac.update_impedance(
-                    current_angle, desired_angle_rad,
-                    current_velocity, desired_velocity_rad
-                )
-                pos_error_vec = np.array([[position_error]])
-                vel_error_vec = np.array([[desired_velocity_rad - current_velocity]])
-                total_torque = float((K_mat @ pos_error_vec + B_mat @ vel_error_vec).item())
-                current_mode = 'AAN'
-                
-            # ===== 肌肉力估计和优化 =====
-            bicep_force, tricep_force = muscle_estimator.estimate_muscle_forces(
-                Bicep_RMS, Tricep_RMS
-            )
-                
-            force_penalty = muscle_estimator.calculate_force_penalty(
-                bicep_force, tricep_force, position_error, total_torque
-            )
-                
-            # 应用肌肉力惩罚
-            final_torque = total_torque - force_penalty
-                
-            # 扭矩限制
-            torque_clipped = np.clip(final_torque, TORQUE_MIN, TORQUE_MAX)
-                
-            # 记录trial数据
-            trial_time_log.append(trial_time)
-            trial_error_log.append(position_error)
-            trial_torque_log.append(torque_clipped)
-            trial_desired_angle_log.append(desired_angle_rad)
-            trial_current_angle_log.append(current_angle)
-            trial_bicep_force_log.append(bicep_force)
-            trial_tricep_force_log.append(tricep_force)
-            trial_k_log.append(float(oiac.k_mat[0, 0]))
-            trial_b_log.append(float(oiac.b_mat[0, 0]))
-            trial_mode_log.append(current_mode)
-                
-            # 转换为电机位置命令（使用期望角度）
-            position_motor = motor_center - int(desired_angle_deg * step)
-                
-            # 发送命令（只用position控制）
-            try:
-                command_queue.put_nowait((torque_clipped, position_motor))
-            except queue.Full:
-                try:
-                    command_queue.get_nowait()
-                    command_queue.put_nowait((torque_clipped, position_motor))
-                except:
-                    pass
+            
 
     elif user_input.strip() == '2':
         pass

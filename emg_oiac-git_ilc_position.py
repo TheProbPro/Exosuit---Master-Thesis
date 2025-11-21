@@ -796,7 +796,6 @@ if __name__ == "__main__":
     user_input = input("Your choice: ")
     if user_input.strip() == '1':
         #TODO: Import saved ILC data for run mode
-        
 
         while not stop_event.is_set():
             try:
