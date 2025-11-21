@@ -361,7 +361,7 @@ class EnhancedILC:
         print("[ILC] Reset completed")
 
 
-# ==================== True RAN Multifunctional Controller (from Simulation) ====================
+# ==================== True RAN Multifunctional Controller (基于扭矩符号切换) ====================
 
 class TrueRANMultifunctionalController:
     """
@@ -384,14 +384,14 @@ class TrueRANMultifunctionalController:
         # Mode history
         self.mode_history = []
         
-        # RAN state
-        self.ran_start_time = 0
+        # 状态记录
+        self.last_torque = 0.0
         self.last_switch_time = 0
-        self.min_switch_interval = 0.1  # 减小切换间隔，让模式切换更灵敏
-        
+        self.min_switch_interval = 0.1  # 最小切换间隔
+    
     def compute_control(self, t, q, qdot, q_des, dq_des, trial_idx):
         """
-        计算控制扭矩，实现True RAN多功能控制
+        计算控制扭矩，基于扭矩符号实现AAN/RAN切换
         
         Args:
             t: current time (s)
@@ -408,50 +408,66 @@ class TrueRANMultifunctionalController:
         current_time = t
         error = q_des - q
         
-        # Check if we can switch modes (防止频繁切换)
-        can_switch = (current_time - self.last_switch_time) >= self.min_switch_interval
-        
-        # Update impedance parameters
+        # 更新阻抗参数
         K_mat, B_mat = self.oiac.update_impedance(q, q_des, qdot, dq_des, self.current_mode)
         
-        # Compute base feedback torque
+        # 计算基础反馈扭矩 (OIAC)
         pos_error_vec = np.array([[error]])
         vel_error_vec = np.array([[dq_des - qdot]])
         tau_fb = float((K_mat @ pos_error_vec + B_mat @ vel_error_vec).item())
         
-        # Mode-specific control logic (from simulation)
-        if self.current_mode == 'AAN':
-            # ===== AAN Mode: 正常轨迹跟踪 =====
-            # 使用ILC前馈 + OIAC反馈
-            tau_ff = self.ilc.get_feedforward(t, trial_idx-1) if trial_idx > 0 else 0.0
-            total_torque = tau_ff + tau_fb
-            
-            # AAN → RAN: 当跟踪良好时，激活阻力
-            if can_switch and abs(error) < self.error_threshold_aan_to_ran:
-                self.current_mode = 'RAN'
-                self.ran_start_time = current_time
-                self.last_switch_time = current_time
-                print(f"🔄 AAN→RAN at t={t}s (error={math.degrees(error)}°) - Activating resistance")
-                
-        else:
-            # ===== RAN Mode: 阻力模式 =====
-            # 只使用OIAC反馈（不使用ILC前馈）+ 阻力扭矩
-            
-            # 计算阻力扭矩（总是与运动方向相反）
-            resistance_direction = -1.0 if qdot >= 0 else 1.0
-            base_resistance = self.ran_resistance_level * resistance_direction
-            velocity_resistance = self.ran_velocity_factor * abs(qdot) * resistance_direction
-            
-            # Total RAN torque: OIAC feedback + resistance (no ILC feedforward!)
-            total_torque = tau_fb + base_resistance + velocity_resistance
-            
-            # RAN → AAN: 当跟踪变差时，取消阻力
-            if can_switch and abs(error) > self.error_threshold_ran_to_aan:
-                self.current_mode = 'AAN'
-                self.last_switch_time = current_time
-                print(f"🔄 RAN→AAN at t={t}s (error={math.degrees(error)}°) - Deactivating resistance")
+        # ===== 基于扭矩符号的模式切换 =====
+        can_switch = (current_time - self.last_switch_time) >= self.min_switch_interval
         
-        # Record mode
+        if self.torque_based_switching:
+            # 先计算AAN模式的扭矩（包含ILC前馈）
+            tau_ff = self.ilc.get_feedforward(t, trial_idx-1) if trial_idx > 0 else 0.0
+            tau_aan = tau_ff + tau_fb
+            
+            # 基于扭矩符号决定模式
+            if tau_aan > 0:  # 正扭矩 → AAN模式
+                if self.current_mode != 'AAN' and can_switch:
+                    self.current_mode = 'AAN'
+                    self.last_switch_time = current_time
+                    print(f"🔄 RAN→AAN at t={t}s (torque={tau_aan}Nm) - Activating assistance")
+                
+                total_torque = tau_aan
+                
+            else:  # 负扭矩或零 → RAN模式
+                if self.current_mode != 'RAN' and can_switch:
+                    self.current_mode = 'RAN'
+                    self.last_switch_time = current_time
+                    print(f"🔄 AAN→RAN at t={t}s (torque={tau_aan}Nm) - Activating resistance")
+                
+                # RAN模式：只使用基础反馈 + 阻力
+                resistance_direction = -1.0 if qdot >= 0 else 1.0
+                base_resistance = self.ran_resistance_level * resistance_direction
+                velocity_resistance = self.ran_velocity_factor * abs(qdot) * resistance_direction
+                
+                total_torque = tau_fb + base_resistance + velocity_resistance
+        
+        else:
+            # 回退到基于误差的切换（保持原有逻辑）
+            if self.current_mode == 'AAN':
+                tau_ff = self.ilc.get_feedforward(t, trial_idx-1) if trial_idx > 0 else 0.0
+                total_torque = tau_ff + tau_fb
+                
+                if can_switch and abs(error) < math.radians(3.0):
+                    self.current_mode = 'RAN'
+                    self.last_switch_time = current_time
+                    
+            else:  # RAN模式
+                resistance_direction = -1.0 if qdot >= 0 else 1.0
+                base_resistance = self.ran_resistance_level * resistance_direction
+                velocity_resistance = self.ran_velocity_factor * abs(qdot) * resistance_direction
+                total_torque = tau_fb + base_resistance + velocity_resistance
+                
+                if can_switch and abs(error) > math.radians(7.0):
+                    self.current_mode = 'AAN'
+                    self.last_switch_time = current_time
+        
+        # 记录状态
+        self.last_torque = total_torque
         self.mode_history.append(self.current_mode)
         
         return total_torque, self.current_mode
@@ -461,8 +477,8 @@ class TrueRANMultifunctionalController:
         self.current_mode = 'AAN'
         self.mode_history.clear()
         self.last_switch_time = 0
-        self.ran_start_time = 0
-        print("[RAN Controller] Reset to AAN mode")
+        self.last_torque = 0.0
+        print("[RAN Controller] Reset to AAN mode (torque-based switching)")
 
 
 def read_EMG(EMG_sensor, raw_queue):
