@@ -495,7 +495,7 @@ def send_motor_command(motor, command_queue, motor_state):
             continue
 
         try:
-            motor.sendMotorCommand(motor.motor_ids[0], command[1])
+            motor.sendMotorCommand(motor.motor_ids[0], motor.torq2curcom(command[0]))
             motor_state['position'] = motor.get_position()[0]
             motor_state['velocity'] = motor.get_velocity()[0]
         except Exception as e:
@@ -553,6 +553,7 @@ if __name__ == "__main__":
     
     # 初始化电机
     motor = Motors()
+    motor.set_cont_mode(mode='cur')
     
     # 🔥 初始化True RAN控制器（从仿真移植的版本）
     oiac = TrueRANOptimizedOIAC(dof=1)
