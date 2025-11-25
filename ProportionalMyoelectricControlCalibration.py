@@ -8,8 +8,11 @@ import os
 from SignalProcessing.Filtering import rt_filtering
 from Sensors.EMGSensor import DelsysEMG
 
+# TODO: Clean this script and optimize it for when tests needs to be performed
+
 Sensor_channels = [0, 1] # Bicep, Tricep
 User_name = 'VictorBNielsen'
+# User_name = 'XiaofengXiong'
 
 def _calc_MVC(signal, sampling_rate=2000, win_ms=200):
         i = int(np.max(signal))
@@ -43,9 +46,9 @@ if __name__ == "__main__":
 
     print("EMG started!")
 
-    print("Starting test of data aquisition and filtering for {} seconds...".format(seconds))
+    print("Starting test of data aquisition and filtering for {} seconds...".format(2))
     TIME = time.time()
-    while ((time.time() - TIME < seconds)):
+    while ((time.time() - TIME < 2)):
         # Aquire data
         reading = emg.read()
         Bicep_data.append(reading[Sensor_channels[0]])
@@ -130,9 +133,8 @@ if __name__ == "__main__":
     while not Tricep_RMS_queue.empty():
         Tricep_RMS_queue.get()
 
-    input("Press Enter to start calibration for Proportional Myoelectric Control...")
+    input("Press Enter to start calibration of MVC. After pressing enter rest your arm for the next 10 seconds...")
     emg.start()
-    print("Rest your arm, for the next 10 seconds...")
     TIME = time.time()
     while (time.time() - TIME < 10):
         reading = emg.read()
@@ -209,10 +211,6 @@ if __name__ == "__main__":
         max_bicep.append(_calc_MVC(filtered_Bicep_RMS, sampling_rate=sample_rate, win_ms=200))
         max_tricep.append(_calc_MVC(filtered_Tricep_RMS, sampling_rate=sample_rate, win_ms=200))
         print("Trial {} done! Max bicep: {}, Max tricep: {}".format(trial+1, max_bicep[-1], max_tricep[-1]))
-        
-        plt.plot(filtered_Bicep_RMS, label='Bicep RMS')
-        plt.grid()
-        plt.show()
         
         Bicep_data.clear()
         Tricep_data.clear()

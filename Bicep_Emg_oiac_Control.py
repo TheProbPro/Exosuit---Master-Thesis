@@ -229,7 +229,7 @@ def send_motor_command(motor, command_queue, motor_state):
             # 如果电机支持扭矩控制，使用command[0]
             # 如果只支持位置控制，使用command[1]
             # 这里假设使用位置控制作为后备
-            motor.sendMotorCommand(motor.motor_ids[0], command[1])
+            motor.sendMotorCommand(motor.motor_ids[0], motor.torq2curcom(command[0]))
             motor_state['position'] = motor.get_position()[0]
             motor_state['velocity'] = motor.get_velocity()[0]
         except Exception as e:
@@ -266,6 +266,7 @@ if __name__ == "__main__":
     
     # 初始化电机
     motor = Motors()
+    motor.set_cont_mode(mode='cur')
     
     # 初始化控制器
     oiac = RobustAdaptiveImpedanceController(dof=1)
