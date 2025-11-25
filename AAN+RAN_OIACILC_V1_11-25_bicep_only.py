@@ -104,144 +104,141 @@ class EMGMuscleForceEstimator:
         self.force_penalty_history.clear()
 
 
-# ==================== True RAN-Optimized OIAC Controller (from Simulation) ====================
+# ==================== 从第一段代码移植的控制器 ====================
 
-class TrueRANOptimizedOIAC:
-    """
-    True RAN-optimized OIAC controller - 从仿真移植到硬件
-    具有更保守的参数，适合真实硬件控制
-    """
+class AdaptiveImpedanceController:
+   
     def __init__(self, dof=1):
         self.DOF = dof
-        # Moderate initial impedance (从仿真优化的初始值)
-        self.k_mat = np.eye(dof) * 60.0
-        self.b_mat = np.eye(dof) * 15.0
         
-        # State variables
-        self.q = np.zeros((self.DOF, 1))      # Real joint angle
-        self.q_d = np.zeros((self.DOF, 1))    # Desired joint angle
-        self.dq = np.zeros((self.DOF, 1))     # Real joint velocity
-        self.dq_d = np.zeros((self.DOF, 1))   # Desired joint velocity
+        # 阻抗参数
+        self.k = np.zeros(self.DOF)  # 刚度
+        self.d = np.zeros(self.DOF)  # 阻尼
+        self.ff = np.zeros(self.DOF)  # 前馈
         
-        # Conservative parameters for hardware stability (from simulation)
-        self.a = 0.1      # Adaptation factor numerator
-        self.b = 0.005    # Adaptation factor denominator coefficient
-        self.k = 0.2      # Tracking error weight
+        # 自适应参数 (来自第一段代码)
+        self.a = 35.0    # 自适应因子分子
+        self.b = 5.0     # 自适应因子分母系数
+        self.beta = 0.05 # 跟踪误差权重
         
-        # Reasonable impedance ranges (from simulation)
-        self.k_min = 20.0
-        self.k_max = 200.0
-        self.b_min = 8.0
-        self.b_max = 80.0
+        # 状态变量
+        self.pos_diff = np.zeros(self.DOF)  # 位置误差
+        self.vel_diff = np.zeros(self.DOF)  # 速度误差
+        self.tra_diff = np.zeros(self.DOF)  # 跟踪误差
+        self.co_diff = np.zeros(self.DOF)   # 自适应系数
         
-    def gen_pos_err(self):
-        """Position error"""
-        return (self.q - self.q_d)
+        # 恒定阻抗控制器参数 (备用)
+        self.cons_k = 0.04
+        self.cons_d = np.sqrt(self.cons_k)
+        
+    def get_pos_diff(self, current_pos, desired_pos):
+        """计算位置差异 (T3)"""
+        self.pos_diff = current_pos - desired_pos
+        return self.pos_diff
     
-    def gen_vel_err(self):
-        """Velocity error"""
-        return (self.dq - self.dq_d)
+    def get_vel_diff(self, current_vel, desired_vel):
+        """计算速度差异 (T4)"""
+        self.vel_diff = current_vel - desired_vel
+        return self.vel_diff
     
-    def gen_track_err(self):
-        """Tracking error"""
-        return (self.k * self.gen_vel_err() + self.gen_pos_err())
+    def get_tra_diff(self):
+        """计算跟踪差异 (T5)"""
+        self.tra_diff = self.pos_diff + self.beta * self.vel_diff
+        return self.tra_diff
     
-    def gen_ad_factor(self):
-        """Adaptation scalar"""
-        track_err_norm = la.norm(self.gen_track_err())
-        denominator = max(1.0 + self.b * track_err_norm * track_err_norm, 0.1)
-        return self.a / denominator
+    def get_coe(self):
+        """计算自适应标量 (T6)"""
+        for i in range(self.DOF):
+            self.co_diff[i] = self.a / (1.00 + self.b * self.tra_diff[i] * self.tra_diff[i])
+        return self.co_diff
     
-    def update_impedance(self, q, q_d, dq, dq_d, mode='AAN'):
+    def adaptive_impedance_control(self, current_pos, desired_pos, current_vel, desired_vel):
         """
-        Update stiffness and damping matrices
-        
-        Args:
-            q: Current joint position (scalar or array)
-            q_d: Desired joint position (scalar or array)
-            dq: Current joint velocity (scalar or array)
-            dq_d: Desired joint velocity (scalar or array)
-            mode: 'AAN' or 'RAN' (not used in update, but kept for compatibility)
-        
-        Returns:
-            k_mat: Updated stiffness matrix
-            b_mat: Updated damping matrix
+        自适应阻抗控制 (T9, T10)
+        基于第一段代码的 ada_impe() 方法
         """
-        # Convert inputs to column vectors
-        self.q = np.atleast_2d(np.atleast_1d(q)).T
-        self.q_d = np.atleast_2d(np.atleast_1d(q_d)).T
-        self.dq = np.atleast_2d(np.atleast_1d(dq)).T
-        self.dq_d = np.atleast_2d(np.atleast_1d(dq_d)).T
+        # 计算误差
+        self.get_pos_diff(current_pos, desired_pos)
+        self.get_vel_diff(current_vel, desired_vel)
+        self.get_tra_diff()
+        self.get_coe()
         
-        # Compute error terms
-        track_err = self.gen_track_err()
-        pos_err = self.gen_pos_err()
-        vel_err = self.gen_vel_err()
-        ad_factor = max(self.gen_ad_factor(), 0.001)
+        # 在线调制阻抗参数
+        for i in range(self.DOF):
+            self.ff[i] = self.tra_diff[i] / self.co_diff[i]
+            self.k[i] = self.ff[i] * self.pos_diff[i]
+            self.d[i] = self.ff[i] * self.vel_diff[i]
+            
+            # 计算控制扭矩
+            control_torque = -(self.ff[i] + self.k[i] * self.pos_diff[i] + self.d[i] * self.vel_diff[i])
+            
+        return control_torque, self.k.copy(), self.d.copy(), self.ff.copy()
+    
+    def constant_impedance_control(self, current_pos, desired_pos, current_vel, desired_vel):
+        """
+        恒定阻抗控制 (T7, T8)
+        基于第一段代码的 const_impe() 方法
+        """
+        # 计算误差
+        self.get_pos_diff(current_pos, desired_pos)
+        self.get_vel_diff(current_vel, desired_vel)
         
-        # Moderate scaling for both modes (from simulation)
-        k_scale = 150.0
-        b_scale = 100.0
-        
-        # Update K and B using outer product formulation
-        k_update = k_scale * (track_err @ pos_err.T) / ad_factor
-        b_update = b_scale * (track_err @ vel_err.T) / ad_factor
-        
-        # Smooth adaptation (from simulation - 硬件上更重要!)
-        alpha = 0.9
-        self.k_mat = alpha * self.k_mat + (1 - alpha) * np.clip(k_update, self.k_min, self.k_max)
-        self.b_mat = alpha * self.b_mat + (1 - alpha) * np.clip(np.abs(b_update), self.b_min, self.b_max)
-        
-        return self.k_mat, self.b_mat
+        # 恒定阻抗参数
+        for i in range(self.DOF):
+            self.k[i] = self.cons_k
+            self.d[i] = self.cons_d
+            self.ff[i] = 0.00
+            
+            # 计算控制扭矩
+            control_torque = -(self.cons_k * self.pos_diff[i] + self.cons_d * self.vel_diff[i]) - self.ff[i]
+            
+        return control_torque, self.k.copy(), self.d.copy(), self.ff.copy()
     
     def reset(self):
-        """重置控制器状态（用于新trial）"""
-        # Reset to moderate initial values
-        self.k_mat = np.eye(self.DOF) * 60.0
-        self.b_mat = np.eye(self.DOF) * 15.0
+        """重置控制器状态"""
+        self.k = np.zeros(self.DOF)
+        self.d = np.zeros(self.DOF)
+        self.ff = np.zeros(self.DOF)
+        self.pos_diff = np.zeros(self.DOF)
+        self.vel_diff = np.zeros(self.DOF)
+        self.tra_diff = np.zeros(self.DOF)
+        self.co_diff = np.zeros(self.DOF)
 
 
-# ==================== Enhanced ILC Controller (from Simulation) ====================
+# ==================== 从第一段代码移植的迭代学习 ====================
 
-class EnhancedILC:
+class IterativeLearningController:
     """
-    增强的迭代学习控制器 - 从仿真移植
-    用于重复性任务的前馈学习
+    从第一段代码移植的迭代学习控制器
+    基于 iter_learn_ff_mod() 方法
     """
-    def __init__(self, max_trials=10, reference_length=5000):
+    def __init__(self, max_trials=10, alpha=0.1):
         self.max_trials = max_trials
         self.current_trial = 0
-        self.learned_feedforward = []  # 每个trial的前馈
+        self.alpha = alpha  # 学习增益
+        
+        # 学习数据存储
+        self.learned_feedforward = []  # 每个trial的前馈扭矩
+        self.trial_errors = []         # 每个trial的误差
+        self.trial_torques = []        # 每个trial的扭矩
+        
+        # 时间相关参数
         self.reference_time = None
-        self.reference_length = reference_length
-        
-        # 学习率随trial递减 (from simulation)
-        self.learning_rates = [0.8, 0.7, 0.6, 0.5, 0.4, 0.3, 0.25, 0.2, 0.15, 0.1]
-        
-        # 历史数据记录
-        self.trial_errors = []
-        self.trial_torques = []
+        self.sample_rate = 50  # Hz (假设)
         
     def update_learning(self, time_array, error_array, torque_array):
         """
-        ILC学习更新
-        
-        参数:
-            time_array: 时间序列
-            error_array: 跟踪误差序列
-            torque_array: 控制扭矩序列
-        
-        返回:
-            ff: 更新后的前馈扭矩
+        迭代学习更新
+        基于第一段代码的 iter_learn_ff_mod() 方法
         """
         if len(time_array) == 0 or len(error_array) == 0:
             print("[ILC] Warning: Empty data, skipping update")
-            return np.zeros(self.reference_length)
+            return np.zeros(len(self.learned_feedforward[0]) if self.learned_feedforward else 100)
         
         # 创建统一的参考时间轴
         if self.reference_time is None:
-            max_time = max(time_array) if len(time_array) > 0 else ILC_TRIAL_DURATION
-            self.reference_time = np.linspace(0, max_time, self.reference_length)
+            max_time = max(time_array) if len(time_array) > 0 else 10.0
+            self.reference_time = np.linspace(0, max_time, int(max_time * self.sample_rate))
         
         # 对齐数据到参考时间轴
         try:
@@ -256,23 +253,21 @@ class EnhancedILC:
             print(f"[ILC] Interpolation error: {e}")
             aligned_error = np.zeros_like(self.reference_time)
         
-        lr =0.01
-
         # 学习更新
         if not self.learned_feedforward:
             # 第一次trial，初始化为零
             ff = np.zeros_like(aligned_error)
         else:
             # 使用上一次的前馈 + 学习项
-            lr = self.learning_rates[min(self.current_trial, len(self.learning_rates)-1)]
-            ff = self.learned_feedforward[-1] + lr * aligned_error
+            last_ff = self.learned_feedforward[-1]
+            ff = last_ff + self.alpha * aligned_error
         
-        # 限制前馈幅度，避免过大 (from simulation)
+        # 限制前馈幅度
         ff = np.clip(ff, -30.0, 30.0)
         
-        # 平滑处理 (from simulation - 硬件上更重要!)
+        # 平滑处理
         if len(ff) > 10:
-            window_size = 7  # 更小的窗口，适合硬件
+            window_size = 7
             ff = np.convolve(ff, np.ones(window_size)/window_size, mode='same')
         
         self.learned_feedforward.append(ff)
@@ -285,7 +280,7 @@ class EnhancedILC:
         max_error = np.max(np.abs(aligned_error))
         
         print(f"[ILC] Trial {self.current_trial} completed:")
-        print(f"      Learning rate: {lr}")
+        print(f"      Learning rate: {self.alpha}")
         print(f"      Avg error: {math.degrees(avg_error)}°")
         print(f"      Max error: {math.degrees(max_error)}°")
         print(f"      Feedforward range: [{np.min(ff)}, {np.max(ff)}] Nm")
@@ -295,13 +290,6 @@ class EnhancedILC:
     def get_feedforward(self, t, trial_idx=-1):
         """
         获取指定时刻的前馈扭矩
-        
-        参数:
-            t: 当前时间
-            trial_idx: trial索引，-1表示使用最新的
-        
-        返回:
-            feedforward torque
         """
         if trial_idx < 0:
             trial_idx = len(self.learned_feedforward) - 1
@@ -353,7 +341,7 @@ class EnhancedILC:
             return False
     
     def reset(self):
-        """重置ILC（开始新的学习过程）"""
+        """重置ILC"""
         self.learned_feedforward.clear()
         self.trial_errors.clear()
         self.trial_torques.clear()
@@ -361,125 +349,118 @@ class EnhancedILC:
         print("[ILC] Reset completed")
 
 
-# ==================== True RAN Multifunctional Controller (基于扭矩符号切换) ====================
+# ==================== 基于扭矩符号的AAN/RAN控制器 ====================
 
-class TrueRANMultifunctionalController:
+class TorqueBasedAANRANController:
     """
-    True RAN multifunctional controller - 基于扭矩符号切换模式
-    - 扭矩为正: AAN模式（辅助，使用ILC前馈）
-    - 扭矩为负或零: RAN模式（阻力，不使用ILC前馈）
+    基于扭矩符号的AAN/RAN控制器
+    - 正扭矩: AAN模式 (辅助)
+    - 负扭矩: RAN模式 (阻力)
     """
-    def __init__(self, oiac, ilc):
-        self.oiac = oiac
-        self.ilc = ilc
-        self.current_mode = 'AAN'
+    def __init__(self, adaptive_controller, ilc_controller=None):
+        self.adaptive_controller = adaptive_controller
+        self.ilc_controller = ilc_controller
         
-        # 基于扭矩符号的模式切换 (新策略)
-        self.torque_based_switching = True  # 启用基于扭矩的切换
-        
-        # RAN resistance parameters
-        self.ran_resistance_level = 2.5  # Base resistance level (Nm)
-        self.ran_velocity_factor = 1.5   # Velocity-dependent resistance
-        
-        # Mode history
+        # 模式切换参数
+        self.current_mode = 'AAN'  # 初始模式
+        self.last_torque = 0.0
         self.mode_history = []
         
-        # 状态记录
-        self.last_torque = 0.0
+        # RAN阻力参数
+        self.ran_resistance_level = 2.5  # 基础阻力水平
+        self.ran_velocity_factor = 1.5   # 速度相关阻力
+        
+        # 切换参数
         self.last_switch_time = 0
-        self.min_switch_interval = 0.1  # 最小切换间隔
+        self.min_switch_interval = 0.1   # 最小切换间隔
     
-    def compute_control(self, t, q, qdot, q_des, dq_des, trial_idx):
+    def compute_control(self, t, current_pos, current_vel, desired_pos, desired_vel, trial_idx):
         """
         计算控制扭矩，基于扭矩符号实现AAN/RAN切换
-        
-        Args:
-            t: current time (s)
-            q: current position (rad)
-            qdot: current velocity (rad/s)
-            q_des: desired position (rad)
-            dq_des: desired velocity (rad/s)
-            trial_idx: current trial index
-        
-        Returns:
-            total_torque: control torque (Nm)
-            current_mode: 'AAN' or 'RAN'
         """
         current_time = t
-        error = q_des - q
         
-        # 更新阻抗参数
-        K_mat, B_mat = self.oiac.update_impedance(q, q_des, qdot, dq_des, self.current_mode)
+        # 使用自适应阻抗控制器计算基础扭矩
+        base_torque, k, d, ff = self.adaptive_controller.adaptive_impedance_control(
+            current_pos, desired_pos, current_vel, desired_vel
+        )
         
-        # 计算基础反馈扭矩 (OIAC)
-        pos_error_vec = np.array([[error]])
-        vel_error_vec = np.array([[dq_des - qdot]])
-        tau_fb = float((K_mat @ pos_error_vec + B_mat @ vel_error_vec).item())
+        # 获取ILC前馈扭矩 (如果有)
+        ilc_torque = 0.0
+        if self.ilc_controller and trial_idx > 0:
+            ilc_torque = self.ilc_controller.get_feedforward(t, trial_idx-1)
+        
+        # 计算AAN模式的总扭矩 (基础扭矩 + ILC前馈)
+        aan_torque = base_torque + ilc_torque
         
         # ===== 基于扭矩符号的模式切换 =====
         can_switch = (current_time - self.last_switch_time) >= self.min_switch_interval
         
-        if self.torque_based_switching:
-            # 先计算AAN模式的扭矩（包含ILC前馈）
-            tau_ff = self.ilc.get_feedforward(t, trial_idx-1) if trial_idx > 0 else 0.0
-            tau_aan = tau_ff + tau_fb
+        if aan_torque > 0:  # 正扭矩 → AAN模式
+            if self.current_mode != 'AAN' and can_switch:
+                self.current_mode = 'AAN'
+                self.last_switch_time = current_time
+                print(f"🔄 RAN→AAN at t={t:.2f}s (torque={aan_torque:.2f}Nm) - Activating assistance")
             
-            # 基于扭矩符号决定模式
-            if tau_aan > 0:  # 正扭矩 → AAN模式
-                if self.current_mode != 'AAN' and can_switch:
-                    self.current_mode = 'AAN'
-                    self.last_switch_time = current_time
-                    print(f"🔄 RAN→AAN at t={t}s (torque={tau_aan}Nm) - Activating assistance")
-                
-                total_torque = tau_aan
-                
-            else:  # 负扭矩或零 → RAN模式
-                if self.current_mode != 'RAN' and can_switch:
-                    self.current_mode = 'RAN'
-                    self.last_switch_time = current_time
-                    print(f"🔄 AAN→RAN at t={t}s (torque={tau_aan}Nm) - Activating resistance")
-                
-                # RAN模式：只使用基础反馈 + 阻力
-                resistance_direction = -1.0 if qdot >= 0 else 1.0
-                base_resistance = self.ran_resistance_level * resistance_direction
-                velocity_resistance = self.ran_velocity_factor * abs(qdot) * resistance_direction
-                
-                total_torque = tau_fb + base_resistance + velocity_resistance
-        
-        else:
-            # 回退到基于误差的切换（保持原有逻辑）
-            if self.current_mode == 'AAN':
-                tau_ff = self.ilc.get_feedforward(t, trial_idx-1) if trial_idx > 0 else 0.0
-                total_torque = tau_ff + tau_fb
-                
-                if can_switch and abs(error) < math.radians(3.0):
-                    self.current_mode = 'RAN'
-                    self.last_switch_time = current_time
-                    
-            else:  # RAN模式
-                resistance_direction = -1.0 if qdot >= 0 else 1.0
-                base_resistance = self.ran_resistance_level * resistance_direction
-                velocity_resistance = self.ran_velocity_factor * abs(qdot) * resistance_direction
-                total_torque = tau_fb + base_resistance + velocity_resistance
-                
-                if can_switch and abs(error) > math.radians(7.0):
-                    self.current_mode = 'AAN'
-                    self.last_switch_time = current_time
+            total_torque = aan_torque
+            
+        else:  # 负扭矩或零 → RAN模式
+            if self.current_mode != 'RAN' and can_switch:
+                self.current_mode = 'RAN'
+                self.last_switch_time = current_time
+                print(f"🔄 AAN→RAN at t={t:.2f}s (torque={aan_torque:.2f}Nm) - Activating resistance")
+            
+            # RAN模式：只使用基础阻抗控制 + 额外阻力
+            # 阻力方向与运动方向相反
+            resistance_direction = -1.0 if current_vel >= 0 else 1.0
+            base_resistance = self.ran_resistance_level * resistance_direction
+            velocity_resistance = self.ran_velocity_factor * abs(current_vel) * resistance_direction
+            
+            total_torque = base_torque + base_resistance + velocity_resistance
         
         # 记录状态
         self.last_torque = total_torque
-        self.mode_history.append(self.current_mode)
+        self.mode_history.append((current_time, self.current_mode, total_torque))
         
-        return total_torque, self.current_mode
+        # 限制历史记录长度
+        if len(self.mode_history) > 1000:
+            self.mode_history.pop(0)
+            
+        return total_torque, self.current_mode, k, d, ff
+    
+    def get_mode_statistics(self, recent_seconds=5):
+        """获取最近一段时间内的模式统计"""
+        if not self.mode_history:
+            return 0.0, 0.0
+            
+        current_time = time.time() if self.mode_history else 0
+        cutoff_time = current_time - recent_seconds
+        
+        recent_history = [mode for (t, mode, _) in self.mode_history if t >= cutoff_time]
+        
+        if not recent_history:
+            return 0.0, 0.0
+            
+        aan_count = recent_history.count('AAN')
+        ran_count = recent_history.count('RAN')
+        total_count = len(recent_history)
+        
+        aan_ratio = aan_count / total_count * 100
+        ran_ratio = ran_count / total_count * 100
+        
+        return aan_ratio, ran_ratio
     
     def reset(self):
-        """Reset controller for new trial"""
+        """重置控制器状态"""
         self.current_mode = 'AAN'
         self.mode_history.clear()
         self.last_switch_time = 0
         self.last_torque = 0.0
-        print("[RAN Controller] Reset to AAN mode (torque-based switching)")
+        self.adaptive_controller.reset()
+        print("[TorqueBased Controller] Reset to AAN mode")
 
+
+# ==================== 主控制系统 ====================
 
 def read_EMG(EMG_sensor, raw_queue):
     """EMG读取线程"""
@@ -524,8 +505,8 @@ signal.signal(signal.SIGINT, handle_sigint)
 
 if __name__ == "__main__":
     print("=" * 60)
-    print("🚀 EMG-based True RAN Multifunctional Control System")
-    print("   (Hardware Implementation)")
+    print(" EMG-based Adaptive Impedance Control with Torque-based AAN/RAN")
+    print("   (Integrated from First Code)")
     print("=" * 60)
     print(f"Sample rate: {SAMPLE_RATE} Hz")
     print(f"Torque range: [{TORQUE_MIN}, {TORQUE_MAX}] Nm")
@@ -533,18 +514,16 @@ if __name__ == "__main__":
     if ILC_ENABLED:
         print(f"Max trials: {ILC_MAX_TRIALS}")
         print(f"Trial duration: {ILC_TRIAL_DURATION}s")
-        print("\n⚠️  IMPORTANT: Please repeat the SAME movement pattern")
-        print("   in each trial for effective ILC learning!")
-    print("\n🎯 True RAN Mode Features:")
-    print(f"   - AAN→RAN threshold: 3.0° (activates resistance)")
-    print(f"   - RAN→AAN threshold: 7.0° (deactivates resistance)")
-    print(f"   - RAN uses OIAC only (no ILC feedforward)")
-    print(f"   - Base resistance: 2.5 Nm")
-    print(f"   - Velocity resistance: 1.5 * |velocity|")
-    print("\n💡 Hardware Tuning Tips:")
-    print("   - Start with small resistance (2.5 Nm)")
-    print("   - Adjust thresholds based on tracking performance")
-    print("   - Monitor mode switching frequency")
+    
+    print("\n Torque-based AAN/RAN Mode Switching:")
+    print("   - Positive torque (> 0): AAN mode (Assistance)")
+    print("   - Negative torque (<= 0): RAN mode (Resistance)")
+    print("   - AAN uses Adaptive Impedance + ILC feedforward")
+    print("   - RAN uses Adaptive Impedance + Resistance")
+    print("\n Adaptive Impedance Parameters:")
+    print("   - Adaptation factor (a): 35.0")
+    print("   - Adaptation denominator (b): 5.0")
+    print("   - Tracking weight (beta): 0.05")
     print("=" * 60)
     
     # 创建队列
@@ -566,19 +545,19 @@ if __name__ == "__main__":
     # 初始化电机
     motor = Motors()
     
-    # 🔥 初始化True RAN控制器（从仿真移植的版本）
-    oiac = TrueRANOptimizedOIAC(dof=1)
+    # 初始化从第一段代码移植的控制器
+    adaptive_controller = AdaptiveImpedanceController(dof=1)
     muscle_estimator = EMGMuscleForceEstimator()
-    ilc = EnhancedILC(max_trials=ILC_MAX_TRIALS) if ILC_ENABLED else None
+    ilc_controller = IterativeLearningController(max_trials=ILC_MAX_TRIALS, alpha=0.1) if ILC_ENABLED else None
     
-    # 🔥 初始化RAN多功能控制器
-    multi_controller = TrueRANMultifunctionalController(oiac, ilc) if ILC_ENABLED else None
+    # 初始化基于扭矩符号的AAN/RAN控制器
+    torque_based_controller = TorqueBasedAANRANController(adaptive_controller, ilc_controller)
     
     # 尝试加载之前的ILC学习数据
     if ILC_ENABLED and os.path.exists(ILC_SAVE_PATH):
         user_input = input(f"\nFound saved ILC data. Load it? (y/n): ")
         if user_input.lower() == 'y':
-            ilc.load_learning(ILC_SAVE_PATH)
+            ilc_controller.load_learning(ILC_SAVE_PATH)
     
     # 电机位置转换参数
     step = 1500.0 / 140.0
@@ -595,12 +574,12 @@ if __name__ == "__main__":
     t_motor = threading.Thread(target=send_motor_command, args=(motor, command_queue, motor_state), daemon=True)
     t_emg.start()
     t_motor.start()
-    print("\n✅ EMG and motor threads started!")
+    print("\n EMG and motor threads started!")
     
     # ILC trial循环
     if ILC_ENABLED:
         max_trials = ILC_MAX_TRIALS
-        start_trial = ilc.current_trial
+        start_trial = ilc_controller.current_trial if ilc_controller else 0
     else:
         max_trials = 1
         start_trial = 0
@@ -610,18 +589,15 @@ if __name__ == "__main__":
     for trial_num in range(start_trial, max_trials):
         if ILC_ENABLED:
             print(f"\n{'='*60}")
-            print(f"🔄 Starting Trial {trial_num + 1}/{max_trials}")
+            print(f" Starting Trial {trial_num + 1}/{max_trials}")
             print(f"{'='*60}")
-            print("⚠️  Please perform the SAME movement pattern as previous trials!")
-            print("   This is critical for ILC learning effectiveness.")
             print("Press Enter to start trial...")
             input()
         
         # 重置trial相关的状态
-        oiac.reset()
+        adaptive_controller.reset()
         muscle_estimator.reset_history()
-        if multi_controller:
-            multi_controller.reset()
+        torque_based_controller.reset()
         
         Bicep_RMS_queue = queue.Queue(maxsize=50)
         Tricep_RMS_queue = queue.Queue(maxsize=50)
@@ -636,6 +612,7 @@ if __name__ == "__main__":
         trial_tricep_force_log = []
         trial_k_log = []
         trial_b_log = []
+        trial_ff_log = []
         trial_mode_log = []
         
         # 状态变量
@@ -651,7 +628,7 @@ if __name__ == "__main__":
         last_force_debug_time = time.time()
         
         print(f"\n{'='*60}")
-        print(f"🎮 Trial {trial_num + 1} - True RAN Control Active")
+        print(f" Trial {trial_num + 1} - Torque-based AAN/RAN Control Active")
         print(f"{'='*60}\n")
         
         try:
@@ -706,37 +683,24 @@ if __name__ == "__main__":
                 desired_velocity_rad = (desired_angle_rad - last_desired_angle) / dt if dt > 0 else 0.0
                 last_desired_angle = desired_angle_rad
                 
-                # 估计当前角速度
-                #current_velocity = (desired_angle_rad - current_angle) / dt if dt > 0 else 0.0
-                #current_angle += current_velocity * dt
+                # 获取当前角度和速度
                 current_velocity = motor_state['velocity']
-                current_angle_deg = (motor_center - motor_state['position']) / step   #现在的状况应该 改成+  这样可以和上面desired_angle_deg方向一致
+                current_angle_deg = (motor_center - motor_state['position']) / step
                 current_angle = math.radians(current_angle_deg)
                 
-                # ========== 🔥 True RAN Multifunctional Control ==========
+                # ==========  基于扭矩符号的AAN/RAN控制 ==========
                 
                 position_error = desired_angle_rad - current_angle
                 
-                if multi_controller:
-                    # 使用True RAN多功能控制器（从仿真移植）
-                    total_torque, current_mode = multi_controller.compute_control(
-                        trial_time, 
-                        current_angle, 
-                        current_velocity,
-                        desired_angle_rad,
-                        desired_velocity_rad,
-                        trial_num
-                    )
-                else:
-                    # Fallback to basic OIAC (without RAN)
-                    K_mat, B_mat = oiac.update_impedance(
-                        current_angle, desired_angle_rad,
-                        current_velocity, desired_velocity_rad
-                    )
-                    pos_error_vec = np.array([[position_error]])
-                    vel_error_vec = np.array([[desired_velocity_rad - current_velocity]])
-                    total_torque = float((K_mat @ pos_error_vec + B_mat @ vel_error_vec).item())
-                    current_mode = 'AAN'
+                # 使用基于扭矩符号的控制器
+                total_torque, current_mode, k_val, b_val, ff_val = torque_based_controller.compute_control(
+                    trial_time, 
+                    current_angle, 
+                    current_velocity,
+                    desired_angle_rad,
+                    desired_velocity_rad,
+                    trial_num
+                )
                 
                 # ===== 肌肉力估计和优化 =====
                 bicep_force, tricep_force = muscle_estimator.estimate_muscle_forces(
@@ -761,14 +725,15 @@ if __name__ == "__main__":
                 trial_current_angle_log.append(current_angle)
                 trial_bicep_force_log.append(bicep_force)
                 trial_tricep_force_log.append(tricep_force)
-                trial_k_log.append(float(oiac.k_mat[0, 0]))
-                trial_b_log.append(float(oiac.b_mat[0, 0]))
+                trial_k_log.append(k_val[0])
+                trial_b_log.append(b_val[0])
+                trial_ff_log.append(ff_val[0])
                 trial_mode_log.append(current_mode)
                 
                 # 转换为电机位置命令（使用期望角度）
                 position_motor = motor_center - int(desired_angle_deg * step)
                 
-                # 发送命令（只用position控制）
+                # 发送命令
                 try:
                     command_queue.put_nowait((torque_clipped, position_motor))
                 except queue.Full:
@@ -783,37 +748,36 @@ if __name__ == "__main__":
                 
                 if current_time - last_debug_time > 2.0:
                     error_deg = math.degrees(position_error)
-                    k_val = float(oiac.k_mat[0, 0])
-                    b_val = float(oiac.b_mat[0, 0])
                     
                     # Mode-specific info
                     if current_mode == 'RAN':
-                        mode_info = f"🔴 RAN (Resistance ON)"
+                        mode_info = f" RAN (Resistance ON)"
                     else:
-                        mode_info = f"🟢 AAN (ILC+OIAC)"
+                        mode_info = f" AAN (Assistance ON)"
                     
-                    print(f"t={trial_time}s | {mode_info}")
-                    print(f"  Desired={desired_angle_deg}° | Current={math.degrees(current_angle)}° | Error={error_deg}°")
-                    print(f"  Torque={torque_clipped}Nm | K={k_val} | B={b_val}")
+                    print(f"t={trial_time:.2f}s | {mode_info}")
+                    print(f"  Desired={desired_angle_deg:.1f}° | Current={math.degrees(current_angle):.1f}° | Error={error_deg:.1f}°")
+                    print(f"  Torque={torque_clipped:.2f}Nm | K={k_val[0]:.2f} | B={b_val[0]:.2f} | FF={ff_val[0]:.2f}")
                     last_debug_time = current_time
                 
                 if current_time - last_force_debug_time > 3.0:
-                    print(f"💪 Muscle | "
-                          f"Bicep: {bicep_force}N | "
-                          f"Tricep: {tricep_force}N | "
-                          f"Penalty: {force_penalty}Nm")
+                    aan_ratio, ran_ratio = torque_based_controller.get_mode_statistics(3.0)
+                    print(f" Muscle | "
+                          f"Bicep: {bicep_force:.2f}N | "
+                          f"Tricep: {tricep_force:.2f}N | "
+                          f"Mode: AAN={aan_ratio:.1f}% RAN={ran_ratio:.1f}%")
                     last_force_debug_time = current_time
                 
                 last_time = current_time
         
         except KeyboardInterrupt:
-            print(f"\n⚠️ [Trial {trial_num + 1}] Interrupted by user")
+            print(f"\n [Trial {trial_num + 1}] Interrupted by user")
             if not ILC_ENABLED:
                 break
         
         # Trial结束，统计结果
         print(f"\n{'='*60}")
-        print(f"📊 Trial {trial_num + 1} Summary")
+        print(f" Trial {trial_num + 1} Summary")
         print(f"{'='*60}")
         
         if len(trial_error_log) > 0:
@@ -823,6 +787,7 @@ if __name__ == "__main__":
             avg_tricep = np.mean(trial_tricep_force_log)
             avg_k = np.mean(trial_k_log)
             avg_b = np.mean(trial_b_log)
+            avg_ff = np.mean(trial_ff_log)
             
             # Calculate mode distribution
             if trial_mode_log:
@@ -848,6 +813,7 @@ if __name__ == "__main__":
                 'avg_tricep_force': avg_tricep,
                 'avg_k': avg_k,
                 'avg_b': avg_b,
+                'avg_ff': avg_ff,
                 'control_cycles': control_count,
                 'aan_ratio': aan_ratio,
                 'ran_ratio': ran_ratio,
@@ -855,49 +821,34 @@ if __name__ == "__main__":
             }
             all_trial_stats.append(trial_stats)
             
-            print(f"Average tracking error: {math.degrees(avg_error)}°")
-            print(f"Maximum tracking error: {math.degrees(max_error)}°")
-            print(f"Motion range: {min_angle}° to {max_angle}° (span: {motion_range}°)")
-            print(f"Average bicep force: {avg_bicep}N")
-            print(f"Average tricep force: {avg_tricep}N")
-            print(f"Average K: {avg_k}, Average B: {avg_b}")
+            print(f"Average tracking error: {math.degrees(avg_error):.2f}°")
+            print(f"Maximum tracking error: {math.degrees(max_error):.2f}°")
+            print(f"Motion range: {min_angle:.1f}° to {max_angle:.1f}° (span: {motion_range:.1f}°)")
+            print(f"Average bicep force: {avg_bicep:.2f}N")
+            print(f"Average tricep force: {avg_tricep:.2f}N")
+            print(f"Average K: {avg_k:.2f}, Average B: {avg_b:.2f}, Average FF: {avg_ff:.2f}")
             print(f"Control cycles: {control_count}")
-            print(f"Mode distribution: 🟢 AAN={aan_ratio}%, 🔴 RAN={ran_ratio}%")
+            print(f"Mode distribution:  AAN={aan_ratio:.1f}%,  RAN={ran_ratio:.1f}%")
             
             # RAN mode analysis
             if ran_ratio > 0:
-                print(f"\n✅ RAN Mode Successfully Activated!")
-                print(f"   - Resistance applied during {ran_ratio}% of trial")
-                print(f"   - This indicates good tracking performance")
+                print(f"\n RAN Mode Successfully Activated!")
+                print(f"   - Resistance applied during {ran_ratio:.1f}% of trial")
+                print(f"   - Torque-based switching working correctly")
             else:
-                print(f"\n⚠️  RAN Mode Not Activated")
-                print(f"   - Tracking error may be too large (threshold: 3.0°)")
-                print(f"   - Continue training to improve performance")
-            
-            # Check motion range
-            if motion_range < 20.0:
-                print(f"\n⚠️  Warning: Motion range too small ({motion_range}°)")
-                if trial_num == 0:
-                    print("   This is normal for first trial - ILC needs learning")
+                print(f"\n  RAN Mode Not Activated")
+                print(f"   - All computed torques were positive (AAN mode only)")
+                print(f"   - This indicates good assistance performance")
             
             # ILC学习更新
-            if ILC_ENABLED and trial_num < max_trials - 1:
-                print(f"\n🔄 Updating ILC learning...")
-                ilc.update_learning(trial_time_log, trial_error_log, trial_torque_log)
+            if ILC_ENABLED and ilc_controller and trial_num < max_trials - 1:
+                print(f"\n Updating ILC learning...")
+                ilc_controller.update_learning(trial_time_log, trial_error_log, trial_torque_log)
                 
                 # 保存学习数据
-                ilc.save_learning(ILC_SAVE_PATH)
-                
-                # 检查是否达到目标性能
-                if math.degrees(avg_error) < 2.0 and motion_range > 25.0:
-                    print(f"\n🎉 Target performance achieved!")
-                    print(f"   - Avg error < 2°")
-                    print(f"   - Full motion range")
-                    user_input = input("Continue learning? (y/n): ")
-                    if user_input.lower() != 'y':
-                        break
+                ilc_controller.save_learning(ILC_SAVE_PATH)
         else:
-            print("❌ No data collected in this trial")
+            print(" No data collected in this trial")
         
         # 如果不是ILC模式，只运行一次
         if not ILC_ENABLED:
@@ -907,53 +858,44 @@ if __name__ == "__main__":
     
     # 最终统计
     print("\n" + "="*60)
-    print("📊 FINAL STATISTICS - True RAN Hardware Implementation")
+    print(" FINAL STATISTICS - Integrated Adaptive Control System")
     print("="*60)
     
-    if ILC_ENABLED and len(all_trial_stats) > 0:
-        print(f"\n✅ Completed {len(all_trial_stats)} trials")
-        print("\n📈 Learning Progress:")
+    if len(all_trial_stats) > 0:
+        print(f"\n Completed {len(all_trial_stats)} trials")
+        print("\n Learning Progress:")
         for stats in all_trial_stats:
             aan_symbol = "🟢"
             ran_symbol = "🔴" if stats['ran_ratio'] > 0 else "⚪"
             print(f"  Trial {stats['trial']}: "
-                  f"Avg Error={stats['avg_error_deg']}°, "
-                  f"Max Error={stats['max_error_deg']}°, "
-                  f"Range={stats['motion_range']}°, "
-                  f"{aan_symbol}AAN={stats['aan_ratio']}% {ran_symbol}RAN={stats['ran_ratio']}%, "
-                  f"K={stats['avg_k']}, B={stats['avg_b']}")
-        
-        if len(all_trial_stats) > 1:
-            improvement = (all_trial_stats[0]['avg_error_deg'] - 
-                          all_trial_stats[-1]['avg_error_deg'])
-            print(f"\n📉 Error improvement: {improvement}° "
-                  f"({all_trial_stats[0]['avg_error_deg']}° → "
-                  f"{all_trial_stats[-1]['avg_error_deg']}°)")
-        
-        # Final mode distribution
-        final_stats = all_trial_stats[-1]
-        print(f"\n Final Performance:")
-        print(f"   - Mode distribution:  AAN={final_stats['aan_ratio']}%,  RAN={final_stats['ran_ratio']}%")
-        print(f"   - Motion range: {final_stats['motion_range']}°")
-        print(f"   - Avg error: {final_stats['avg_error_deg']}°")
-        
-        # RAN effectiveness analysis
-        if final_stats['ran_ratio'] > 0:
-            print(f"\n RAN Mode Successfully Integrated!")
-            print(f"   - Resistance provided adaptive assistance")
-            print(f"   - System switched between modes intelligently")
-        else:
-            print(f"\n Hardware Tuning Suggestions:")
-            print(f"   - Consider reducing AAN→RAN threshold (currently 3.0°)")
-            print(f"   - Increase ILC learning trials")
-            print(f"   - Check EMG signal quality")
+                  f"Avg Error={stats['avg_error_deg']:.2f}°, "
+                  f"Max Error={stats['max_error_deg']:.2f}°, "
+                  f"Range={stats['motion_range']:.1f}°, "
+                  f"{aan_symbol}AAN={stats['aan_ratio']:.1f}% {ran_symbol}RAN={stats['ran_ratio']:.1f}%")
     
-    # press 1 to enter run mode, 2 to exit
+    # 运行模式选择
     print("\n" + "="*60)
     print("press 1 to enter run mode (no ILC), 2 to exit")
     print("\n" + "="*60)
     user_input = input("Your choice: ")
+    
     if user_input.strip() == '1':
+        print("\n Entering Run Mode (Continuous Operation)")
+        print("   - Adaptive Impedance Control Active")
+        print("   - Torque-based AAN/RAN Switching")
+        print("   - No ILC Learning")
+        
+        # 重置控制器为运行模式
+        adaptive_controller.reset()
+        torque_based_controller.reset()
+        muscle_estimator.reset_history()
+        
+        Bicep_RMS_queue = queue.Queue(maxsize=50)
+        Tricep_RMS_queue = queue.Queue(maxsize=50)
+        
+        last_time = time.time()
+        last_desired_angle = math.radians(55.0)
+        
         while not stop_event.is_set():
             try:
                 reading = raw_data.get_nowait()
@@ -961,6 +903,10 @@ if __name__ == "__main__":
                 time.sleep(0.001)
                 continue
             
+            current_time = time.time()
+            dt = current_time - last_time
+            
+            # EMG信号处理 (与之前相同)
             filtered_Bicep = filter_bicep.bandpass(reading[0])
             filtered_Tricep = filter_tricep.bandpass(reading[1]) if len(reading) > 1 else 0.0
                 
@@ -992,69 +938,33 @@ if __name__ == "__main__":
             desired_velocity_rad = (desired_angle_rad - last_desired_angle) / dt if dt > 0 else 0.0
             last_desired_angle = desired_angle_rad
                 
-            # 估计当前角速度
-            #current_velocity = (desired_angle_rad - current_angle) / dt if dt > 0 else 0.0
-            #current_angle += current_velocity * dt
+            # 获取当前角度和速度
             current_velocity = motor_state['velocity']
-            current_angle_deg = (motor_center - motor_state['position']) / step  # (motor_state['position'] - motor_center) / step
+            current_angle_deg = (motor_center - motor_state['position']) / step
             current_angle = math.radians(current_angle_deg)
                 
-            # ========== 🔥 True RAN Multifunctional Control ==========
-                
-            position_error = desired_angle_rad - current_angle
-                
-            if multi_controller:
-                # 使用True RAN多功能控制器（从仿真移植）
-                total_torque, current_mode = multi_controller.compute_control(
-                    trial_time, 
-                    current_angle, 
-                    current_velocity,
-                    desired_angle_rad,
-                    desired_velocity_rad,
-                    trial_num
-                )
-            else:
-                # Fallback to basic OIAC (without RAN)
-                K_mat, B_mat = oiac.update_impedance(
-                    current_angle, desired_angle_rad,
-                    current_velocity, desired_velocity_rad
-                )
-                pos_error_vec = np.array([[position_error]])
-                vel_error_vec = np.array([[desired_velocity_rad - current_velocity]])
-                total_torque = float((K_mat @ pos_error_vec + B_mat @ vel_error_vec).item())
-                current_mode = 'AAN'
-                
-            # ===== 肌肉力估计和优化 =====
-            bicep_force, tricep_force = muscle_estimator.estimate_muscle_forces(
-                Bicep_RMS, Tricep_RMS
+            # 使用基于扭矩符号的控制器
+            total_torque, current_mode, k_val, b_val, ff_val = torque_based_controller.compute_control(
+                current_time, 
+                current_angle, 
+                current_velocity,
+                desired_angle_rad,
+                desired_velocity_rad,
+                0  # trial_idx = 0 for run mode
             )
                 
+            # 肌肉力估计和优化
+            bicep_force, tricep_force = muscle_estimator.estimate_muscle_forces(Bicep_RMS, Tricep_RMS)
             force_penalty = muscle_estimator.calculate_force_penalty(
-                bicep_force, tricep_force, position_error, total_torque
+                bicep_force, tricep_force, desired_angle_rad - current_angle, total_torque
             )
-                
-            # 应用肌肉力惩罚
             final_torque = total_torque - force_penalty
-                
-            # 扭矩限制
             torque_clipped = np.clip(final_torque, TORQUE_MIN, TORQUE_MAX)
                 
-            # 记录trial数据
-            trial_time_log.append(trial_time)
-            trial_error_log.append(position_error)
-            trial_torque_log.append(torque_clipped)
-            trial_desired_angle_log.append(desired_angle_rad)
-            trial_current_angle_log.append(current_angle)
-            trial_bicep_force_log.append(bicep_force)
-            trial_tricep_force_log.append(tricep_force)
-            trial_k_log.append(float(oiac.k_mat[0, 0]))
-            trial_b_log.append(float(oiac.b_mat[0, 0]))
-            trial_mode_log.append(current_mode)
-                
-            # 转换为电机位置命令（使用期望角度）
+            # 转换为电机位置命令
             position_motor = motor_center - int(desired_angle_deg * step)
                 
-            # 发送命令（只用position控制）
+            # 发送命令
             try:
                 command_queue.put_nowait((torque_clipped, position_motor))
             except queue.Full:
@@ -1063,6 +973,8 @@ if __name__ == "__main__":
                     command_queue.put_nowait((torque_clipped, position_motor))
                 except:
                     pass
+
+            last_time = current_time
 
     elif user_input.strip() == '2':
         pass
@@ -1084,11 +996,12 @@ if __name__ == "__main__":
     Tricep_RMS_queue.queue.clear()
     command_queue.queue.clear()
     
-    print("\n True RAN Multifunctional Control Complete!")
+    print("\n Integrated Adaptive Control System Complete!")
     print(" Key Features Successfully Implemented:")
-    print("  ✓ TrueRANOptimizedOIAC with conservative parameters")
-    print("  ✓ Enhanced ILC with progressive learning")
-    print("  ✓ Automatic AAN/RAN mode switching")
-    print("  ✓ Resistance activation during good tracking")
+    print("  ✓ Adaptive Impedance Control from first code")
+    print("  ✓ Torque-based AAN/RAN mode switching")
+    print("  ✓ Positive torque → AAN mode (Assistance)")
+    print("  ✓ Negative torque → RAN mode (Resistance)")
+    print("  ✓ ILC learning for repetitive tasks")
     print("  ✓ EMG-based muscle force optimization")
     print("\nGoodbye! ")
