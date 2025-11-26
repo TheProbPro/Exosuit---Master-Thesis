@@ -495,7 +495,9 @@ def send_motor_command(motor, command_queue, motor_state):
             continue
 
         try:
-            motor.sendMotorCommand(motor.motor_ids[0], motor.torq2curcom(command[0]))
+            torque = command[0]
+            current = motor.torq2curcom(torque)
+            motor.sendMotorCommand(motor.motor_ids[0], current)
             motor_state['position'] = motor.get_position()[0]
             motor_state['velocity'] = motor.get_velocity()[0]
         except Exception as e:
@@ -541,7 +543,7 @@ if __name__ == "__main__":
     motor_state = {'position': 0, 'velocity': 0}
     
     # 初始化EMG传感器
-    emg = DelsysEMG()
+    emg = DelsysEMG(channel_range=(0,1))
     
     # 初始化滤波器和解释器
     filter_bicep = rt_filtering(SAMPLE_RATE, 450, 20, 2)
@@ -553,7 +555,9 @@ if __name__ == "__main__":
     
     # 初始化电机
     motor = Motors()
-    motor.set_cont_mode(mode='cur')
+    #print("setting the control mode to current control...")
+    #motor.set_cont_mode(mode='cur')
+    #print("Control mode set")
     
     # 🔥 初始化True RAN控制器（从仿真移植的版本）
     oiac = TrueRANOptimizedOIAC(dof=1)

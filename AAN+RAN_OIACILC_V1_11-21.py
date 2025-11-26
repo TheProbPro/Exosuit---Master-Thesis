@@ -17,6 +17,13 @@ from scipy import interpolate
 import pickle
 import os
 
+# TODO: Figure out where the program could potentially send Nan values as torque.
+# - set hardware limits on exo to avoid it rotating beyond safe ranges.
+# - see torque at different stages, maybe there is an error somewhere.
+# - make sure exo is moving and working correctly.
+# - maybe apply smoothing to muscle activation signals.
+# - maybe more that i dont remember right now...
+
 SAMPLE_RATE = 2000  # Hz
 USER_NAME = 'VictorBNielsen'
 ANGLE_MIN = 0
@@ -25,6 +32,8 @@ ANGLE_MAX = 140
 # Control parameters
 TORQUE_MIN = -4.1  # Nm
 TORQUE_MAX = 4.1   # Nm
+# TORQUE_MIN = -1.1  # Nm
+# TORQUE_MAX = 1.1   # Nm
 
 # ILC parameters
 ILC_ENABLED = True
@@ -114,8 +123,8 @@ class TrueRANOptimizedOIAC:
     def __init__(self, dof=1):
         self.DOF = dof
         # Moderate initial impedance (从仿真优化的初始值)
-        self.k_mat = np.eye(dof) * 60.0
-        self.b_mat = np.eye(dof) * 15.0
+        self.k_mat = np.eye(dof) * 0.1#60.0
+        self.b_mat = np.eye(dof) * 0.1#15.0
         
         # State variables
         self.q = np.zeros((self.DOF, 1))      # Real joint angle
@@ -129,10 +138,14 @@ class TrueRANOptimizedOIAC:
         self.k = 0.2      # Tracking error weight
         
         # Reasonable impedance ranges (from simulation)
-        self.k_min = 20.0
-        self.k_max = 200.0
-        self.b_min = 8.0
-        self.b_max = 80.0
+        # self.k_min = 20.0
+        # self.k_max = 200.0
+        # self.b_min = 8.0
+        # self.b_max = 80.0
+        self.k_min = 0.01
+        self.k_max = 20
+        self.b_min = 0.01
+        self.b_max = 20.0
         
     def gen_pos_err(self):
         """Position error"""
@@ -503,11 +516,28 @@ def send_motor_command(motor, command_queue, motor_state):
         try:
             # command = (torque, position_fallback)
             command = command_queue.get(timeout=0.01)
+            #print(command)
         except queue.Empty:
+            motor.sendMotorCommand(motor.motor_ids[0], 0)
             continue
 
         try:
-            motor.sendMotorCommand(motor.motor_ids[0], command[1])
+            # if command.empty:
+            #     motor.sendMotorCommand(motor.motor_ids[0], 0)
+            #     continue
+            # else:
+            torque = command[0]
+            current = motor.torq2curcom(torque)
+            #print("motor torque: ", torque, "motor position: ", motor_state['position'])
+            #motor.sendMotorCommand(motor.motor_ids[0], current)
+            if motor_state['position'] < 1050 and torque < 0:
+                #print("Sending zero torque to avoid overflexion")
+                motor.sendMotorCommand(motor.motor_ids[0], 0)
+            elif motor_state['position'] > 2550 and torque > 0:
+                #print("Sending zero torque to avoid overextension")
+                motor.sendMotorCommand(motor.motor_ids[0], 0)
+            else:
+                motor.sendMotorCommand(motor.motor_ids[0], current)
             motor_state['position'] = motor.get_position()[0]
             motor_state['velocity'] = motor.get_velocity()[0]
         except Exception as e:
@@ -553,7 +583,7 @@ if __name__ == "__main__":
     motor_state = {'position': 0, 'velocity': 0}
     
     # 初始化EMG传感器
-    emg = DelsysEMG()
+    emg = DelsysEMG(channel_range=(0, 1))
     
     # 初始化滤波器和解释器
     filter_bicep = rt_filtering(SAMPLE_RATE, 450, 20, 2)
@@ -561,7 +591,7 @@ if __name__ == "__main__":
     interpreter = PMC(theta_min=ANGLE_MIN, theta_max=ANGLE_MAX, 
                      user_name=USER_NAME, BicepEMG=True, TricepEMG=False)
     
-    interpreter.set_Kp(8)
+    interpreter.set_Kp(4.1)
     
     # 初始化电机
     motor = Motors()
@@ -712,6 +742,8 @@ if __name__ == "__main__":
                 current_velocity = motor_state['velocity']
                 current_angle_deg = (motor_center - motor_state['position']) / step   #现在的状况应该 改成+  这样可以和上面desired_angle_deg方向一致
                 current_angle = math.radians(current_angle_deg)
+
+                print(f"current angle: {current_angle}, desired angle: {desired_angle_rad}, current angle deg: {current_angle_deg}, desired angle deg: {desired_angle_deg}")
                 
                 # ========== 🔥 True RAN Multifunctional Control ==========
                 
@@ -739,16 +771,18 @@ if __name__ == "__main__":
                     current_mode = 'AAN'
                 
                 # ===== 肌肉力估计和优化 =====
-                bicep_force, tricep_force = muscle_estimator.estimate_muscle_forces(
-                    Bicep_RMS, Tricep_RMS
-                )
+                #TODO
+                # bicep_force, tricep_force = muscle_estimator.estimate_muscle_forces(
+                #     filtered_bicep_RMS, filtered_tricep_RMS
+                # )
                 
-                force_penalty = muscle_estimator.calculate_force_penalty(
-                    bicep_force, tricep_force, position_error, total_torque
-                )
+                # force_penalty = muscle_estimator.calculate_force_penalty(
+                #     bicep_force, tricep_force, position_error, total_torque
+                # )
                 
                 # 应用肌肉力惩罚
-                final_torque = total_torque - force_penalty
+                #final_torque = total_torque - force_penalty
+                final_torque = total_torque
                 
                 # 扭矩限制
                 torque_clipped = np.clip(final_torque, TORQUE_MIN, TORQUE_MAX)
@@ -759,8 +793,8 @@ if __name__ == "__main__":
                 trial_torque_log.append(torque_clipped)
                 trial_desired_angle_log.append(desired_angle_rad)
                 trial_current_angle_log.append(current_angle)
-                trial_bicep_force_log.append(bicep_force)
-                trial_tricep_force_log.append(tricep_force)
+                # trial_bicep_force_log.append(bicep_force)
+                # trial_tricep_force_log.append(tricep_force)
                 trial_k_log.append(float(oiac.k_mat[0, 0]))
                 trial_b_log.append(float(oiac.b_mat[0, 0]))
                 trial_mode_log.append(current_mode)
@@ -798,10 +832,10 @@ if __name__ == "__main__":
                     last_debug_time = current_time
                 
                 if current_time - last_force_debug_time > 3.0:
-                    print(f"💪 Muscle | "
-                          f"Bicep: {bicep_force}N | "
-                          f"Tricep: {tricep_force}N | "
-                          f"Penalty: {force_penalty}Nm")
+                    # print(f"💪 Muscle | "
+                    #       f"Bicep: {bicep_force}N | "
+                    #       f"Tricep: {tricep_force}N | "
+                    #       f"Penalty: {force_penalty}Nm")
                     last_force_debug_time = current_time
                 
                 last_time = current_time

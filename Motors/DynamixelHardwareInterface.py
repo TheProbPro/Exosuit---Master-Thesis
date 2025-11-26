@@ -93,7 +93,8 @@ class Motors:
         # initialize all motors to position control mode
         self.get_motor_params()
 
-        self.set_cont_mode("pos")
+        # self.set_cont_mode("pos")
+        self.set_cont_mode("cur")
 
         self.enable_torque()
 
@@ -369,13 +370,32 @@ if __name__ == "__main__":
     
     print("Initial positions:", motors.get_position())
     # Test position control
-    motors.sendMotorCommand(motors.motor_ids[0], 1500)  # Move to middle position
-    print(motors.get_velocity())
-    #time.sleep(2)
+    motors.sendMotorCommand(motors.motor_ids[0], 2550)  # Move to middle position
+    time.sleep(2)
 
-    print(motors.get_position())
-    # wait for 2 seconds
-    #time.sleep(2)
+    motors.sendMotorCommand(motors.motor_ids[0], 1050)  # Move to max position
+    time.sleep(2)
+    
+    position = motors.get_position()
+    print("Current position:", position)
+    print((2550-position)/(1500/140))
+    print(2550 - (98*(1500/140)))
+
+    # # Test current control
+    # # Down
+    # torque = 0.5
+    # current = motors.torq2curcom(torque)
+
+    # motors.sendMotorCommand(motors.motor_ids[0], current)
+    # time.sleep(1)
+
+    # # Up
+    # torque = -0.5
+    # current = motors.torq2curcom(torque)
+
+    # motors.sendMotorCommand(motors.motor_ids[0], current)
+    # time.sleep(1)
+    # print(motors.get_position())
     
     print("Motors initialized successfully")
 
