@@ -104,7 +104,7 @@ class EMGMuscleForceEstimator:
         self.force_penalty_history.clear()
 
 
-# ==================== 从第一段代码移植的控制器 ====================
+# ==================== 代码移植的控制器 ====================
 
 class AdaptiveImpedanceController:
    
@@ -155,7 +155,7 @@ class AdaptiveImpedanceController:
     def adaptive_impedance_control(self, current_pos, desired_pos, current_vel, desired_vel):
         """
         自适应阻抗控制 (T9, T10)
-        基于第一段代码的 ada_impe() 方法
+        基于代码的 ada_impe() 方法
         """
         # 计算误差
         self.get_pos_diff(current_pos, desired_pos)
@@ -177,7 +177,7 @@ class AdaptiveImpedanceController:
     def constant_impedance_control(self, current_pos, desired_pos, current_vel, desired_vel):
         """
         恒定阻抗控制 (T7, T8)
-        基于第一段代码的 const_impe() 方法
+        基于代码的 const_impe() 方法
         """
         # 计算误差
         self.get_pos_diff(current_pos, desired_pos)
@@ -205,7 +205,7 @@ class AdaptiveImpedanceController:
         self.co_diff = np.zeros(self.DOF)
 
 
-# ==================== 从第一段代码移植的迭代学习 ====================
+# ==================== 移植的迭代学习 ====================
 
 class IterativeLearningController:
     """
@@ -229,7 +229,7 @@ class IterativeLearningController:
     def update_learning(self, time_array, error_array, torque_array):
         """
         迭代学习更新
-        基于第一段代码的 iter_learn_ff_mod() 方法
+        代码的 iter_learn_ff_mod() 方法
         """
         if len(time_array) == 0 or len(error_array) == 0:
             print("[ILC] Warning: Empty data, skipping update")
@@ -349,11 +349,11 @@ class IterativeLearningController:
         print("[ILC] Reset completed")
 
 
-# ==================== 基于扭矩符号的AAN/RAN控制器 ====================
+# ==================== 扭矩符号的AAN/RAN控制器 ====================
 
 class TorqueBasedAANRANController:
     """
-    基于扭矩符号的AAN/RAN控制器
+    扭矩符号的AAN/RAN控制器
     - 正扭矩: AAN模式 (辅助)
     - 负扭矩: RAN模式 (阻力)
     """
@@ -393,7 +393,7 @@ class TorqueBasedAANRANController:
         # 计算AAN模式的总扭矩 (基础扭矩 + ILC前馈)
         aan_torque = base_torque + ilc_torque
         
-        # ===== 基于扭矩符号的模式切换 =====
+        # ===== 扭矩符号的模式切换 =====
         can_switch = (current_time - self.last_switch_time) >= self.min_switch_interval
         
         if aan_torque < 0:  # 正扭矩 → AAN模式
@@ -692,7 +692,7 @@ if __name__ == "__main__":
                 filtered_bicep_RMS = filter_bicep.lowpass(np.atleast_1d(Bicep_RMS))
                 filtered_tricep_RMS = filter_tricep.lowpass(np.atleast_1d(Tricep_RMS))
                 
-                # ========== 关键修改：启用双向EMG控制 ==========
+                # ========== 启用双向EMG控制 ==========
                 # 计算激活度和期望角度 - 使用双通道EMG
                 activation = interpreter.compute_activation([filtered_bicep_RMS, filtered_tricep_RMS])
                 desired_angle_deg = interpreter.compute_angle(activation[0], activation[1])
@@ -709,7 +709,7 @@ if __name__ == "__main__":
                 
                 #print(f"current angle: {current_angle}, desired angle: {desired_angle_rad}, current angle deg: {current_angle_deg}, desired angle deg: {desired_angle_deg}")
                 
-                # ========== 基于扭矩符号的AAN/RAN控制 ==========
+                # ========== 扭矩符号的AAN/RAN控制 ==========
                 
                 position_error = desired_angle_rad - current_angle
                 
