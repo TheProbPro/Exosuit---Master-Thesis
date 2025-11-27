@@ -148,8 +148,8 @@ class AdaptiveImpedanceController:
     
     def get_coe(self):
         """计算自适应标量 (T6)"""
-        for i in range(self.DOF):
-            self.co_diff[i] = self.a / (1.00 + self.b * self.tra_diff[i] * self.tra_diff[i])
+        #for i in range(self.DOF):
+        self.co_diff = self.a / (1.00 + self.b * self.tra_diff * self.tra_diff)
         return self.co_diff
     
     def adaptive_impedance_control(self, current_pos, desired_pos, current_vel, desired_vel):
@@ -164,15 +164,15 @@ class AdaptiveImpedanceController:
         self.get_coe()
         
         # 在线调制阻抗参数
-        for i in range(self.DOF):
-            self.ff[i] = self.tra_diff[i] / self.co_diff[i]
-            self.k[i] = self.ff[i] * self.pos_diff[i]
-            self.d[i] = self.ff[i] * self.vel_diff[i]
+        #for i in range(self.DOF):
+        self.ff = self.tra_diff / self.co_diff
+        self.k = self.ff * self.pos_diff
+        self.d = self.ff * self.vel_diff
             
-            # 计算控制扭矩
-            control_torque = -(self.ff[i] + self.k[i] * self.pos_diff[i] + self.d[i] * self.vel_diff[i])
+        # 计算控制扭矩
+        control_torque = -(self.ff + self.k * self.pos_diff + self.d * self.vel_diff)
             
-        return control_torque, self.k.copy(), self.d.copy(), self.ff.copy()
+        return control_torque, self.k, self.d, self.ff
     
     def constant_impedance_control(self, current_pos, desired_pos, current_vel, desired_vel):
         """
@@ -396,7 +396,7 @@ class TorqueBasedAANRANController:
         # ===== 基于扭矩符号的模式切换 =====
         can_switch = (current_time - self.last_switch_time) >= self.min_switch_interval
         
-        if aan_torque > 0:  # 正扭矩 → AAN模式
+        if aan_torque < 0:  # 正扭矩 → AAN模式
             if self.current_mode != 'AAN' and can_switch:
                 self.current_mode = 'AAN'
                 self.last_switch_time = current_time
@@ -483,12 +483,26 @@ def send_motor_command(motor, command_queue, motor_state):
     while not stop_event.is_set():
         try:
             # command = (torque, position_fallback)
-            command = command_queue.get(timeout=0.01)
+            #command = command_queue.get(timeout=0.001)
+            command = command_queue.get_nowait()
+            #print(command)
         except queue.Empty:
+            motor.sendMotorCommand(motor.motor_ids[0], 0)
             continue
 
         try:
-            motor.sendMotorCommand(motor.motor_ids[0], command[1])
+            torque = command[0]
+            current = motor.torq2curcom(torque)
+            print("motor torque: ", torque, "motor position: ", motor_state['position'])
+            #motor.sendMotorCommand(motor.motor_ids[0], current)
+            if motor_state['position'] < 1050 and torque < 0:
+                #print("Sending zero torque to avoid overflexion")
+                motor.sendMotorCommand(motor.motor_ids[0], 0)
+            elif motor_state['position'] > 2550 and torque > 0:
+                #print("Sending zero torque to avoid overextension")
+                motor.sendMotorCommand(motor.motor_ids[0], 0)
+            else:
+                motor.sendMotorCommand(motor.motor_ids[0], current)
             motor_state['position'] = motor.get_position()[0]
             motor_state['velocity'] = motor.get_velocity()[0]
         except Exception as e:
@@ -529,12 +543,12 @@ if __name__ == "__main__":
     print("=" * 60)
     
     # 创建队列
-    raw_data = queue.Queue(maxsize=SAMPLE_RATE)
+    raw_data = queue.Queue(maxsize=100)
     command_queue = queue.Queue(maxsize=10)
     motor_state = {'position': 0, 'velocity': 0}
     
     # 初始化EMG传感器
-    emg = DelsysEMG()
+    emg = DelsysEMG(channel_range=(0, 1))
     
     # 初始化滤波器和解释器 - 启用三头肌控制
     filter_bicep = rt_filtering(SAMPLE_RATE, 450, 20, 2)
@@ -680,7 +694,7 @@ if __name__ == "__main__":
                 
                 # ========== 关键修改：启用双向EMG控制 ==========
                 # 计算激活度和期望角度 - 使用双通道EMG
-                activation = interpreter.compute_activation(filtered_bicep_RMS, filtered_tricep_RMS)
+                activation = interpreter.compute_activation([filtered_bicep_RMS, filtered_tricep_RMS])
                 desired_angle_deg = interpreter.compute_angle(activation[0], activation[1])
                 desired_angle_rad = math.radians(desired_angle_deg)
                 
@@ -692,6 +706,8 @@ if __name__ == "__main__":
                 current_velocity = motor_state['velocity']
                 current_angle_deg = (motor_center - motor_state['position']) / step
                 current_angle = math.radians(current_angle_deg)
+                
+                #print(f"current angle: {current_angle}, desired angle: {desired_angle_rad}, current angle deg: {current_angle_deg}, desired angle deg: {desired_angle_deg}")
                 
                 # ========== 基于扭矩符号的AAN/RAN控制 ==========
                 
@@ -709,7 +725,7 @@ if __name__ == "__main__":
                 
                 # ===== 肌肉力估计和优化 =====
                 bicep_force, tricep_force = muscle_estimator.estimate_muscle_forces(
-                    Bicep_RMS, Tricep_RMS
+                    filtered_bicep_RMS, filtered_tricep_RMS
                 )
                 
                 force_penalty = muscle_estimator.calculate_force_penalty(
@@ -730,9 +746,9 @@ if __name__ == "__main__":
                 trial_current_angle_log.append(current_angle)
                 trial_bicep_force_log.append(bicep_force)
                 trial_tricep_force_log.append(tricep_force)
-                trial_k_log.append(k_val[0])
-                trial_b_log.append(b_val[0])
-                trial_ff_log.append(ff_val[0])
+                trial_k_log.append(k_val)
+                trial_b_log.append(b_val)
+                trial_ff_log.append(ff_val)
                 trial_mode_log.append(current_mode)
                 
                 # 转换为电机位置命令（使用期望角度）
@@ -766,7 +782,7 @@ if __name__ == "__main__":
                     print(f"t={trial_time:.2f}s | {mode_info} | {motion_direction}")
                     print(f"  Desired={desired_angle_deg:.1f}° | Current={math.degrees(current_angle):.1f}° | Error={error_deg:.1f}°")
                     print(f"  Bicep={Bicep_RMS:.3f} | Tricep={Tricep_RMS:.3f}")
-                    print(f"  Torque={torque_clipped:.2f}Nm | K={k_val[0]:.2f} | B={b_val[0]:.2f}")
+                    print(f"  Torque={torque_clipped:.2f}Nm | K={k_val:.2f} | B={b_val:.2f}")
                     last_debug_time = current_time
                 
                 if current_time - last_force_debug_time > 3.0:
@@ -874,8 +890,8 @@ if __name__ == "__main__":
         print(f"\n Completed {len(all_trial_stats)} trials")
         print("\n Learning Progress:")
         for stats in all_trial_stats:
-            aan_symbol = "🟢"
-            ran_symbol = "🔴" if stats['ran_ratio'] > 0 else "⚪"
+            aan_symbol = "1"
+            ran_symbol = "2" if stats['ran_ratio'] > 0 else "3"
             print(f"  Trial {stats['trial']}: "
                   f"Avg Error={stats['avg_error_deg']:.2f}°, "
                   f"Max Error={stats['max_error_deg']:.2f}°, "

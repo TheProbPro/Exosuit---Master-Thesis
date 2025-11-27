@@ -16,6 +16,7 @@ import math
 from scipy import interpolate
 import pickle
 import os
+import time
 
 # TODO: Figure out where the program could potentially send Nan values as torque.
 # - set hardware limits on exo to avoid it rotating beyond safe ranges.
@@ -438,7 +439,7 @@ class TrueRANMultifunctionalController:
             tau_aan = tau_ff + tau_fb
             
             # 基于扭矩符号决定模式
-            if tau_aan > 0:  # 正扭矩 → AAN模式
+            if tau_aan < 0:  # 正扭矩 → AAN模式
                 if self.current_mode != 'AAN' and can_switch:
                     self.current_mode = 'AAN'
                     self.last_switch_time = current_time
@@ -515,20 +516,17 @@ def send_motor_command(motor, command_queue, motor_state):
     while not stop_event.is_set():
         try:
             # command = (torque, position_fallback)
-            command = command_queue.get(timeout=0.01)
+            #command = command_queue.get(timeout=0.001)
+            command = command_queue.get_nowait()
             #print(command)
         except queue.Empty:
             motor.sendMotorCommand(motor.motor_ids[0], 0)
             continue
 
         try:
-            # if command.empty:
-            #     motor.sendMotorCommand(motor.motor_ids[0], 0)
-            #     continue
-            # else:
             torque = command[0]
             current = motor.torq2curcom(torque)
-            #print("motor torque: ", torque, "motor position: ", motor_state['position'])
+            print("motor torque: ", torque, "motor position: ", motor_state['position'])
             #motor.sendMotorCommand(motor.motor_ids[0], current)
             if motor_state['position'] < 1050 and torque < 0:
                 #print("Sending zero torque to avoid overflexion")
@@ -578,7 +576,7 @@ if __name__ == "__main__":
     print("=" * 60)
     
     # 创建队列
-    raw_data = queue.Queue(maxsize=SAMPLE_RATE)
+    raw_data = queue.Queue(maxsize=100)
     command_queue = queue.Queue(maxsize=10)
     motor_state = {'position': 0, 'velocity': 0}
     
@@ -683,7 +681,6 @@ if __name__ == "__main__":
         print(f"\n{'='*60}")
         print(f"🎮 Trial {trial_num + 1} - True RAN Control Active")
         print(f"{'='*60}\n")
-        
         try:
             while not stop_event.is_set():
                 # 检查trial时间限制
@@ -728,7 +725,7 @@ if __name__ == "__main__":
                 filtered_tricep_RMS = filter_tricep.lowpass(np.atleast_1d(Tricep_RMS))
                 
                 # 计算激活度和期望角度
-                activation = interpreter.compute_activation(filtered_bicep_RMS)
+                activation = interpreter.compute_activation([filtered_bicep_RMS, filtered_tricep_RMS])
                 desired_angle_deg = interpreter.compute_angle(activation[0], activation[1])
                 desired_angle_rad = math.radians(desired_angle_deg)
                 
