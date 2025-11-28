@@ -707,6 +707,7 @@ if __name__ == "__main__":
                 current_angle_deg = (motor_center - motor_state['position']) / step
                 current_angle = math.radians(current_angle_deg)
                 
+                #print(f"current velocity: {current_velocity}, desired velocity: {desired_velocity_rad}")
                 #print(f"current angle: {current_angle}, desired angle: {desired_angle_rad}, current angle deg: {current_angle_deg}, desired angle deg: {desired_angle_deg}")
                 
                 # ========== 扭矩符号的AAN/RAN控制 ==========
