@@ -178,10 +178,10 @@ if __name__ == "__main__":
     max_bicep = []
     max_tricep = []
     input("Press Enter to start Maximum Voluntary Contraction (MVC) for Proportional Myoelectric Control...")
-    emg.start()
     for trial in range(MVC_trials):
         input("Press Enter to start trial {} of {}. Then perform MAXIMUM contraction of Bicep for 5 seconds...".format(trial+1, MVC_trials))
         print("Starting trial {}...".format(trial+1))
+        emg.start()
         TIME = time.time()
         while (time.time() - TIME < 5):
             reading = emg.read()
@@ -193,9 +193,10 @@ if __name__ == "__main__":
             Bicep_RMS_queue.put(filtered_Bicep[-1].item())
             Bicep_RMS.append(filter_bicep.RMS(list(Bicep_RMS_queue.queue)))
             filtered_Bicep_RMS.append(filter_bicep.lowpass(np.atleast_1d(Bicep_RMS[-1])))
-
+        emg.stop()
         input("Press enter to start trial {} of {}. Then perform MAXIMUM contraction of Tricep for 5 seconds...".format(trial+1, MVC_trials))
         print("Starting trial {}...".format(trial+1))
+        emg.start()
         TIME = time.time()
         while (time.time() - TIME < 5):
             reading = emg.read()
@@ -207,7 +208,7 @@ if __name__ == "__main__":
             Tricep_RMS_queue.put(filtered_Tricep[-1].item())
             Tricep_RMS.append(filter_tricep.RMS(list(Tricep_RMS_queue.queue)))
             filtered_Tricep_RMS.append(filter_tricep.lowpass(np.atleast_1d(Tricep_RMS[-1])))
-
+        emg.stop()
         max_bicep.append(_calc_MVC(filtered_Bicep_RMS, sampling_rate=sample_rate, win_ms=200))
         max_tricep.append(_calc_MVC(filtered_Tricep_RMS, sampling_rate=sample_rate, win_ms=200))
         print("Trial {} done! Max bicep: {}, Max tricep: {}".format(trial+1, max_bicep[-1], max_tricep[-1]))
