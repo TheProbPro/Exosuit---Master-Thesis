@@ -178,9 +178,13 @@ class Motors:
             cl_dxl, cl_dxl_comm_result, cl_dxl_error = self.packetHandler.read4ByteTxRx(self.portHandler, motor_id, add_read)
 
         if cl_dxl_comm_result != COMM_SUCCESS:
-            print("%s" % self.packetHandler.getTxRxResult(cl_dxl_comm_result))
+            msg = self.packetHandler.getTxRxResult(cl_dxl_comm_result)
+            print("%s" % msg)
+            raise RuntimeError(f"Read error (motor {motor_id}, addr {add_read}): {msg}")
         elif cl_dxl_error != 0:
-            print("%s" % self.packetHandler.getRxPacketError(cl_dxl_error))
+            msg = self.packetHandler.getRxPacketError(cl_dxl_error)
+            print("%s" % msg)
+            raise RuntimeError(f"Motor error (motor {motor_id}, addr {add_read}): {msg}")
         else:
             return cl_dxl
 

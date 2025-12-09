@@ -19,6 +19,9 @@ ANGLE_MAX = 140
 TORQUE_MIN = -4.1
 TORQUE_MAX = 4.1
 
+MOTOR_POS_MIN = 2280
+MOTOR_POS_MAX = 1145
+
 stop_event = threading.Event()
 
 def sine_position(step, speed=0.05, min_val=0, max_val=140):
@@ -96,12 +99,12 @@ if __name__ == "__main__":
                 desired_velocity = (desired_angle_deg - last_desired_angle) / dt if dt > 0 else 0.0
                 last_desired_angle = desired_angle_deg
                 # step = 1500/140
-                step = (2280-1145)/140
-                motor_pos = motor.get_position()
+                step = (MOTOR_POS_MIN - MOTOR_POS_MAX)/140
+                motor_pos = motor.get_position()[0]
                 # current_angle_deg = (2550 - motor_pos[0]) / step
-                current_angle_deg = (2280 - motor_pos[0]) / step
+                current_angle_deg = (MOTOR_POS_MIN - motor_pos) / step
                 current_angle_rad = math.radians(current_angle_deg)
-                current_velocity = motor.get_velocity()
+                current_velocity = motor.get_velocity()[0]
                 position_error = desired_angle_rad - current_angle_rad
                 velocity_error = desired_velocity - current_velocity
 
@@ -127,8 +130,8 @@ if __name__ == "__main__":
                     else:
                         integral *= 0.9
                     integral_torque = 5.0 * integral
-                    if trial_num > 0:
-                        ff_torque = ILC_controller.get_feedforward(elapsed_time, trial_num - 1)
+                    if trial > 0:
+                        ff_torque = ILC_controller.get_feedforward(elapsed_time, trial - 1)
                     total_torque = tau_fb + integral_torque + ff_torque
                 else:
                     total_torque = tau_fb
@@ -148,9 +151,9 @@ if __name__ == "__main__":
                 trial_mode_log.append(current_mode)
 
                 current = motor.torq2curcom(torque_clipped)
-                if motor_pos < 1050 and torque_clipped < 0:
+                if motor_pos < MOTOR_POS_MAX and torque_clipped < 0:
                     motor.sendMotorCommand(motor.motor_ids[0], 0)
-                elif motor_pos > 2550 and torque_clipped > 0:
+                elif motor_pos > MOTOR_POS_MIN and torque_clipped > 0:
                     motor.sendMotorCommand(motor.motor_ids[0], 0)
                 else:
                     motor.sendMotorCommand(motor.motor_ids[0], current)
@@ -178,7 +181,7 @@ if __name__ == "__main__":
             ran_percentage = (ran_count / total_count * 100) if total_count > 0 else 0
             
             trial_stats = {
-                'trial': trial_num + 1,
+                'trial': trial + 1,
                 'avg_error_deg': math.degrees(avg_error),
                 'max_error_deg': math.degrees(max_error),
                 'avg_k': avg_k,
@@ -201,8 +204,8 @@ if __name__ == "__main__":
                     print(f"  t={switch['time']-trial_start_time:.1f}s: "
                           f"{switch['from']} -> {switch['to']}")
 
-            if trial_num < 10:
-                ILCv1.update_learning(trial_time_log, trial_error_log, trial_torque_log)
+            if trial < trial_num:
+                ILC_controller.update_learning(trial_time_log, trial_error_log, trial_torque_log)
             
         else:
             print("No data recorded for this trial.")
@@ -228,12 +231,12 @@ if __name__ == "__main__":
                 desired_velocity = (desired_angle_deg - last_desired_angle) / dt if dt > 0 else 0.0
                 last_desired_angle = desired_angle_deg
                 # step = 1500/140
-                step = (2280-1145)/140
-                motor_pos = motor.get_position()
+                step = (MOTOR_POS_MIN - MOTOR_POS_MAX)/140
+                motor_pos = motor.get_position()[0]
                 # current_angle_deg = (2550 - motor_pos[0]) / step
-                current_angle_deg = (2280 - motor_pos[0]) / step
+                current_angle_deg = (MOTOR_POS_MIN - motor_pos) / step
                 current_angle_rad = math.radians(current_angle_deg)
-                current_velocity = motor.get_velocity()
+                current_velocity = motor.get_velocity()[0]
                 position_error = desired_angle_rad - current_angle_rad
                 velocity_error = desired_velocity - current_velocity
 
@@ -253,14 +256,12 @@ if __name__ == "__main__":
 
                 if current_mode == ControlMode.AAN:
                     integral = position_error * dt
-                    ff_torque = 0.0
+                    ff_torque = ILC_controller.get_feedforward(elapsed_time)
                     if position_error < math.radians(1):
                         integral = np.clip(integral, -15, 15)  # Anti-windup
                     else:
                         integral *= 0.9
                     integral_torque = 5.0 * integral
-                    if trial_num > 0:
-                        ff_torque = ILC_controller.get_feedforward(elapsed_time, trial_num - 1)
                     total_torque = tau_fb + integral_torque + ff_torque
                 else:
                     total_torque = tau_fb
@@ -270,76 +271,15 @@ if __name__ == "__main__":
                 torque_clipped = np.clip(total_torque, TORQUE_MIN, TORQUE_MAX)
 
                 current = motor.torq2curcom(torque_clipped)
-                if motor_pos < 1050 and torque_clipped < 0:
+                if motor_pos < MOTOR_POS_MAX and torque_clipped < 0:
                     motor.sendMotorCommand(motor.motor_ids[0], 0)
-                elif motor_pos > 2550 and torque_clipped > 0:
+                elif motor_pos > MOTOR_POS_MIN and torque_clipped > 0:
                     motor.sendMotorCommand(motor.motor_ids[0], 0)
                 else:
                     motor.sendMotorCommand(motor.motor_ids[0], current)
 
                 time.sleep(0.005)  # Sleep briefly to yield CPU
                 i += 1
-        while last_time - loop_timer < 10:  # Run for 10 seconds
-            current_time = time.time()
-            dt = current_time - last_time
-
-            desired_angle_deg = sine_position(i, speed=0.1)
-            desired_angle_rad = math.radians(desired_angle_deg)
-            desired_velocity = (desired_angle_deg - last_desired_angle) / dt if dt > 0 else 0.0
-            last_desired_angle = desired_angle_deg
-            # step = 1500/140
-            step = (2280-1145)/140
-            motor_pos = motor.get_position()
-            # current_angle_deg = (2550 - motor_pos) / step
-            current_angle_deg = (2280 - motor_pos[0]) / step
-            current_angle_rad = math.radians(current_angle_deg)
-            current_velocity = motor.get_velocity()
-            plot_position.append(current_angle_deg)
-            plot_error.append(current_angle_deg - desired_angle_deg)
-            plot_desired_position.append(desired_angle_deg)
-
-            # print(f"current_angle_deg: {current_angle_deg}, desired_angle_deg: {desired_angle_deg}, error: {current_angle_deg - desired_angle_deg}, current_velocity: {current_velocity}, desired_velocity: {desired_velocity}")
-
-            # OIAC online impedance adaptation
-            K_mat, B_mat = OIAC.update_impedance(current_angle_rad, desired_angle_rad, current_velocity, desired_velocity) #TODO: is this correct?
-            # K_ma, B_mat = OIAC.update_impedance(current_angle_deg, desired_angle_deg, current_velocity, desired_velocity)
-            tau_fb = OIAC.calc_tau_fb()[0,0] # TODO: This might have to swap sign
-            #print(f"tau_fb: {tau_fb}")
-            total_torque = 0.0
-
-            if current_mode == ControlMode.AAN:
-                integral = position_error * dt
-                ff_torque = 0.0
-                if position_error < math.radians(1):
-                    integral = np.clip(integral, -15, 15)  # Anti-windup
-                else:
-                    integral *= 0.9
-                integral_torque = 5.0 * integral
-                if trial_num > 0:
-                    ff_torque = ILC_controller.get_feedforward(elapsed_time, trial_num - 1)
-                total_torque = tau_fb + integral_torque + ff_torque
-            else:
-                total_torque = tau_fb
-                integral_torque = 0.0
-                ff_torque = 0.0
-
-            tau_clipped = np.clip(total_torque, TORQUE_MIN, TORQUE_MAX)
-            plot_torque.append(float(tau_clipped))
-
-            current = motor.torq2curcom(tau_clipped)
-            #print("motor torque: ", tau_clipped, "motor position: ", motor_pos)
-            
-            if motor_pos < 1050 and tau_clipped < 0:
-                motor.sendMotorCommand(motor.motor_ids[0], 0)
-            elif motor_pos > 2550 and tau_clipped > 0:
-                motor.sendMotorCommand(motor.motor_ids[0], 0)
-            else:
-                motor.sendMotorCommand(motor.motor_ids[0], current)
-
-            time.sleep(0.005)  # Sleep briefly to yield CPU
-            i += 1
-            
-            last_time = current_time
     except Exception as e:
         print(f"Exception during final run: {e}")
 
