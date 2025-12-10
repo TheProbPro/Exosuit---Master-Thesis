@@ -27,9 +27,9 @@ class ada_imp_con():
         # self.a = 1000.0#0.2 #0.0001
         # self.b = 0.00001#5.0#10.0
         # self.k = 0.00001 #0.0005 #0.05
-        self.a = 0.6#0.2 #0.0001
-        self.b = 0.001#5.0#10.0
-        self.k = 0.001 #0.000001
+        self.a = 0.2#0.2 #0.0001
+        self.b = 5.0#5.0#10.0
+        self.k = 0.05 #0.000001
         
 
     def update_impedance(self, q, q_d, dq, dq_d):
@@ -82,7 +82,8 @@ class ILCv1():
         self.ILC_TRIAL_DURATION = 10.0  # seconds per trial
         
         # 学习率随trial递减
-        self.learning_rates = [0.8, 0.7, 0.6, 0.5, 0.4, 0.3, 0.25, 0.2, 0.15, 0.1]
+        # self.learning_rates = [0.8, 0.7, 0.6, 0.5, 0.4, 0.3, 0.25, 0.2, 0.15, 0.1]
+        self.learning_rates = 0.01
         
         # 历史数据记录
         self.trial_errors = []
@@ -126,7 +127,7 @@ class ILCv1():
         if not self.learned_feedforward:
             ff = np.zeros_like(aligned_error)
         else:
-            lr = self.learning_rates[min(self.current_trial, len(self.learning_rates)-1)]
+            lr = self.learning_rates
             ff = self.learned_feedforward[-1] + lr * aligned_error
         
         # 限制前馈幅度
@@ -147,7 +148,7 @@ class ILCv1():
         max_error = np.max(np.abs(aligned_error))
         
         print(f"[ILC] Trial {self.current_trial} completed:")
-        print(f"      Learning rate: {self.learning_rates[min(self.current_trial-1, len(self.learning_rates)-1)]:.2f}")
+        print(f"      Learning rate: {self.learning_rates}")
         print(f"      Avg error: {math.degrees(avg_error):.2f}°")
         print(f"      Max error: {math.degrees(max_error):.2f}°")
         print(f"      Feedforward range: [{np.min(ff):.2f}, {np.max(ff):.2f}] Nm")

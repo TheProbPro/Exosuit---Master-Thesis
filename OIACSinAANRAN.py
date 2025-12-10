@@ -85,6 +85,7 @@ if __name__ == "__main__":
         trial_b_log = []
         trial_ff_log = []
         trial_mode_log = []
+        trial_fb_log = []
 
         try:
             while not stop_event.is_set():
@@ -123,21 +124,21 @@ if __name__ == "__main__":
                 total_torque = 0.0
 
                 if current_mode == ControlMode.AAN:
-                    integral = position_error * dt
+                    #integral = position_error * dt
                     ff_torque = 0.0
-                    if position_error < math.radians(1):
-                        integral = np.clip(integral, -15, 15)  # Anti-windup
-                    else:
-                        integral *= 0.9
-                    integral_torque = 5.0 * integral
+                    #if position_error < math.radians(1):
+                    #    integral = np.clip(integral, -15, 15)  # Anti-windup
+                    #else:
+                    #    integral *= 0.9
+                    #integral_torque = 5.0 * integral
                     if trial > 0:
                         ff_torque = ILC_controller.get_feedforward(elapsed_time, trial - 1)
-                    total_torque = tau_fb + integral_torque + ff_torque
+                    #total_torque = tau_fb + integral_torque + ff_torque
+                    total_torque = tau_fb + ff_torque
                 else:
                     total_torque = tau_fb
-                    integral_torque = 0.0
+                    #integral_torque = 0.0
                     ff_torque = 0.0
-                
                 torque_clipped = np.clip(total_torque, TORQUE_MIN, TORQUE_MAX)
 
                 trial_time_log.append(10)
@@ -148,6 +149,7 @@ if __name__ == "__main__":
                 trial_k_log.append(K_mat[0,0])
                 trial_b_log.append(B_mat[0,0])
                 trial_ff_log.append(ff_torque)
+                trial_fb_log.append(tau_fb)
                 trial_mode_log.append(current_mode)
 
                 current = motor.torq2curcom(torque_clipped)
@@ -166,6 +168,7 @@ if __name__ == "__main__":
         
         finally:
             motor.sendMotorCommand(motor.motor_ids[0], 0)
+            i = 0
 
         if len(trial_error_log) > 0:
             avg_error = np.mean(np.abs(trial_error_log))
@@ -207,6 +210,38 @@ if __name__ == "__main__":
             if trial < trial_num:
                 ILC_controller.update_learning(trial_time_log, trial_error_log, trial_torque_log)
             
+            #plot fb, ff, tau
+            plt.figure(figsize=(10, 6))
+            plt.subplot(3,1,1)
+            plt.plot(trail_, label='Feedback Torque (Nm)')
+            plt.title(f'Trial {trial + 1} Feedback Torque')
+            plt.xlabel('Time Steps')
+            plt.ylabel('Torque (Nm)')
+            plt.legend()
+            plt.grid()
+            plt.subplot(3,1,2)
+            plt.plot(trial_ff_log, label='Feedforward Torque (Nm)', color='orange')
+            plt.title(f'Trial {trial + 1} Feedforward Torque')
+            plt.xlabel('Time Steps')
+            plt.ylabel('Torque (Nm)')
+            plt.legend()
+            plt.grid()
+            plt.subplot(3,1,3)
+            # plt.plot(plot_integral, label='Integral Torque (Nm)', color='green')
+            # plt.title(f'Trial {trial + 1} Integral Torque')
+            # plt.xlabel('Time Steps')
+            # plt.ylabel('Torque (Nm)')
+            # plt.legend()
+            # plt.grid()
+            plt.subplot(3,1,3)
+            plt.plot(trial_torque_log, label='Total Applied Torque (Nm)')
+            plt.title(f'Trial {trial + 1} Control Torque')
+            plt.xlabel('Time Steps')
+            plt.ylabel('Torque (Nm)')
+            plt.legend()
+            plt.grid()
+            plt.show()
+            
         else:
             print("No data recorded for this trial.")
 
@@ -214,9 +249,12 @@ if __name__ == "__main__":
 
     # TODO: Implement other up down controller
     # TODO: Implement threshold controller underneath
+    print("Press enter to run final trial with learned feedforward")
+    input()
     i = 0
     last_time = time.time()
     loop_timer = time.time()
+    trial_start_time = time.time()
     #while not stop_event.is_set():
     try:
         while not stop_event.is_set():
@@ -227,6 +265,7 @@ if __name__ == "__main__":
                 dt = current_time - last_time
                 last_time = current_time
                 desired_angle_deg = sine_position(i, speed=0.1)
+                plot_desired_position.append(desired_angle_deg)
                 desired_angle_rad = math.radians(desired_angle_deg)
                 desired_velocity = (desired_angle_deg - last_desired_angle) / dt if dt > 0 else 0.0
                 last_desired_angle = desired_angle_deg
@@ -235,9 +274,11 @@ if __name__ == "__main__":
                 motor_pos = motor.get_position()[0]
                 # current_angle_deg = (2550 - motor_pos[0]) / step
                 current_angle_deg = (MOTOR_POS_MIN - motor_pos) / step
+                plot_position.append(current_angle_deg)
                 current_angle_rad = math.radians(current_angle_deg)
                 current_velocity = motor.get_velocity()[0]
                 position_error = desired_angle_rad - current_angle_rad
+                plot_error.append(math.degrees(position_error))
                 velocity_error = desired_velocity - current_velocity
 
                 current_mode = mode_controller.current_mode
@@ -269,6 +310,7 @@ if __name__ == "__main__":
                     ff_torque = 0.0
                 
                 torque_clipped = np.clip(total_torque, TORQUE_MIN, TORQUE_MAX)
+                plot_torque.append(torque_clipped)
 
                 current = motor.torq2curcom(torque_clipped)
                 if motor_pos < MOTOR_POS_MAX and torque_clipped < 0:
