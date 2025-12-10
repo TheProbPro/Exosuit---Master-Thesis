@@ -261,6 +261,117 @@ if __name__ == "__main__":
 
             if trial < trial_num:
                 ILC_controller.update_learning(trial_time_log, trial_error_log, trial_torque_log)
+
+
+
+            # 在绘图之前添加诊断信息  在这里开始 
+            
+            if len(trial_error_log) > 0:
+                # 诊断信息
+                print(f"\n=== 诊断信息 Trial {trial + 1} ===")
+                print(f"trial_fb_log 长度: {len(trial_fb_log)}")
+                print(f"trial_ff_log 长度: {len(trial_ff_log)}")
+                print(f"trial_torque_log 长度: {len(trial_torque_log)}")
+                
+                print(f"\ntrial_fb_log 范围: [{min(trial_fb_log):.4f}, {max(trial_fb_log):.4f}]")
+                print(f"trial_ff_log 范围: [{min(trial_ff_log):.4f}, {max(trial_ff_log):.4f}]")
+                print(f"trial_torque_log 范围: [{min(trial_torque_log):.4f}, {max(trial_torque_log):.4f}]")
+                
+                print(f"\ntrial_fb_log 前5个值: {trial_fb_log[:5]}")
+                print(f"trial_ff_log 前5个值: {trial_ff_log[:5]}")
+                
+                avg_error = np.mean(np.abs(trial_error_log))
+                max_error = np.max(np.abs(trial_error_log))
+                avg_k = np.mean(trial_k_log)
+                avg_b = np.mean(trial_b_log)
+                
+                # 统计模式使用情况
+                aan_count = sum(1 for m in trial_mode_log if m == ControlMode.AAN)
+                ran_count = sum(1 for m in trial_mode_log if m == ControlMode.RAN)
+                total_count = len(trial_mode_log)
+                aan_percentage = (aan_count / total_count * 100) if total_count > 0 else 0
+                ran_percentage = (ran_count / total_count * 100) if total_count > 0 else 0
+                
+                trial_stats = {
+                    'trial': trial + 1,
+                    'avg_error_deg': math.degrees(avg_error),
+                    'max_error_deg': math.degrees(max_error),
+                    'avg_k': avg_k,
+                    'avg_b': avg_b,
+                    'aan_percentage': aan_percentage,
+                    'ran_percentage': ran_percentage
+                }
+                all_trial_stats.append(trial_stats)
+                
+                print(f"\nAverage tracking error: {math.degrees(avg_error):.2f}°")
+                print(f"Maximum tracking error: {math.degrees(max_error):.2f}°")
+                print(f"Average K: {avg_k:.8f}, Average B: {avg_b:.8f}")
+                print(f"Mode usage: AAN={aan_percentage:.1f}%, RAN={ran_percentage:.1f}%")
+                print(f"Mode switches: {len(mode_controller.mode_history)}")
+                
+                # 显示模式切换历史
+                if mode_controller.mode_history:
+                    print("\nMode switch history:")
+                    for switch in mode_controller.mode_history:
+                        print(f"  t={switch['time']-trial_start_time:.1f}s: "
+                            f"{switch['from']} -> {switch['to']}")
+
+                if trial < trial_num - 1:  # 修正这里,应该是 trial_num - 1
+                    ILC_controller.update_learning(trial_time_log, trial_error_log, trial_torque_log)
+                
+                # 修复后的绘图代码
+                plt.figure(figsize=(12, 8))
+                
+                # 子图1: Feedback Torque
+                plt.subplot(3, 1, 1)
+                if len(trial_fb_log) > 0:
+                    plt.plot(trial_fb_log, label='Feedback Torque (Nm)', linewidth=1.5)
+                    plt.title(f'Trial {trial + 1} Feedback Torque')
+                    plt.xlabel('Time Steps')
+                    plt.ylabel('Torque (Nm)')
+                    plt.legend()
+                    plt.grid(True, alpha=0.3)
+                    # 强制设置y轴范围
+                    y_min, y_max = min(trial_fb_log), max(trial_fb_log)
+                    margin = (y_max - y_min) * 0.1 if y_max != y_min else 0.1
+                    plt.ylim([y_min - margin, y_max + margin])
+                
+                # 子图2: Feedforward Torque
+                plt.subplot(3, 1, 2)
+                if len(trial_ff_log) > 0:
+                    plt.plot(trial_ff_log, label='Feedforward Torque (Nm)', color='orange', linewidth=1.5)
+                    plt.title(f'Trial {trial + 1} Feedforward Torque')
+                    plt.xlabel('Time Steps')
+                    plt.ylabel('Torque (Nm)')
+                    plt.legend()
+                    plt.grid(True, alpha=0.3)
+                    # 强制设置y轴范围
+                    y_min, y_max = min(trial_ff_log), max(trial_ff_log)
+                    margin = (y_max - y_min) * 0.1 if y_max != y_min else 0.1
+                    plt.ylim([y_min - margin, y_max + margin])
+                
+                # 子图3: Total Torque
+                plt.subplot(3, 1, 3)
+                if len(trial_torque_log) > 0:
+                    plt.plot(trial_torque_log, label='Total Applied Torque (Nm)', color='green', linewidth=1.5)
+                    plt.title(f'Trial {trial + 1} Control Torque')
+                    plt.xlabel('Time Steps')
+                    plt.ylabel('Torque (Nm)')
+                    plt.legend()
+                    plt.grid(True, alpha=0.3)
+                    # 强制设置y轴范围
+                    y_min, y_max = min(trial_torque_log), max(trial_torque_log)
+                    margin = (y_max - y_min) * 0.1 if y_max != y_min else 0.1
+                    plt.ylim([y_min - margin, y_max + margin])
+                
+                plt.tight_layout()
+                plt.show(block=True)  # 确保图形显示
+                
+            else:
+                print("No data recorded for this trial.")
+
+
+
             
             # #plot fb, ff, tau
             # plt.figure(figsize=(10, 6))
@@ -294,8 +405,8 @@ if __name__ == "__main__":
             # plt.grid()
             # plt.show()
             
-        else:
-            print("No data recorded for this trial.")
+        # else:
+        #     print("No data recorded for this trial.")
 
     
 
