@@ -210,15 +210,49 @@ if __name__ == "__main__":
             if trial < trial_num:
                 ILC_controller.update_learning(trial_time_log, trial_error_log, trial_torque_log)
             
+            # #plot fb, ff, tau
+            # plt.figure(figsize=(10, 6))
+            # plt.subplot(3,1,1)
+            # plt.plot(trail_, label='Feedback Torque (Nm)')
+            # plt.title(f'Trial {trial + 1} Feedback Torque')
+            # plt.xlabel('Time Steps')
+            # plt.ylabel('Torque (Nm)')
+            # plt.legend()
+            # plt.grid()
+            # plt.subplot(3,1,2)
+            # plt.plot(trial_ff_log, label='Feedforward Torque (Nm)', color='orange')
+            # plt.title(f'Trial {trial + 1} Feedforward Torque')
+            # plt.xlabel('Time Steps')
+            # plt.ylabel('Torque (Nm)')
+            # plt.legend()
+            # plt.grid()
+            # plt.subplot(3,1,3)
+            # # plt.plot(plot_integral, label='Integral Torque (Nm)', color='green')
+            # # plt.title(f'Trial {trial + 1} Integral Torque')
+            # # plt.xlabel('Time Steps')
+            # # plt.ylabel('Torque (Nm)')
+            # # plt.legend()
+            # # plt.grid()
+            # plt.subplot(3,1,3)
+            # plt.plot(trial_torque_log, label='Total Applied Torque (Nm)')
+            # plt.title(f'Trial {trial + 1} Control Torque')
+            # plt.xlabel('Time Steps')
+            # plt.ylabel('Torque (Nm)')
+            # plt.legend()
+            # plt.grid()
+            # plt.show()
+
             #plot fb, ff, tau
             plt.figure(figsize=(10, 6))
+
             plt.subplot(3,1,1)
-            plt.plot(trail_, label='Feedback Torque (Nm)')
+            plt.plot(trial_fb_log, label='Feedback Torque (Nm)')  # 修正变量名
             plt.title(f'Trial {trial + 1} Feedback Torque')
             plt.xlabel('Time Steps')
             plt.ylabel('Torque (Nm)')
             plt.legend()
             plt.grid()
+
             plt.subplot(3,1,2)
             plt.plot(trial_ff_log, label='Feedforward Torque (Nm)', color='orange')
             plt.title(f'Trial {trial + 1} Feedforward Torque')
@@ -226,13 +260,7 @@ if __name__ == "__main__":
             plt.ylabel('Torque (Nm)')
             plt.legend()
             plt.grid()
-            plt.subplot(3,1,3)
-            # plt.plot(plot_integral, label='Integral Torque (Nm)', color='green')
-            # plt.title(f'Trial {trial + 1} Integral Torque')
-            # plt.xlabel('Time Steps')
-            # plt.ylabel('Torque (Nm)')
-            # plt.legend()
-            # plt.grid()
+
             plt.subplot(3,1,3)
             plt.plot(trial_torque_log, label='Total Applied Torque (Nm)')
             plt.title(f'Trial {trial + 1} Control Torque')
@@ -240,6 +268,8 @@ if __name__ == "__main__":
             plt.ylabel('Torque (Nm)')
             plt.legend()
             plt.grid()
+
+            plt.tight_layout()  # 添加这行使子图布局更紧凑
             plt.show()
             
         else:
