@@ -39,6 +39,20 @@ def sine_position(step, speed=0.05, min_val=0, max_val=140):
     x = step * speed
     return amplitude * math.sin(x) + offset
 
+def sine_velocity(step, speed=0.05, min_val=0, max_val=140):
+    """
+    Returns the velocity of a sine-wave oscillation.
+
+    Parameters:
+        step (int): Increasing integer input 1, 2, 3, ...
+        speed (float): Frequency scaling (same as position function).
+        min_val (float): Minimum position value.
+        max_val (float): Maximum position value.
+    """
+    amplitude = (max_val - min_val) / 2
+    x = step * speed
+    return amplitude * speed * math.cos(x)
+
 # Graceful Ctrl-C
 def handle_sigint(sig, frame):
     stop_event.set()
@@ -97,7 +111,11 @@ if __name__ == "__main__":
                 last_time = current_time
                 desired_angle_deg = sine_position(i, speed=0.1)
                 desired_angle_rad = math.radians(desired_angle_deg)
-                desired_velocity = (desired_angle_deg - last_desired_angle) / dt if dt > 0 else 0.0
+                # Chat
+                desired_velocity_rad = sine_velocity(i, speed=0.1)
+                # us
+                #desired_velocity = (desired_angle_deg - last_desired_angle) / dt if dt > 0 else 0.0
+                #desired_velocity_rad = math.radians(desired_velocity)
                 last_desired_angle = desired_angle_deg
                 # step = 1500/140
                 step = (MOTOR_POS_MIN - MOTOR_POS_MAX)/140
@@ -107,7 +125,9 @@ if __name__ == "__main__":
                 current_angle_rad = math.radians(current_angle_deg)
                 current_velocity = motor.get_velocity()[0]
                 position_error = desired_angle_rad - current_angle_rad
-                velocity_error = desired_velocity - current_velocity
+                velocity_error = desired_velocity_rad - current_velocity
+                print(f"desired velocity: {desired_velocity_rad}, current velocity: {current_velocity}")
+                print(f"position error: {position_error}, velocity error: {velocity_error}")
 
                 current_mode = mode_controller.current_mode
                 mode_changed = mode_controller.update_mode(position_error, current_angle_rad, desired_angle_rad, current_time)
@@ -115,7 +135,7 @@ if __name__ == "__main__":
                 if mode_changed:
                     current_mode = mode_controller.current_mode
 
-                K_mat, B_mat = OIAC.update_impedance(current_angle_rad, desired_angle_rad, current_velocity, desired_velocity)
+                K_mat, B_mat = OIAC.update_impedance(current_angle_rad, desired_angle_rad, current_velocity, desired_velocity_rad)
 
                 pos_error_vec = np.array([[position_error]])
                 vel_error_vec = np.array([[velocity_error]])
@@ -169,6 +189,38 @@ if __name__ == "__main__":
         finally:
             motor.sendMotorCommand(motor.motor_ids[0], 0)
             i = 0
+        
+        print("max ff torque this trial: ", np.max(np.abs(trial_ff_log)), "Nm, and max fb torque: ", np.max(np.abs(trial_fb_log)), "Nm")
+
+        #plot fb, ff, tau
+        plt.figure(figsize=(10, 6))
+
+        plt.subplot(3,1,1)
+        plt.plot(trial_fb_log, label='Feedback Torque (Nm)')  # 修正变量名
+        plt.title(f'Trial {trial + 1} Feedback Torque')
+        plt.xlabel('Time Steps')
+        plt.ylabel('Torque (Nm)')
+        plt.legend()
+        plt.grid()
+
+        plt.subplot(3,1,2)
+        plt.plot(trial_ff_log, label='Feedforward Torque (Nm)', color='orange')
+        plt.title(f'Trial {trial + 1} Feedforward Torque')
+        plt.xlabel('Time Steps')
+        plt.ylabel('Torque (Nm)')
+        plt.legend()
+        plt.grid()
+
+        plt.subplot(3,1,3)
+        plt.plot(trial_torque_log, label='Total Applied Torque (Nm)')
+        plt.title(f'Trial {trial + 1} Control Torque')
+        plt.xlabel('Time Steps')
+        plt.ylabel('Torque (Nm)')
+        plt.legend()
+        plt.grid()
+
+        plt.tight_layout()  # 添加这行使子图布局更紧凑
+        plt.show()
 
         if len(trial_error_log) > 0:
             avg_error = np.mean(np.abs(trial_error_log))
@@ -241,36 +293,6 @@ if __name__ == "__main__":
             # plt.legend()
             # plt.grid()
             # plt.show()
-
-            #plot fb, ff, tau
-            plt.figure(figsize=(10, 6))
-
-            plt.subplot(3,1,1)
-            plt.plot(trial_fb_log, label='Feedback Torque (Nm)')  # 修正变量名
-            plt.title(f'Trial {trial + 1} Feedback Torque')
-            plt.xlabel('Time Steps')
-            plt.ylabel('Torque (Nm)')
-            plt.legend()
-            plt.grid()
-
-            plt.subplot(3,1,2)
-            plt.plot(trial_ff_log, label='Feedforward Torque (Nm)', color='orange')
-            plt.title(f'Trial {trial + 1} Feedforward Torque')
-            plt.xlabel('Time Steps')
-            plt.ylabel('Torque (Nm)')
-            plt.legend()
-            plt.grid()
-
-            plt.subplot(3,1,3)
-            plt.plot(trial_torque_log, label='Total Applied Torque (Nm)')
-            plt.title(f'Trial {trial + 1} Control Torque')
-            plt.xlabel('Time Steps')
-            plt.ylabel('Torque (Nm)')
-            plt.legend()
-            plt.grid()
-
-            plt.tight_layout()  # 添加这行使子图布局更紧凑
-            plt.show()
             
         else:
             print("No data recorded for this trial.")
@@ -297,7 +319,9 @@ if __name__ == "__main__":
                 desired_angle_deg = sine_position(i, speed=0.1)
                 plot_desired_position.append(desired_angle_deg)
                 desired_angle_rad = math.radians(desired_angle_deg)
-                desired_velocity = (desired_angle_deg - last_desired_angle) / dt if dt > 0 else 0.0
+                #desired_velocity = (desired_angle_deg - last_desired_angle) / dt if dt > 0 else 0.0
+                #desired_velocity_rad = math.radians(desired_velocity)
+                desired_velocity_rad = sine_velocity(i, speed=0.1)
                 last_desired_angle = desired_angle_deg
                 # step = 1500/140
                 step = (MOTOR_POS_MIN - MOTOR_POS_MAX)/140
@@ -309,7 +333,7 @@ if __name__ == "__main__":
                 current_velocity = motor.get_velocity()[0]
                 position_error = desired_angle_rad - current_angle_rad
                 plot_error.append(math.degrees(position_error))
-                velocity_error = desired_velocity - current_velocity
+                velocity_error = desired_velocity_rad - current_velocity
 
                 current_mode = mode_controller.current_mode
                 mode_changed = mode_controller.update_mode(position_error, current_angle_rad, desired_angle_rad, current_time)
@@ -317,7 +341,7 @@ if __name__ == "__main__":
                 if mode_changed:
                     current_mode = mode_controller.current_mode
 
-                K_mat, B_mat = OIAC.update_impedance(current_angle_rad, desired_angle_rad, current_velocity, desired_velocity)
+                K_mat, B_mat = OIAC.update_impedance(current_angle_rad, desired_angle_rad, current_velocity, desired_velocity_rad)
 
                 pos_error_vec = np.array([[position_error]])
                 vel_error_vec = np.array([[velocity_error]])
