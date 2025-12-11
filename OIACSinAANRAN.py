@@ -1,7 +1,7 @@
 # My local imports (EMG sensor, filtering, interpretors, OIAC)
 import math
 from Motors.DynamixelHardwareInterface import Motors
-from OIAC_Controllers import ada_imp_con, ILCv1, ILCv2, ModeControllerThreshold, ModeControllerUpDown, ControlMode
+from OIAC_Controllers import ada_imp_con, ILC, ILCv1, ILCv2, ModeControllerThreshold, ModeControllerUpDown, ControlMode
 
 # General imports
 import numpy as np
@@ -76,7 +76,8 @@ if __name__ == "__main__":
     i = 0
     OIAC = ada_imp_con(1) # 1 degree of freedom
     #TODO: test the two mode controllers with iterative learning on exo
-    ILC_controller = ILCv1(max_trials=10)
+    ILC_controller = ILC()
+    # ILC_controller = ILCv1(max_trials=10)
     # ILC_controller = ILCv2(max_trials=10, alpha=0.1)
     mode_controller = ModeControllerThreshold()
     # mode_controller = ModeControllerUpDown(OIAC, ILC_controller)
@@ -111,23 +112,15 @@ if __name__ == "__main__":
                 last_time = current_time
                 desired_angle_deg = sine_position(i, speed=0.1)
                 desired_angle_rad = math.radians(desired_angle_deg)
-                # Chat
                 desired_velocity_rad = sine_velocity(i, speed=0.1)
-                # us
-                #desired_velocity = (desired_angle_deg - last_desired_angle) / dt if dt > 0 else 0.0
-                #desired_velocity_rad = math.radians(desired_velocity)
                 last_desired_angle = desired_angle_deg
-                # step = 1500/140
                 step = (MOTOR_POS_MIN - MOTOR_POS_MAX)/140
                 motor_pos = motor.get_position()[0]
-                # current_angle_deg = (2550 - motor_pos[0]) / step
                 current_angle_deg = (MOTOR_POS_MIN - motor_pos) / step
                 current_angle_rad = math.radians(current_angle_deg)
                 current_velocity = motor.get_velocity()[0]
                 position_error = desired_angle_rad - current_angle_rad
                 velocity_error = desired_velocity_rad - current_velocity
-                print(f"desired velocity: {desired_velocity_rad}, current velocity: {current_velocity}")
-                print(f"position error: {position_error}, velocity error: {velocity_error}")
 
                 current_mode = mode_controller.current_mode
                 mode_changed = mode_controller.update_mode(position_error, current_angle_rad, desired_angle_rad, current_time)
@@ -152,9 +145,11 @@ if __name__ == "__main__":
                     #    integral *= 0.9
                     #integral_torque = 5.0 * integral
                     if trial > 0:
-                        ff_torque = ILC_controller.get_feedforward(elapsed_time, trial - 1)
+                        ff_torque = ILC_controller.get_feedforward()
+                        #print(f"ff torque from ILC: {ff_torque}")
                     #total_torque = tau_fb + integral_torque + ff_torque
                     total_torque = tau_fb + ff_torque
+                    #print(f"ff torque: {ff_torque},\n tau_fb: {tau_fb},\n total: {total_torque}")
                 else:
                     total_torque = tau_fb
                     #integral_torque = 0.0
@@ -180,7 +175,7 @@ if __name__ == "__main__":
                 else:
                     motor.sendMotorCommand(motor.motor_ids[0], current)
 
-                time.sleep(0.005)  # Sleep briefly to yield CPU
+                #time.sleep(0.001)  # Sleep briefly to yield CPU
                 i += 1
 
         except Exception as e:
@@ -191,7 +186,7 @@ if __name__ == "__main__":
             i = 0
         
         print("max ff torque this trial: ", np.max(np.abs(trial_ff_log)), "Nm, and max fb torque: ", np.max(np.abs(trial_fb_log)), "Nm")
-
+        print(f"Trial error log size: {len(trial_error_log)}")
         #plot fb, ff, tau
         plt.figure(figsize=(10, 6))
 
@@ -260,8 +255,8 @@ if __name__ == "__main__":
                           f"{switch['from']} -> {switch['to']}")
 
             if trial < trial_num:
-                ILC_controller.update_learning(trial_time_log, trial_error_log, trial_torque_log)
-
+                # ILC_controller.update_learning(trial_time_log, trial_error_log, trial_torque_log)
+                ILC_controller.update_learning(trial_error_log)
 
 
             # 在绘图之前添加诊断信息  在这里开始 
@@ -315,95 +310,9 @@ if __name__ == "__main__":
                     for switch in mode_controller.mode_history:
                         print(f"  t={switch['time']-trial_start_time:.1f}s: "
                             f"{switch['from']} -> {switch['to']}")
-
-                if trial < trial_num - 1:  # 修正这里,应该是 trial_num - 1
-                    ILC_controller.update_learning(trial_time_log, trial_error_log, trial_torque_log)
-                
-                # 修复后的绘图代码
-                plt.figure(figsize=(12, 8))
-                
-                # 子图1: Feedback Torque
-                plt.subplot(3, 1, 1)
-                if len(trial_fb_log) > 0:
-                    plt.plot(trial_fb_log, label='Feedback Torque (Nm)', linewidth=1.5)
-                    plt.title(f'Trial {trial + 1} Feedback Torque')
-                    plt.xlabel('Time Steps')
-                    plt.ylabel('Torque (Nm)')
-                    plt.legend()
-                    plt.grid(True, alpha=0.3)
-                    # 强制设置y轴范围
-                    y_min, y_max = min(trial_fb_log), max(trial_fb_log)
-                    margin = (y_max - y_min) * 0.1 if y_max != y_min else 0.1
-                    plt.ylim([y_min - margin, y_max + margin])
-                
-                # 子图2: Feedforward Torque
-                plt.subplot(3, 1, 2)
-                if len(trial_ff_log) > 0:
-                    plt.plot(trial_ff_log, label='Feedforward Torque (Nm)', color='orange', linewidth=1.5)
-                    plt.title(f'Trial {trial + 1} Feedforward Torque')
-                    plt.xlabel('Time Steps')
-                    plt.ylabel('Torque (Nm)')
-                    plt.legend()
-                    plt.grid(True, alpha=0.3)
-                    # 强制设置y轴范围
-                    y_min, y_max = min(trial_ff_log), max(trial_ff_log)
-                    margin = (y_max - y_min) * 0.1 if y_max != y_min else 0.1
-                    plt.ylim([y_min - margin, y_max + margin])
-                
-                # 子图3: Total Torque
-                plt.subplot(3, 1, 3)
-                if len(trial_torque_log) > 0:
-                    plt.plot(trial_torque_log, label='Total Applied Torque (Nm)', color='green', linewidth=1.5)
-                    plt.title(f'Trial {trial + 1} Control Torque')
-                    plt.xlabel('Time Steps')
-                    plt.ylabel('Torque (Nm)')
-                    plt.legend()
-                    plt.grid(True, alpha=0.3)
-                    # 强制设置y轴范围
-                    y_min, y_max = min(trial_torque_log), max(trial_torque_log)
-                    margin = (y_max - y_min) * 0.1 if y_max != y_min else 0.1
-                    plt.ylim([y_min - margin, y_max + margin])
-                
-                plt.tight_layout()
-                plt.show(block=True)  # 确保图形显示
-                
+                           
             else:
                 print("No data recorded for this trial.")
-
-
-
-            
-            # #plot fb, ff, tau
-            # plt.figure(figsize=(10, 6))
-            # plt.subplot(3,1,1)
-            # plt.plot(trail_, label='Feedback Torque (Nm)')
-            # plt.title(f'Trial {trial + 1} Feedback Torque')
-            # plt.xlabel('Time Steps')
-            # plt.ylabel('Torque (Nm)')
-            # plt.legend()
-            # plt.grid()
-            # plt.subplot(3,1,2)
-            # plt.plot(trial_ff_log, label='Feedforward Torque (Nm)', color='orange')
-            # plt.title(f'Trial {trial + 1} Feedforward Torque')
-            # plt.xlabel('Time Steps')
-            # plt.ylabel('Torque (Nm)')
-            # plt.legend()
-            # plt.grid()
-            # plt.subplot(3,1,3)
-            # # plt.plot(plot_integral, label='Integral Torque (Nm)', color='green')
-            # # plt.title(f'Trial {trial + 1} Integral Torque')
-            # # plt.xlabel('Time Steps')
-            # # plt.ylabel('Torque (Nm)')
-            # # plt.legend()
-            # # plt.grid()
-            # plt.subplot(3,1,3)
-            # plt.plot(trial_torque_log, label='Total Applied Torque (Nm)')
-            # plt.title(f'Trial {trial + 1} Control Torque')
-            # plt.xlabel('Time Steps')
-            # plt.ylabel('Torque (Nm)')
-            # plt.legend()
-            # plt.grid()
-            # plt.show()
             
         # else:
         #     print("No data recorded for this trial.")
@@ -462,7 +371,7 @@ if __name__ == "__main__":
 
                 if current_mode == ControlMode.AAN:
                     integral = position_error * dt
-                    ff_torque = ILC_controller.get_feedforward(elapsed_time)
+                    ff_torque = ILC_controller.get_feedforward()
                     if position_error < math.radians(1):
                         integral = np.clip(integral, -15, 15)  # Anti-windup
                     else:

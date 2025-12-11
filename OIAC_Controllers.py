@@ -24,12 +24,12 @@ class ada_imp_con():
         self.dq = np.asmatrix(np.zeros((self.DOF, 1))) # acceleration matrix
         self.dq_d = np.asmatrix(np.zeros((self.DOF, 1))) # desired velocity matrix
 
-        # self.a = 1000.0#0.2 #0.0001
-        # self.b = 0.00001#5.0#10.0
-        # self.k = 0.00001 #0.0005 #0.05
-        self.a = 0.04#0.2 #0.0001
-        self.b = 0.001#5.0#10.0
-        self.k = 0.05 #0.000001
+        self.a = 10#0.2 #0.0001
+        self.b = 0.0001#5.0#10.0
+        self.k = 0.5 #0.0005 #0.05
+        # self.a = 0.2#0.2 #0.0001
+        # self.b = 5.0#5.0#10.0
+        # self.k = 0.005 #0.000001
         
 
     def update_impedance(self, q, q_d, dq, dq_d):
@@ -67,13 +67,65 @@ class ada_imp_con():
     def get_tau(self):
         return self.calc_tau_fb() + self.calc_tau_ff()
 
+class ILC():
+    def __init__(self, max_trials=10, trial_duration=10.0, frequency=20.9, lr=0.1):
+        self.max_trials = max_trials
+        self.current_trial = 0
+        self.learned_feedforward = []
+        self.trial_duration = trial_duration
+        self.frequency = frequency
+        self.error_history = []
+        self.lr = lr  # learning rate
+        self.ff_iterator = 0
+
+    def update_learning(self, error_array):
+        # reset iterator for feedforward retrieval
+        self.ff_iterator = 0
+
+        if len(error_array) == 0:
+            print("[ILC] Warning: Empty error array, skipping update")
+            return np.zeros(int(self.trial_duration * self.frequency))
+        
+        # Convert error_array to numpy array if it isn't already
+        error_array = np.array(error_array)
+        
+        # Ensure error array is the same length as previous trials
+        expected_len = int(self.trial_duration * self.frequency)
+        assert len(error_array) == expected_len
+        
+        # Update learning
+        if not self.learned_feedforward:
+            ff = np.zeros_like(error_array)
+        else:
+            ff = self.learned_feedforward[-1] + self.lr * error_array
+        
+        # save learned feedforward and error history and iterate trial count
+        self.learned_feedforward.append(ff)
+        self.error_history.append(error_array)
+        self.current_trial += 1
+
+        # Performance metrics
+        avg_error = np.mean(np.abs(error_array))
+        max_error = np.max(np.abs(error_array))
+        print(f"[ILC] Trial {self.current_trial} completed:")
+        print(f"      Learning rate: {self.lr}")
+        print(f"      Avg error: {math.degrees(avg_error)}°")
+        print(f"      Max error: {math.degrees(max_error)}°")
+        return ff
+    
+    def get_feedforward(self, trial_idx=-1):
+        # retrieve feedforward value at current iterator position
+        ff_value = self.learned_feedforward[trial_idx][self.ff_iterator]
+        # increment iterator
+        self.ff_iterator += 1
+        return ff_value
 
 class ILCv1():
     """
     增强的迭代学习控制器
     用于重复性任务的前馈学习
     """
-    def __init__(self, max_trials=10, reference_length=5000):
+    def __init__(self, max_trials=10, reference_length=2000):
         self.max_trials = max_trials
         self.current_trial = 0
         self.learned_feedforward = []
@@ -83,7 +135,7 @@ class ILCv1():
         
         # 学习率随trial递减
         # self.learning_rates = [0.8, 0.7, 0.6, 0.5, 0.4, 0.3, 0.25, 0.2, 0.15, 0.1]
-        self.learning_rates = 0.01
+        self.learning_rates = 0.1
         
         # 历史数据记录
         self.trial_errors = []
@@ -123,23 +175,24 @@ class ILCv1():
             print(f"[ILC] Interpolation error: {e}")
             aligned_error = np.zeros_like(self.reference_time)
         
+        self.trial_errors.append(aligned_error)
+
         # 学习更新
         if not self.learned_feedforward:
             ff = np.zeros_like(aligned_error)
         else:
-            lr = self.learning_rates
-            ff = self.learned_feedforward[-1] + lr * aligned_error
+            ff = self.learned_feedforward[-1] + self.learning_rates * self.trial_errors[-1]
         
         # 限制前馈幅度
-        ff = np.clip(ff, -20.0, 20.0)
+        #ff = np.clip(ff, -20.0, 20.0)
         
         # 平滑处理
+        # Why do we do this?
         if len(ff) > 10:
             window_size = 11
             ff = np.convolve(ff, np.ones(window_size)/window_size, mode='same')
         
         self.learned_feedforward.append(ff)
-        self.trial_errors.append(aligned_error)
         self.trial_torques.append(torque_array)
         self.current_trial += 1
         
@@ -152,6 +205,8 @@ class ILCv1():
         print(f"      Avg error: {math.degrees(avg_error):.2f}°")
         print(f"      Max error: {math.degrees(max_error):.2f}°")
         print(f"      Feedforward range: [{np.min(ff):.2f}, {np.max(ff):.2f}] Nm")
+
+        # print(f"Updated FF: {ff}")
         
         return ff
     
@@ -166,6 +221,7 @@ class ILCv1():
         返回:
             feedforward torque
         """
+        # Maybe there is something here blocking that we get the correct result
         if trial_idx < 0:
             trial_idx = len(self.learned_feedforward) - 1
             
@@ -177,8 +233,10 @@ class ILCv1():
             
         # 找到最接近的时间点
         idx = np.argmin(np.abs(self.reference_time - t))
+        print(f"index {idx}")
         if idx < len(self.learned_feedforward[trial_idx]):
             return float(self.learned_feedforward[trial_idx][idx])
+        
         return 0.0
     
 class ILCv2():
