@@ -24,8 +24,8 @@ class ada_imp_con():
         self.dq = np.asmatrix(np.zeros((self.DOF, 1))) # acceleration matrix
         self.dq_d = np.asmatrix(np.zeros((self.DOF, 1))) # desired velocity matrix
 
-        self.a = 10#0.2 #0.0001
-        self.b = 0.0001#5.0#10.0
+        self.a = 1.0#0.2 #0.0001
+        self.b = 0.5#5.0#10.0
         self.k = 0.5 #0.0005 #0.05
         # self.a = 0.2#0.2 #0.0001
         # self.b = 5.0#5.0#10.0
@@ -68,7 +68,7 @@ class ada_imp_con():
         return self.calc_tau_fb() + self.calc_tau_ff()
 
 class ILC():
-    def __init__(self, max_trials=10, trial_duration=10.0, frequency=20.9, lr=0.1):
+    def __init__(self, max_trials=10, trial_duration=10.0, frequency=166.7, lr=0.1):
         self.max_trials = max_trials
         self.current_trial = 0
         self.learned_feedforward = []

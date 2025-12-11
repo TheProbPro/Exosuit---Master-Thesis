@@ -85,34 +85,37 @@ if __name__ == "__main__":
     # Run trial
     all_trial_stats = []
     trial_num = 10
+    SIN_SPEED = 1.2
 
     for trial in range(trial_num):
         print("Press enter to start trial")
         input()
         trial_start_time = time.time()
         last_time = time.time()
-        trial_time_log = []
         trial_error_log = []
         trial_torque_log = []
-        trial_desired_angle_log = []
-        trial_current_angle_log = []
         trial_k_log = []
         trial_b_log = []
         trial_ff_log = []
         trial_mode_log = []
         trial_fb_log = []
+        trial_desired_position = []
 
         try:
             while not stop_event.is_set():
-                elapsed_time = time.time() - trial_start_time
+                current_time = time.time()
+                elapsed_time = current_time - trial_start_time
                 if elapsed_time > 10:  # Each trial lasts 10 seconds
                     break
-                current_time = time.time()
                 dt = current_time - last_time
                 last_time = current_time
-                desired_angle_deg = sine_position(i, speed=0.1)
+                #desired_angle_deg = sine_position(i, speed=0.1)
+                desired_angle_deg = sine_position(elapsed_time, speed=SIN_SPEED)
+                trial_desired_position.append(desired_angle_deg)
                 desired_angle_rad = math.radians(desired_angle_deg)
-                desired_velocity_rad = sine_velocity(i, speed=0.1)
+                # desired_velocity_rad = sine_velocity(i, speed=0.1)
+                desired_velocity_deg = sine_velocity(elapsed_time, speed=SIN_SPEED)
+                desired_velocity_rad = math.radians(desired_velocity_deg)
                 last_desired_angle = desired_angle_deg
                 step = (MOTOR_POS_MIN - MOTOR_POS_MAX)/140
                 motor_pos = motor.get_position()[0]
@@ -130,9 +133,6 @@ if __name__ == "__main__":
 
                 K_mat, B_mat = OIAC.update_impedance(current_angle_rad, desired_angle_rad, current_velocity, desired_velocity_rad)
 
-                pos_error_vec = np.array([[position_error]])
-                vel_error_vec = np.array([[velocity_error]])
-
                 tau_fb = OIAC.calc_tau_fb()[0,0]
                 total_torque = 0.0
 
@@ -146,21 +146,16 @@ if __name__ == "__main__":
                     #integral_torque = 5.0 * integral
                     if trial > 0:
                         ff_torque = ILC_controller.get_feedforward()
-                        #print(f"ff torque from ILC: {ff_torque}")
                     #total_torque = tau_fb + integral_torque + ff_torque
-                    total_torque = tau_fb + ff_torque
-                    #print(f"ff torque: {ff_torque},\n tau_fb: {tau_fb},\n total: {total_torque}")
+                    total_torque = tau_fb - ff_torque
                 else:
                     total_torque = tau_fb
                     #integral_torque = 0.0
                     ff_torque = 0.0
                 torque_clipped = np.clip(total_torque, TORQUE_MIN, TORQUE_MAX)
 
-                trial_time_log.append(10)
                 trial_error_log.append(position_error)
                 trial_torque_log.append(torque_clipped)
-                trial_desired_angle_log.append(desired_angle_deg)
-                trial_current_angle_log.append(current_angle_deg)
                 trial_k_log.append(K_mat[0,0])
                 trial_b_log.append(B_mat[0,0])
                 trial_ff_log.append(ff_torque)
@@ -190,7 +185,15 @@ if __name__ == "__main__":
         #plot fb, ff, tau
         plt.figure(figsize=(10, 6))
 
-        plt.subplot(3,1,1)
+        plt.subplot(4,1,1)
+        plt.plot(trial_desired_position, label='Desired Position (deg)')
+        plt.title(f'Trial {trial + 1} Desired Position')
+        plt.xlabel('Time Steps')
+        plt.ylabel('Position (deg)')
+        plt.legend()
+        plt.grid()
+
+        plt.subplot(4,1,2)
         plt.plot(trial_fb_log, label='Feedback Torque (Nm)')  # 修正变量名
         plt.title(f'Trial {trial + 1} Feedback Torque')
         plt.xlabel('Time Steps')
@@ -198,7 +201,7 @@ if __name__ == "__main__":
         plt.legend()
         plt.grid()
 
-        plt.subplot(3,1,2)
+        plt.subplot(4,1,3)
         plt.plot(trial_ff_log, label='Feedforward Torque (Nm)', color='orange')
         plt.title(f'Trial {trial + 1} Feedforward Torque')
         plt.xlabel('Time Steps')
@@ -206,7 +209,7 @@ if __name__ == "__main__":
         plt.legend()
         plt.grid()
 
-        plt.subplot(3,1,3)
+        plt.subplot(4,1,4)
         plt.plot(trial_torque_log, label='Total Applied Torque (Nm)')
         plt.title(f'Trial {trial + 1} Control Torque')
         plt.xlabel('Time Steps')
@@ -314,9 +317,6 @@ if __name__ == "__main__":
             else:
                 print("No data recorded for this trial.")
             
-        # else:
-        #     print("No data recorded for this trial.")
-
     
 
     # TODO: Implement other up down controller
@@ -327,21 +327,26 @@ if __name__ == "__main__":
     last_time = time.time()
     loop_timer = time.time()
     trial_start_time = time.time()
+    plot_ff_torque = []
+    plot_fb_torque = []
+    plot_total_torque = []
     #while not stop_event.is_set():
     try:
         while not stop_event.is_set():
-                elapsed_time = time.time() - trial_start_time
+                current_time = time.time()
+                elapsed_time = current_time - trial_start_time
                 if elapsed_time > 10:  # Each trial lasts 10 seconds
                     break
-                current_time = time.time()
+                
                 dt = current_time - last_time
                 last_time = current_time
-                desired_angle_deg = sine_position(i, speed=0.1)
+                # desired_angle_deg = sine_position(i, speed=0.1)
+                desired_angle_deg = sine_position(elapsed_time, speed=SIN_SPEED)
                 plot_desired_position.append(desired_angle_deg)
                 desired_angle_rad = math.radians(desired_angle_deg)
-                #desired_velocity = (desired_angle_deg - last_desired_angle) / dt if dt > 0 else 0.0
-                #desired_velocity_rad = math.radians(desired_velocity)
-                desired_velocity_rad = sine_velocity(i, speed=0.1)
+                # desired_velocity_rad = sine_velocity(i, speed=0.1)
+                desired_velocity_deg = sine_velocity(elapsed_time, speed=SIN_SPEED)
+                desired_velocity_rad = math.radians(desired_velocity_deg)
                 last_desired_angle = desired_angle_deg
                 # step = 1500/140
                 step = (MOTOR_POS_MIN - MOTOR_POS_MAX)/140
@@ -363,24 +368,25 @@ if __name__ == "__main__":
 
                 K_mat, B_mat = OIAC.update_impedance(current_angle_rad, desired_angle_rad, current_velocity, desired_velocity_rad)
 
-                pos_error_vec = np.array([[position_error]])
-                vel_error_vec = np.array([[velocity_error]])
-
                 tau_fb = OIAC.calc_tau_fb()[0,0]
                 total_torque = 0.0
+                plot_fb_torque.append(tau_fb)
 
                 if current_mode == ControlMode.AAN:
-                    integral = position_error * dt
+                    #integral = position_error * dt
                     ff_torque = ILC_controller.get_feedforward()
-                    if position_error < math.radians(1):
-                        integral = np.clip(integral, -15, 15)  # Anti-windup
-                    else:
-                        integral *= 0.9
-                    integral_torque = 5.0 * integral
-                    total_torque = tau_fb + integral_torque + ff_torque
+                    plot_ff_torque.append(ff_torque)
+                    #if position_error < math.radians(1):
+                        #integral = np.clip(integral, -15, 15)  # Anti-windup
+                    #else:
+                    #    integral *= 0.9
+                    #integral_torque = 5.0 * integral
+                    #total_torque = tau_fb + integral_torque + ff_torque
+                    total_torque = tau_fb - ff_torque
+                    plot_total_torque.append(total_torque)
                 else:
                     total_torque = tau_fb
-                    integral_torque = 0.0
+                    #integral_torque = 0.0
                     ff_torque = 0.0
                 
                 torque_clipped = np.clip(total_torque, TORQUE_MIN, TORQUE_MAX)
@@ -394,7 +400,7 @@ if __name__ == "__main__":
                 else:
                     motor.sendMotorCommand(motor.motor_ids[0], current)
 
-                time.sleep(0.005)  # Sleep briefly to yield CPU
+                #time.sleep(0.005)  # Sleep briefly to yield CPU
                 i += 1
     except Exception as e:
         print(f"Exception during final run: {e}")
@@ -409,7 +415,7 @@ if __name__ == "__main__":
     print("plotting data...")
     #plot desired and actual position in one graph and error in another graph
     plt.figure(figsize=(12, 6))
-    plt.subplot(3, 1, 1)
+    plt.subplot(5, 1, 1)
     plt.plot(plot_position, label='Actual Position (deg)')
     plt.plot(plot_desired_position, label='Desired Position (deg)', linestyle='--')
     plt.title('Actual vs Desired Position')
@@ -417,14 +423,29 @@ if __name__ == "__main__":
     plt.ylabel('Position (deg)')
     plt.legend()
     plt.grid()
-    plt.subplot(3, 1, 2)
+    plt.subplot(5, 1, 2)
     plt.plot(plot_error, label='Position Error (deg)', color='red')
     plt.title('Position Error Over Time')
     plt.xlabel('Time Steps')
     plt.ylabel('Error (deg)')
     plt.legend()
     plt.grid()
-    plt.subplot(3, 1, 3)
+    plt.subplot(5, 1, 3)
+    plt.plot(plot_fb_torque, label='Feedback Torque (Nm)', color='orange')
+    plt.plot(plot_ff_torque, label='Feedforward Torque (Nm)', color='green')
+    plt.title('Feedback and Feedforward Torque Over Time')
+    plt.xlabel('Time Steps')
+    plt.ylabel('Torque (Nm)')
+    plt.legend()
+    plt.grid()
+    plt.subplot(5, 1, 4)
+    plt.plot(plot_total_torque, label='Total Applied Torque (Nm)', color='purple')
+    plt.title('Total Applied Torque Over Time')
+    plt.xlabel('Time Steps')
+    plt.ylabel('Torque (Nm)')
+    plt.legend()
+    plt.grid()
+    plt.subplot(5, 1, 5)
     plt.plot(plot_torque, label='Applied Torque (Nm)', color='green')
     plt.title('Applied Torque Over Time')
     plt.xlabel('Time Steps')
