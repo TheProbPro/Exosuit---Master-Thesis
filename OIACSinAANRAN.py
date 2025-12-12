@@ -76,7 +76,7 @@ if __name__ == "__main__":
     i = 0
     OIAC = ada_imp_con(1) # 1 degree of freedom
     #TODO: test the two mode controllers with iterative learning on exo
-    ILC_controller = ILC()
+    ILC_controller = ILC(lr = 0.5)
     # ILC_controller = ILCv1(max_trials=10)
     # ILC_controller = ILCv2(max_trials=10, alpha=0.1)
     mode_controller = ModeControllerThreshold()
@@ -85,7 +85,7 @@ if __name__ == "__main__":
     # Run trial
     all_trial_stats = []
     trial_num = 10
-    SIN_SPEED = 1.2
+    SIN_SPEED = 2
 
     for trial in range(trial_num):
         print("Press enter to start trial")
@@ -122,7 +122,9 @@ if __name__ == "__main__":
                 current_angle_deg = (MOTOR_POS_MIN - motor_pos) / step
                 current_angle_rad = math.radians(current_angle_deg)
                 current_velocity = motor.get_velocity()[0]
-                position_error = desired_angle_rad - current_angle_rad
+                # TODO: Try the two different error calculations. The commented out one matches the one in the OIAC controller
+                position_error = current_angle_rad - desired_angle_rad
+                #position_error = desired_angle_rad - current_angle_rad
                 velocity_error = desired_velocity_rad - current_velocity
 
                 current_mode = mode_controller.current_mode
@@ -147,7 +149,7 @@ if __name__ == "__main__":
                     if trial > 0:
                         ff_torque = ILC_controller.get_feedforward()
                     #total_torque = tau_fb + integral_torque + ff_torque
-                    total_torque = tau_fb - ff_torque
+                    total_torque = tau_fb + ff_torque
                 else:
                     total_torque = tau_fb
                     #integral_torque = 0.0
@@ -356,7 +358,8 @@ if __name__ == "__main__":
                 plot_position.append(current_angle_deg)
                 current_angle_rad = math.radians(current_angle_deg)
                 current_velocity = motor.get_velocity()[0]
-                position_error = desired_angle_rad - current_angle_rad
+                #position_error = desired_angle_rad - current_angle_rad
+                position_error = current_angle_rad - desired_angle_rad
                 plot_error.append(math.degrees(position_error))
                 velocity_error = desired_velocity_rad - current_velocity
 
@@ -382,7 +385,7 @@ if __name__ == "__main__":
                     #    integral *= 0.9
                     #integral_torque = 5.0 * integral
                     #total_torque = tau_fb + integral_torque + ff_torque
-                    total_torque = tau_fb - ff_torque
+                    total_torque = tau_fb + ff_torque
                     plot_total_torque.append(total_torque)
                 else:
                     total_torque = tau_fb

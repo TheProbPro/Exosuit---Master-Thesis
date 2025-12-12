@@ -25,8 +25,8 @@ class ada_imp_con():
         self.dq_d = np.asmatrix(np.zeros((self.DOF, 1))) # desired velocity matrix
 
         self.a = 1.0#0.2 #0.0001
-        self.b = 0.5#5.0#10.0
-        self.k = 0.5 #0.0005 #0.05
+        self.b = 0.1#5.0#10.0
+        self.k = 0.005 #0.0005 #0.05
         # self.a = 0.2#0.2 #0.0001
         # self.b = 5.0#5.0#10.0
         # self.k = 0.005 #0.000001
@@ -41,6 +41,9 @@ class ada_imp_con():
         #Update matrices
         self.k_mat = (self.gen_track_error() * self.gen_pos_error().T)/self.gen_ad_factor()
         self.b_mat = (self.gen_track_error() * self.gen_vel_error().T)/self.gen_ad_factor()
+        # TODO: clip matrixes for stability
+        # self.k_mat = np.clip(self.k_mat, -100, 100)
+        # self.b_mat = np.clip(self.b_mat, -100, 100)
         return self.k_mat, self.b_mat
     
     def gen_pos_error(self):
@@ -58,6 +61,8 @@ class ada_imp_con():
     def calc_tau_fb(self):
         # self.fb_tau_mat = - self.k_mat * self.gen_pos_error() - self.b_mat * self.gen_vel_error()
         self.fb_tau_mat = self.k_mat * self.gen_pos_error() + self.b_mat * self.gen_vel_error()
+        # TODO: clip torque for stability
+        # self.fb_tau_mat = np.clip(self.fb_tau_mat, -4.1, 4.1)
         return self.fb_tau_mat
     
     def calc_tau_ff(self):
@@ -91,6 +96,12 @@ class ILC():
         
         # Ensure error array is the same length as previous trials
         expected_len = int(self.trial_duration * self.frequency)
+        
+        # if the length does not match, carry ove the last learned feedforward without update
+        if len(error_array) != expected_len:
+            len_diff = expected_len - len(error_array)
+            if len_diff > 0:
+                error_array = np.concatenate((error_array, self.error_history[-1][-len_diff:]))
         assert len(error_array) == expected_len
         
         # Update learning
