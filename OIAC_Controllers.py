@@ -100,8 +100,10 @@ class ILC():
         # if the length does not match, carry ove the last learned feedforward without update
         if len(error_array) != expected_len:
             len_diff = expected_len - len(error_array)
-            if len_diff > 0:
+            if len_diff > 0 and len(self.error_history) > 0:
                 error_array = np.concatenate((error_array, self.error_history[-1][-len_diff:]))
+            else:
+                error_array = np.concatenate((error_array[:expected_len], np.zeros(len_diff)))
         assert len(error_array) == expected_len
         
         # Update learning
@@ -404,8 +406,8 @@ class ModeControllerThreshold():
         self.mode_history = []
         
         # 切换条件参数
-        self.aan_to_ran_error_threshold = math.radians(5.0)  # 5度误差阈值
-        self.aan_to_ran_stable_time = 1.0  # 需要10秒稳定表现
+        self.aan_to_ran_error_threshold = math.radians(5.7)  # 5度误差阈值
+        self.aan_to_ran_stable_time = 1.0  # 需要1秒稳定表现
         self.ran_to_aan_motion_threshold = math.radians(10.0)  # RAN模式最小运动幅度
         self.ran_to_aan_error_threshold = math.radians(15.0)  # RAN模式最大允许误差
         
@@ -572,6 +574,82 @@ class ModeControllerUpDown():
             self.mode_history.pop(0)
             
         return total_torque, self.current_mode, k, d, ff
+    
+    def get_mode_statistics(self, recent_seconds=5):
+        """获取最近一段时间内的模式统计"""
+        if not self.mode_history:
+            return 0.0, 0.0
+            
+        current_time = time.time() if self.mode_history else 0
+        cutoff_time = current_time - recent_seconds
+        
+        recent_history = [mode for (t, mode, _) in self.mode_history if t >= cutoff_time]
+        
+        if not recent_history:
+            return 0.0, 0.0
+            
+        aan_count = recent_history.count('AAN')
+        ran_count = recent_history.count('RAN')
+        total_count = len(recent_history)
+        
+        aan_ratio = aan_count / total_count * 100
+        ran_ratio = ran_count / total_count * 100
+        
+        return aan_ratio, ran_ratio
+    
+    def reset(self):
+        """重置控制器状态"""
+        self.current_mode = 'AAN'
+        self.mode_history.clear()
+        self.last_switch_time = 0
+        self.last_torque = 0.0
+        self.adaptive_controller.reset()
+        print("[TorqueBased Controller] Reset to AAN mode")
+
+class ModeControllerUpDownv1():
+    """
+    扭矩符号的AAN/RAN控制器
+    - 正扭矩: AAN模式 (辅助)
+    - 负扭矩: RAN模式 (阻力)
+    """
+    def __init__(self):
+        # 模式切换参数
+        self.current_mode = 'AAN'  # 初始模式
+        self.last_torque = 0.0
+        self.mode_history = []
+        
+        # RAN阻力参数
+        self.ran_resistance_level = 2.5  # 基础阻力水平
+        self.ran_velocity_factor = 1.5   # 速度相关阻力
+        
+        # 切换参数
+        self.last_switch_time = 0
+        self.min_switch_interval = 1.2   # 最小切换间隔
+
+    def update_control_mode(self, torque, t):
+        current_time = t
+        can_switch = (current_time - self.last_switch_time) >= self.min_switch_interval
+        old_mode = self.current_mode
+        if torque < 0:
+            if self.current_mode != ControlMode.AAN and can_switch:
+                self.current_mode = ControlMode.AAN
+                self.last_switch_time = current_time
+                print(f"Switched to AAN mode at t={t:.2f}s")
+        else:
+            if self.current_mode != ControlMode.RAN and can_switch:
+                self.current_mode = ControlMode.RAN
+                self.last_switch_time = current_time
+                print(f"Switched to RAN mode at t={t:.2f}s")
+
+        mode_changed = (old_mode != self.current_mode)
+        if mode_changed:
+            self.mode_history.append({
+                'time': current_time,
+                'from': old_mode,
+                'to': self.current_mode
+            })
+        
+        return self.current_mode
     
     def get_mode_statistics(self, recent_seconds=5):
         """获取最近一段时间内的模式统计"""
