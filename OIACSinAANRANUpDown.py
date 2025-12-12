@@ -105,11 +105,9 @@ if __name__ == "__main__":
                     break
                 dt = current_time - last_time
                 last_time = current_time
-                #desired_angle_deg = sine_position(i, speed=0.1)
                 desired_angle_deg = sine_position(elapsed_time, speed=SIN_SPEED)
                 trial_desired_position.append(desired_angle_deg)
                 desired_angle_rad = math.radians(desired_angle_deg)
-                # desired_velocity_rad = sine_velocity(i, speed=0.1)
                 desired_velocity_deg = sine_velocity(elapsed_time, speed=SIN_SPEED)
                 desired_velocity_rad = math.radians(desired_velocity_deg)
                 last_desired_angle = desired_angle_deg
@@ -118,9 +116,7 @@ if __name__ == "__main__":
                 current_angle_deg = (MOTOR_POS_MIN - motor_pos) / step
                 current_angle_rad = math.radians(current_angle_deg)
                 current_velocity = motor.get_velocity()[0]
-                # TODO: Try the two different error calculations. The commented out one matches the one in the OIAC controller
-                # position_error = current_angle_rad - desired_angle_rad
-                position_error = desired_angle_rad - current_angle_rad
+                position_error = current_angle_rad - desired_angle_rad
                 velocity_error = desired_velocity_rad - current_velocity
 
                 current_mode = mode_controller.current_mode
@@ -131,20 +127,12 @@ if __name__ == "__main__":
                 total_torque = 0.0
 
                 if current_mode == ControlMode.AAN:
-                    #integral = position_error * dt
                     ff_torque = 0.0
-                    #if position_error < math.radians(1):
-                    #    integral = np.clip(integral, -15, 15)  # Anti-windup
-                    #else:
-                    #    integral *= 0.9
-                    #integral_torque = 5.0 * integral
                     if trial > 0:
                         ff_torque = ILC_controller.get_feedforward()
-                    #total_torque = tau_fb + integral_torque + ff_torque
-                    total_torque = tau_fb - ff_torque
+                    total_torque = tau_fb + ff_torque
                 else:
                     total_torque = tau_fb
-                    #integral_torque = 0.0
                     ff_torque = 0.0
                 torque_clipped = np.clip(total_torque, TORQUE_MIN, TORQUE_MAX)
 
@@ -253,9 +241,7 @@ if __name__ == "__main__":
                           f"{switch['from']} -> {switch['to']}")
 
             if trial < trial_num:
-                # ILC_controller.update_learning(trial_time_log, trial_error_log, trial_torque_log)
                 ILC_controller.update_learning(trial_error_log)
-
 
             # 在绘图之前添加诊断信息  在这里开始 
             
@@ -313,9 +299,8 @@ if __name__ == "__main__":
                 print("No data recorded for this trial.")
             
     
-
-    # TODO: Implement other up down controller
-    # TODO: Implement threshold controller underneath
+    # =========================== Free run ===========================
+    
     print("Press enter to run final trial with learned feedforward")
     input()
     i = 0
@@ -346,7 +331,7 @@ if __name__ == "__main__":
                 plot_position.append(current_angle_deg)
                 current_angle_rad = math.radians(current_angle_deg)
                 current_velocity = motor.get_velocity()[0]
-                position_error = desired_angle_rad - current_angle_rad
+                position_error = current_angle_rad - desired_angle_rad
                 plot_error.append(math.degrees(position_error))
                 velocity_error = desired_velocity_rad - current_velocity
 
@@ -359,20 +344,12 @@ if __name__ == "__main__":
                 plot_fb_torque.append(tau_fb)
 
                 if current_mode == ControlMode.AAN:
-                    #integral = position_error * dt
                     ff_torque = ILC_controller.get_feedforward()
                     plot_ff_torque.append(ff_torque)
-                    #if position_error < math.radians(1):
-                        #integral = np.clip(integral, -15, 15)  # Anti-windup
-                    #else:
-                    #    integral *= 0.9
-                    #integral_torque = 5.0 * integral
-                    #total_torque = tau_fb + integral_torque + ff_torque
-                    total_torque = tau_fb - ff_torque
+                    total_torque = tau_fb + ff_torque
                     plot_total_torque.append(total_torque)
                 else:
                     total_torque = tau_fb
-                    #integral_torque = 0.0
                     ff_torque = 0.0
                 
                 torque_clipped = np.clip(total_torque, TORQUE_MIN, TORQUE_MAX)
