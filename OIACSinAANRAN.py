@@ -75,12 +75,8 @@ if __name__ == "__main__":
     last_desired_angle = 0
     i = 0
     OIAC = ada_imp_con(1) # 1 degree of freedom
-    #TODO: test the two mode controllers with iterative learning on exo
     ILC_controller = ILC(lr = 0.5)
-    # ILC_controller = ILCv1(max_trials=10)
-    # ILC_controller = ILCv2(max_trials=10, alpha=0.1)
     mode_controller = ModeControllerThreshold()
-    # mode_controller = ModeControllerUpDown(OIAC, ILC_controller)
 
     # Run trial
     all_trial_stats = []
