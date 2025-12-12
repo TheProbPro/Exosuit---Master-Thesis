@@ -405,7 +405,7 @@ class ModeControllerThreshold():
         
         # 切换条件参数
         self.aan_to_ran_error_threshold = math.radians(5.0)  # 5度误差阈值
-        self.aan_to_ran_stable_time = 10.0  # 需要10秒稳定表现
+        self.aan_to_ran_stable_time = 1.0  # 需要10秒稳定表现
         self.ran_to_aan_motion_threshold = math.radians(10.0)  # RAN模式最小运动幅度
         self.ran_to_aan_error_threshold = math.radians(15.0)  # RAN模式最大允许误差
         
