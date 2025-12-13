@@ -11,7 +11,7 @@ import time
 import matplotlib.pyplot as plt
 
 # General configuration parameters
-SAMPLE_RATE = 2000  # Hz
+SAMPLE_RATE = 166.7  # Hz
 USER_NAME = 'VictorBNielsen'
 ANGLE_MIN = 0
 ANGLE_MAX = 140
@@ -63,6 +63,7 @@ if __name__ == "__main__":
     plot_desired_position = []
     plot_error = []
     plot_torque = []
+    plot_control_mode = []
 
     motor = Motors(port="COM4")
 
@@ -75,7 +76,7 @@ if __name__ == "__main__":
     last_desired_angle = 0
     i = 0
     OIAC = ada_imp_con(1) # 1 degree of freedom
-    ILC_controller = ILC(lr = 0.5)
+    ILC_controller = ILC(lr = 0.2)
     mode_controller = ModeControllerThreshold()
 
     # Run trial
@@ -167,43 +168,44 @@ if __name__ == "__main__":
         
         print("max ff torque this trial: ", np.max(np.abs(trial_ff_log)), "Nm, and max fb torque: ", np.max(np.abs(trial_fb_log)), "Nm")
         print(f"Trial error log size: {len(trial_error_log)}")
+        
         #plot fb, ff, tau
-        plt.figure(figsize=(10, 6))
+        # plt.figure(figsize=(10, 6))
 
-        plt.subplot(4,1,1)
-        plt.plot(trial_desired_position, label='Desired Position (deg)')
-        plt.title(f'Trial {trial + 1} Desired Position')
-        plt.xlabel('Time Steps')
-        plt.ylabel('Position (deg)')
-        plt.legend()
-        plt.grid()
+        # plt.subplot(4,1,1)
+        # plt.plot(trial_desired_position, label='Desired Position (deg)')
+        # plt.title(f'Trial {trial + 1} Desired Position')
+        # plt.xlabel('Time Steps')
+        # plt.ylabel('Position (deg)')
+        # plt.legend()
+        # plt.grid()
 
-        plt.subplot(4,1,2)
-        plt.plot(trial_fb_log, label='Feedback Torque (Nm)')  # 修正变量名
-        plt.title(f'Trial {trial + 1} Feedback Torque')
-        plt.xlabel('Time Steps')
-        plt.ylabel('Torque (Nm)')
-        plt.legend()
-        plt.grid()
+        # plt.subplot(4,1,2)
+        # plt.plot(trial_fb_log, label='Feedback Torque (Nm)')  # 修正变量名
+        # plt.title(f'Trial {trial + 1} Feedback Torque')
+        # plt.xlabel('Time Steps')
+        # plt.ylabel('Torque (Nm)')
+        # plt.legend()
+        # plt.grid()
 
-        plt.subplot(4,1,3)
-        plt.plot(trial_ff_log, label='Feedforward Torque (Nm)', color='orange')
-        plt.title(f'Trial {trial + 1} Feedforward Torque')
-        plt.xlabel('Time Steps')
-        plt.ylabel('Torque (Nm)')
-        plt.legend()
-        plt.grid()
+        # plt.subplot(4,1,3)
+        # plt.plot(trial_ff_log, label='Feedforward Torque (Nm)', color='orange')
+        # plt.title(f'Trial {trial + 1} Feedforward Torque')
+        # plt.xlabel('Time Steps')
+        # plt.ylabel('Torque (Nm)')
+        # plt.legend()
+        # plt.grid()
 
-        plt.subplot(4,1,4)
-        plt.plot(trial_torque_log, label='Total Applied Torque (Nm)')
-        plt.title(f'Trial {trial + 1} Control Torque')
-        plt.xlabel('Time Steps')
-        plt.ylabel('Torque (Nm)')
-        plt.legend()
-        plt.grid()
+        # plt.subplot(4,1,4)
+        # plt.plot(trial_torque_log, label='Total Applied Torque (Nm)')
+        # plt.title(f'Trial {trial + 1} Control Torque')
+        # plt.xlabel('Time Steps')
+        # plt.ylabel('Torque (Nm)')
+        # plt.legend()
+        # plt.grid()
 
-        plt.tight_layout()  # 添加这行使子图布局更紧凑
-        plt.show()
+        # plt.tight_layout()  # 添加这行使子图布局更紧凑
+        # plt.show()
 
         if len(trial_error_log) > 0:
             avg_error = np.mean(np.abs(trial_error_log))
@@ -348,6 +350,7 @@ if __name__ == "__main__":
                 tau_fb = OIAC.calc_tau_fb()[0,0]
                 total_torque = 0.0
                 plot_fb_torque.append(tau_fb)
+                plot_control_mode.append(current_mode)
 
                 if current_mode == ControlMode.AAN:
                     ff_torque = ILC_controller.get_feedforward()
@@ -357,6 +360,7 @@ if __name__ == "__main__":
                 else:
                     total_torque = tau_fb
                     ff_torque = 0.0
+                    plot_ff_torque.append(ff_torque)
                 
                 torque_clipped = np.clip(total_torque, TORQUE_MIN, TORQUE_MAX)
                 plot_torque.append(torque_clipped)
@@ -378,49 +382,128 @@ if __name__ == "__main__":
     print("Shutting down...")
     stop_event.set()
     motor.close()
-    # empty all queues
     
+    # calculate for plotting
+    #Create a time vector for the 167Hz control loop
+    time_vector = np.linspace(0, len(plot_position)/SAMPLE_RATE, len(plot_position))
+
+    # Calculate jerk
+    plot_jerk = []
+    last_acc = 0.0
+    dt = 1.0 / SAMPLE_RATE
+    plot_jerk.append(0.0)  # Jerk at first point is zero
+    for j in range(1, len(plot_position)-1):
+        vel_prev = (plot_position[j] - plot_position[j-1]) / dt
+        vel_next = (plot_position[j+1] - plot_position[j]) / dt
+        acc = (vel_next - vel_prev) / dt
+        jerk = (acc - last_acc) / dt  # Assuming previous acceleration is 0 for simplicity
+        last_acc = acc
+        plot_jerk.append(jerk)
+    plot_jerk.append(0.0)  # Jerk at last point is zero
+
+    # Plotting
     print("plotting data...")
-    #plot desired and actual position in one graph and error in another graph
     plt.figure(figsize=(12, 6))
-    plt.subplot(5, 1, 1)
-    plt.plot(plot_position, label='Actual Position (deg)')
-    plt.plot(plot_desired_position, label='Desired Position (deg)', linestyle='--')
-    plt.title('Actual vs Desired Position')
-    plt.xlabel('Time Steps')
-    plt.ylabel('Position (deg)')
+    plt.subplot(4, 1, 1)
+    start = 0
+    current_mode = plot_control_mode[0]
+
+    for i in range(1, len(plot_control_mode)):
+        # When mode changes, close the previous segment
+        if plot_control_mode[i] != current_mode:
+            color = 'lightblue' if current_mode == ControlMode.AAN else 'lightcoral'
+            plt.axvspan(time_vector[start], time_vector[i], color=color, alpha=0.3)
+
+            # start new segment
+            current_mode = plot_control_mode[i]
+            start = i
+
+    # Shade the final segment ONCE
+    color = 'lightblue' if current_mode == ControlMode.AAN else 'lightcoral'
+    plt.axvspan(time_vector[start], time_vector[-1], color=color, alpha=0.8)
+
+    plt.plot(time_vector, plot_position, label='Actual Position (deg)')
+    plt.plot(time_vector, plot_desired_position, label='Desired Position (deg)', linestyle='--')
+    plt.title('Actual vs Desired Position (Blue = AAN, Red = RAN)')
+    plt.xlabel('Time [s]')
+    plt.ylabel('Position [deg]')
+    plt.xlim(0, 10)
     plt.legend()
     plt.grid()
-    plt.subplot(5, 1, 2)
-    plt.plot(plot_error, label='Position Error (deg)', color='red')
+
+    plt.subplot(4, 1, 2)
+    plt.plot(time_vector, plot_error, label='Position Error (deg)', color='red')
     plt.title('Position Error Over Time')
-    plt.xlabel('Time Steps')
+    plt.xlabel('Time [s]')
     plt.ylabel('Error (deg)')
+    plt.xlim(0, 10)
     plt.legend()
     plt.grid()
-    plt.subplot(5, 1, 3)
-    plt.plot(plot_fb_torque, label='Feedback Torque (Nm)', color='orange')
-    plt.plot(plot_ff_torque, label='Feedforward Torque (Nm)', color='green')
+
+    plt.subplot(4, 1, 3)
+    plt.ylim(-4.5, 4.5)
+    plt.plot(time_vector, plot_fb_torque, label='Feedback Torque (Nm)', color='orange')
+    plt.plot(time_vector, plot_ff_torque, label='Feedforward Torque (Nm)', color='green')
+    plt.plot(time_vector, plot_torque, label='Total Applied Torque (Nm)', color='purple')
     plt.title('Feedback and Feedforward Torque Over Time')
-    plt.xlabel('Time Steps')
+    plt.xlabel('Time [s]')
     plt.ylabel('Torque (Nm)')
+    plt.xlim(0, 10)
     plt.legend()
     plt.grid()
-    plt.subplot(5, 1, 4)
-    plt.plot(plot_total_torque, label='Total Applied Torque (Nm)', color='purple')
-    plt.title('Total Applied Torque Over Time')
-    plt.xlabel('Time Steps')
-    plt.ylabel('Torque (Nm)')
-    plt.legend()
-    plt.grid()
-    plt.subplot(5, 1, 5)
-    plt.plot(plot_torque, label='Applied Torque (Nm)', color='green')
-    plt.title('Applied Torque Over Time')
-    plt.xlabel('Time Steps')
-    plt.ylabel('Torque (Nm)')
+
+    plt.subplot(4, 1, 4)
+    plt.plot(time_vector, plot_jerk, label='Jerk (deg/s³)', color='blue')
+    plt.title('Jerk Over Time')
+    plt.xlabel('Time [s]')
+    plt.ylabel('Jerk (deg/s³)')
+    plt.xlim(0, 10)
     plt.legend()
     plt.grid()
     plt.tight_layout()
     plt.show()
+
+
+    #plot desired and actual position in one graph and error in another graph
+    # plt.figure(figsize=(12, 6))
+    # plt.subplot(5, 1, 1)
+    # plt.plot(plot_position, label='Actual Position (deg)')
+    # plt.plot(plot_desired_position, label='Desired Position (deg)', linestyle='--')
+    # plt.title('Actual vs Desired Position')
+    # plt.xlabel('Time Steps')
+    # plt.ylabel('Position (deg)')
+    # plt.legend()
+    # plt.grid()
+    # plt.subplot(5, 1, 2)
+    # plt.plot(plot_error, label='Position Error (deg)', color='red')
+    # plt.title('Position Error Over Time')
+    # plt.xlabel('Time Steps')
+    # plt.ylabel('Error (deg)')
+    # plt.legend()
+    # plt.grid()
+    # plt.subplot(5, 1, 3)
+    # plt.plot(plot_fb_torque, label='Feedback Torque (Nm)', color='orange')
+    # plt.plot(plot_ff_torque, label='Feedforward Torque (Nm)', color='green')
+    # plt.title('Feedback and Feedforward Torque Over Time')
+    # plt.xlabel('Time Steps')
+    # plt.ylabel('Torque (Nm)')
+    # plt.legend()
+    # plt.grid()
+    # plt.subplot(5, 1, 4)
+    # plt.plot(plot_total_torque, label='Total Applied Torque (Nm)', color='purple')
+    # plt.title('Total Applied Torque Over Time')
+    # plt.xlabel('Time Steps')
+    # plt.ylabel('Torque (Nm)')
+    # plt.legend()
+    # plt.grid()
+    # plt.subplot(5, 1, 5)
+    # plt.plot(plot_torque, label='Applied Torque (Nm)', color='green')
+    # plt.title('Applied Torque Over Time')
+    # plt.xlabel('Time Steps')
+    # plt.ylabel('Torque (Nm)')
+    # plt.legend()
+    # plt.grid()
+    # plt.tight_layout()
+    # plt.show()
 
     print("Goodbye!")

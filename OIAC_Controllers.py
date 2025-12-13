@@ -409,7 +409,7 @@ class ModeControllerThreshold():
         self.aan_to_ran_error_threshold = math.radians(5.7)  # 5度误差阈值
         self.aan_to_ran_stable_time = 1.0  # 需要1秒稳定表现
         self.ran_to_aan_motion_threshold = math.radians(10.0)  # RAN模式最小运动幅度
-        self.ran_to_aan_error_threshold = math.radians(15.0)  # RAN模式最大允许误差
+        self.ran_to_aan_error_threshold = math.radians(5.7)  # RAN模式最大允许误差
         
         # 状态跟踪
         self.stable_tracking_start_time = None
@@ -471,7 +471,8 @@ class ModeControllerThreshold():
                     print(f"\n{'='*60}")
                     print("MODE SWITCH: RAN -> AAN")
                     print(f"Avg motion: {math.degrees(avg_motion):.1f}°, "
-                          f"Avg error: {math.degrees(avg_error):.1f}°")
+                          f"Avg error: {math.degrees(avg_error):.1f}°, "
+                          f"Current position error: {math.degrees(position_error):.1f}°")
                     print("User needs more assistance")
                     print(f"{'='*60}\n")
         
@@ -624,7 +625,7 @@ class ModeControllerUpDownv1():
         
         # 切换参数
         self.last_switch_time = 0
-        self.min_switch_interval = 1.2   # 最小切换间隔
+        self.min_switch_interval = 0.6   # 最小切换间隔
 
     def update_control_mode(self, torque, t):
         current_time = t
@@ -679,5 +680,4 @@ class ModeControllerUpDownv1():
         self.mode_history.clear()
         self.last_switch_time = 0
         self.last_torque = 0.0
-        self.adaptive_controller.reset()
         print("[TorqueBased Controller] Reset to AAN mode")
