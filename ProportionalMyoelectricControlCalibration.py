@@ -41,7 +41,7 @@ if __name__ == "__main__":
     # Initialize EMG class and filtering class
     filter_bicep = rt_filtering(sample_rate, 450, 20, 2)
     filter_tricep = rt_filtering(sample_rate, 450, 20, 2)
-    emg = DelsysEMG(channel_range=(0,16))
+    emg = DelsysEMG(channel_range=(0,1))
     emg.start()
 
     print("EMG started!")
@@ -51,12 +51,12 @@ if __name__ == "__main__":
     while ((time.time() - TIME < 2)):
         # Aquire data
         reading = emg.read()
-        Bicep_data.append(reading[Sensor_channels[0]])
-        Tricep_data.append(reading[Sensor_channels[1]])
+        Bicep_data.append(reading[0])
+        Tricep_data.append(reading[1])
 
         # Filter data
-        filtered_Bicep.append(filter_bicep.bandpass(reading[Sensor_channels[0]]))
-        filtered_Tricep.append(filter_tricep.bandpass(reading[Sensor_channels[1]]))
+        filtered_Bicep.append(filter_bicep.bandpass(reading[0]))
+        filtered_Tricep.append(filter_tricep.bandpass(reading[1]))
 
         # Calculate RMS
         if Bicep_RMS_queue.full():
@@ -138,11 +138,11 @@ if __name__ == "__main__":
     TIME = time.time()
     while (time.time() - TIME < 10):
         reading = emg.read()
-        Bicep_data.append(reading[Sensor_channels[0]])
-        Tricep_data.append(reading[Sensor_channels[1]])
+        Bicep_data.append(reading[0])
+        Tricep_data.append(reading[1])
 
-        filtered_Bicep.append(filter_bicep.bandpass(reading[Sensor_channels[0]]))
-        filtered_Tricep.append(filter_tricep.bandpass(reading[Sensor_channels[1]]))
+        filtered_Bicep.append(filter_bicep.bandpass(reading[0]))
+        filtered_Tricep.append(filter_tricep.bandpass(reading[1]))
         if Bicep_RMS_queue.full():
             Bicep_RMS_queue.get()
         Bicep_RMS_queue.put(filtered_Bicep[-1].item())
@@ -185,9 +185,9 @@ if __name__ == "__main__":
         TIME = time.time()
         while (time.time() - TIME < 5):
             reading = emg.read()
-            Bicep_data.append(reading[Sensor_channels[0]])
+            Bicep_data.append(reading[0])
 
-            filtered_Bicep.append(filter_bicep.bandpass(reading[Sensor_channels[0]]))
+            filtered_Bicep.append(filter_bicep.bandpass(reading[0]))
             if Bicep_RMS_queue.full():
                 Bicep_RMS_queue.get()
             Bicep_RMS_queue.put(filtered_Bicep[-1].item())
@@ -200,9 +200,9 @@ if __name__ == "__main__":
         TIME = time.time()
         while (time.time() - TIME < 5):
             reading = emg.read()
-            Tricep_data.append(reading[Sensor_channels[1]])
+            Tricep_data.append(reading[1])
 
-            filtered_Tricep.append(filter_tricep.bandpass(reading[Sensor_channels[1]]))
+            filtered_Tricep.append(filter_tricep.bandpass(reading[1]))
             if Tricep_RMS_queue.full():
                 Tricep_RMS_queue.get()
             Tricep_RMS_queue.put(filtered_Tricep[-1].item())

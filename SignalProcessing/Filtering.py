@@ -310,7 +310,22 @@ class rt_filtering:
         #print(f"Chunk processing time: {time.time() - start_time:.4f} seconds")
 
         return y_bandpass, rms_values
-    
+
+class rt_desired_Angle_lowpass:
+    def __init__(self, sample_rate, lp_cutoff=3, order=2):
+        self.fs = sample_rate       # Sample rate in Hz
+        self.nyq = 0.5 * self.fs    # Nyquist frequency
+
+        # --- design filters (SOS) ---
+        self.lp_sos = butter(order, lp_cutoff / self.nyq, btype='lowpass', output='sos')
+        self.lp_zi  = sosfilt_zi(self.lp_sos) * 0.0
+
+    def lowpass(self, data):
+        y, self.lp_zi = sosfilt(self.lp_sos, data, zi=self.lp_zi)
+        return y
+
+    def reset(self):
+        self.lp_zi  = sosfilt_zi(self.lp_sos) * 0.0
 
 if __name__ == "__main__":
     sample_rate = 2148  # Hz

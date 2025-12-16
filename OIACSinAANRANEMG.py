@@ -2,7 +2,7 @@
 import math
 from Motors.DynamixelHardwareInterface import Motors
 from Sensors.EMGSensor import DelsysEMG
-from SignalProcessing.Filtering import rt_filtering
+from SignalProcessing.Filtering import rt_filtering, rt_desired_Angle_lowpass
 from SignalProcessing.Interpretors import ProportionalMyoelectricalControl as PMC
 from OIAC_Controllers import ada_imp_con, ILC, ModeControllerThreshold, ControlMode
 
@@ -14,12 +14,14 @@ import time
 import matplotlib.pyplot as plt
 import queue
 
+# TODO: Maybe lowpass filter the desired velocity as well
+
 # General configuration parameters
 SAMPLE_RATE = 166.7  # Hz
 EMG_SAMPLE_RATE = 2000  # Hz
 USER_NAME = 'VictorBNielsen'
-ANGLE_MIN = 0
-ANGLE_MAX = 140
+ANGLE_MIN = math.radians(0)
+ANGLE_MAX = math.radians(140)
 
 TORQUE_MIN = -4.1
 TORQUE_MAX = 4.1
@@ -40,11 +42,14 @@ def read_EMG(raw_queue):
 
     emg = DelsysEMG(channel_range=(0,1))
     emg.start()
+
+    time.sleep(1.0)
+    
     while not stop_event.is_set():
         reading = emg.read()
 
-        filtered_bicep = filter_bicep.filter(reading[0])
-        filtered_tricep = filter_tricep.filter(reading[1])
+        filtered_bicep = filter_bicep.bandpass(reading[0])
+        filtered_tricep = filter_tricep.bandpass(reading[1])
 
         if Bicep_RMS_queue.full():
             Bicep_RMS_queue.get()
@@ -56,11 +61,11 @@ def read_EMG(raw_queue):
         Bicep_RMS = np.sqrt(np.mean(np.array(list(Bicep_RMS_queue.queue))**2))
         Tricep_RMS = np.sqrt(np.mean(np.array(list(Tricep_RMS_queue.queue))**2))
 
-        filtered_bicep_rms = filter_bicep.lowpass(np.atleast_1d(Bicep_RMS))
-        filtered_tricep_rms = filter_tricep.lowpass(np.atleast_1d(Tricep_RMS))
+        filtered_bicep_rms = float(filter_bicep.lowpass(np.atleast_1d(Bicep_RMS))[0])
+        filtered_tricep_rms = float(filter_tricep.lowpass(np.atleast_1d(Tricep_RMS))[0])
 
-        activation = interpreter.compute_activation(filtered_bicep_rms, filtered_tricep_rms)
-        desired_angle_deg = interpreter.compute_angle(activation[0], activation[1])
+        activation = interpreter.compute_activation([filtered_bicep_rms, filtered_tricep_rms])
+        desired_angle_deg = math.degrees(interpreter.compute_angle(activation[0], activation[1]))
 
         try:
             raw_queue.put_nowait(desired_angle_deg)
@@ -84,7 +89,10 @@ if __name__ == "__main__":
     plot_torque = []
     plot_control_mode = []
 
-    EMG_queue = queue.Queue(maxsize=10)
+    # Test
+    desired_angle_lowpass = rt_desired_Angle_lowpass(sample_rate=SAMPLE_RATE, lp_cutoff=3, order=2)
+
+    EMG_queue = queue.Queue(maxsize=5)
 
     motor = Motors(port="COM4")
 
@@ -92,15 +100,16 @@ if __name__ == "__main__":
     time.sleep(1.0)
     print("Motor command threads started!")
 
-    emg_thread = threading.Thread(target=read_EMG, args=(EMG_queue))
+    emg_thread = threading.Thread(target=read_EMG, args=(EMG_queue,), daemon=True)
     emg_thread.start()
+    time.sleep(1.0)
 
     # Filter and interpret the raw data
     joint_torque = 0.0
     last_desired_angle = 0
     i = 0
     OIAC = ada_imp_con(1) # 1 degree of freedom
-    ILC_controller = ILC(lr = 0.2)
+    ILC_controller = ILC(lr = 0.1)
     mode_controller = ModeControllerThreshold()
 
     # Run trial
@@ -122,6 +131,8 @@ if __name__ == "__main__":
         trial_fb_log = []
         trial_desired_position = []
         previous_position = 70.0
+        desired_angle_deg = 70.0  # Start at middle position
+        desired_angle_lowpass.reset()
 
         try:
             while not stop_event.is_set():
@@ -131,7 +142,11 @@ if __name__ == "__main__":
                     break
                 dt = current_time - last_time
                 last_time = current_time
-                desired_angle_deg = EMG_queue.get_nowait()
+                try:
+                    desired_angle_deg = desired_angle_lowpass.lowpass(EMG_queue.get_nowait())
+                except queue.Empty:
+                    pass
+
                 trial_desired_position.append(desired_angle_deg)
                 desired_angle_rad = math.radians(desired_angle_deg)
                 desired_velocity_deg = (desired_angle_deg - previous_position) / dt
@@ -238,58 +253,58 @@ if __name__ == "__main__":
 
             # 在绘图之前添加诊断信息  在这里开始 
             
-            if len(trial_error_log) > 0:
-                # 诊断信息
-                print(f"\n=== 诊断信息 Trial {trial + 1} ===")
-                print(f"trial_fb_log 长度: {len(trial_fb_log)}")
-                print(f"trial_ff_log 长度: {len(trial_ff_log)}")
-                print(f"trial_torque_log 长度: {len(trial_torque_log)}")
+            # if len(trial_error_log) > 0:
+            #     # 诊断信息
+            #     print(f"\n=== 诊断信息 Trial {trial + 1} ===")
+            #     print(f"trial_fb_log 长度: {len(trial_fb_log)}")
+            #     print(f"trial_ff_log 长度: {len(trial_ff_log)}")
+            #     print(f"trial_torque_log 长度: {len(trial_torque_log)}")
                 
-                print(f"\ntrial_fb_log 范围: [{min(trial_fb_log):.4f}, {max(trial_fb_log):.4f}]")
-                print(f"trial_ff_log 范围: [{min(trial_ff_log):.4f}, {max(trial_ff_log):.4f}]")
-                print(f"trial_torque_log 范围: [{min(trial_torque_log):.4f}, {max(trial_torque_log):.4f}]")
+            #     print(f"\ntrial_fb_log 范围: [{min(trial_fb_log):.4f}, {max(trial_fb_log):.4f}]")
+            #     print(f"trial_ff_log 范围: [{min(trial_ff_log):.4f}, {max(trial_ff_log):.4f}]")
+            #     print(f"trial_torque_log 范围: [{min(trial_torque_log):.4f}, {max(trial_torque_log):.4f}]")
                 
-                print(f"\ntrial_fb_log 前5个值: {trial_fb_log[:5]}")
-                print(f"trial_ff_log 前5个值: {trial_ff_log[:5]}")
+            #     print(f"\ntrial_fb_log 前5个值: {trial_fb_log[:5]}")
+            #     print(f"trial_ff_log 前5个值: {trial_ff_log[:5]}")
                 
-                avg_error = np.mean(np.abs(trial_error_log))
-                max_error = np.max(np.abs(trial_error_log))
-                avg_k = np.mean(trial_k_log)
-                avg_b = np.mean(trial_b_log)
+            #     avg_error = np.mean(np.abs(trial_error_log))
+            #     max_error = np.max(np.abs(trial_error_log))
+            #     avg_k = np.mean(trial_k_log)
+            #     avg_b = np.mean(trial_b_log)
                 
-                # 统计模式使用情况
-                aan_count = sum(1 for m in trial_mode_log if m == ControlMode.AAN)
-                ran_count = sum(1 for m in trial_mode_log if m == ControlMode.RAN)
-                total_count = len(trial_mode_log)
-                aan_percentage = (aan_count / total_count * 100) if total_count > 0 else 0
-                ran_percentage = (ran_count / total_count * 100) if total_count > 0 else 0
+            #     # 统计模式使用情况
+            #     aan_count = sum(1 for m in trial_mode_log if m == ControlMode.AAN)
+            #     ran_count = sum(1 for m in trial_mode_log if m == ControlMode.RAN)
+            #     total_count = len(trial_mode_log)
+            #     aan_percentage = (aan_count / total_count * 100) if total_count > 0 else 0
+            #     ran_percentage = (ran_count / total_count * 100) if total_count > 0 else 0
                 
-                trial_stats = {
-                    'trial': trial + 1,
-                    'avg_error_deg': math.degrees(avg_error),
-                    'max_error_deg': math.degrees(max_error),
-                    'avg_k': avg_k,
-                    'avg_b': avg_b,
-                    'aan_percentage': aan_percentage,
-                    'ran_percentage': ran_percentage
-                }
-                all_trial_stats.append(trial_stats)
+            #     trial_stats = {
+            #         'trial': trial + 1,
+            #         'avg_error_deg': math.degrees(avg_error),
+            #         'max_error_deg': math.degrees(max_error),
+            #         'avg_k': avg_k,
+            #         'avg_b': avg_b,
+            #         'aan_percentage': aan_percentage,
+            #         'ran_percentage': ran_percentage
+            #     }
+            #     all_trial_stats.append(trial_stats)
                 
-                print(f"\nAverage tracking error: {math.degrees(avg_error):.2f}°")
-                print(f"Maximum tracking error: {math.degrees(max_error):.2f}°")
-                print(f"Average K: {avg_k:.8f}, Average B: {avg_b:.8f}")
-                print(f"Mode usage: AAN={aan_percentage:.1f}%, RAN={ran_percentage:.1f}%")
-                print(f"Mode switches: {len(mode_controller.mode_history)}")
+            #     print(f"\nAverage tracking error: {math.degrees(avg_error):.2f}°")
+            #     print(f"Maximum tracking error: {math.degrees(max_error):.2f}°")
+            #     print(f"Average K: {avg_k:.8f}, Average B: {avg_b:.8f}")
+            #     print(f"Mode usage: AAN={aan_percentage:.1f}%, RAN={ran_percentage:.1f}%")
+            #     print(f"Mode switches: {len(mode_controller.mode_history)}")
                 
-                # 显示模式切换历史
-                if mode_controller.mode_history:
-                    print("\nMode switch history:")
-                    for switch in mode_controller.mode_history:
-                        print(f"  t={switch['time']-trial_start_time:.1f}s: "
-                            f"{switch['from']} -> {switch['to']}")
+            #     # 显示模式切换历史
+            #     if mode_controller.mode_history:
+            #         print("\nMode switch history:")
+            #         for switch in mode_controller.mode_history:
+            #             print(f"  t={switch['time']-trial_start_time:.1f}s: "
+            #                 f"{switch['from']} -> {switch['to']}")
                            
-            else:
-                print("No data recorded for this trial.")
+        else:
+            print("No data recorded for this trial.")
             
     # ====================== Free run ==========================
 
@@ -303,16 +318,24 @@ if __name__ == "__main__":
     plot_fb_torque = []
     plot_total_torque = []
     previous_position = 70.0
+    desired_angle_deg = 70.0  # Start at middle position
+    desired_angle_lowpass.reset()
     try:
         while not stop_event.is_set():
                 current_time = time.time()
                 elapsed_time = current_time - trial_start_time
+                print("Elapsed time: ", elapsed_time, end='\r')
                 if elapsed_time > 10:  # Each trial lasts 10 seconds
                     break
                 
                 dt = current_time - last_time
                 last_time = current_time
-                desired_angle_deg = EMG_queue.get_nowait()
+                
+                try:
+                    desired_angle_deg = desired_angle_lowpass.lowpass(EMG_queue.get_nowait())
+                except queue.Empty:
+                    pass
+
                 plot_desired_position.append(desired_angle_deg)
                 desired_angle_rad = math.radians(desired_angle_deg)
                 desired_velocity_deg = (desired_angle_deg - previous_position) / dt
@@ -375,7 +398,7 @@ if __name__ == "__main__":
     
     # calculate for plotting
     #Create a time vector for the 167Hz control loop
-    time_vector = np.linspace(0, len(plot_position)/SAMPLE_RATE, len(plot_position))
+    time_vector = np.linspace(0, 10, len(plot_position))
 
     # Calculate jerk
     plot_jerk = []
@@ -417,7 +440,7 @@ if __name__ == "__main__":
     plt.title('Actual vs Desired Position (Blue = AAN, Red = RAN)')
     plt.xlabel('Time [s]')
     plt.ylabel('Position [deg]')
-    plt.xlim(0, 10)
+    plt.xlim(0, time_vector[-1])
     plt.legend()
     plt.grid()
 
@@ -426,7 +449,7 @@ if __name__ == "__main__":
     plt.title('Position Error Over Time')
     plt.xlabel('Time [s]')
     plt.ylabel('Error (deg)')
-    plt.xlim(0, 10)
+    plt.xlim(0, time_vector[-1])
     plt.legend()
     plt.grid()
 
@@ -438,7 +461,7 @@ if __name__ == "__main__":
     plt.title('Feedback and Feedforward Torque Over Time')
     plt.xlabel('Time [s]')
     plt.ylabel('Torque (Nm)')
-    plt.xlim(0, 10)
+    plt.xlim(0, time_vector[-1])
     plt.legend()
     plt.grid()
 
@@ -447,7 +470,7 @@ if __name__ == "__main__":
     plt.title('Jerk Over Time')
     plt.xlabel('Time [s]')
     plt.ylabel('Jerk (deg/s³)')
-    plt.xlim(0, 10)
+    plt.xlim(0, time_vector[-1])
     plt.legend()
     plt.grid()
     plt.tight_layout()
