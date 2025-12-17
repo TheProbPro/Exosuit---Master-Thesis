@@ -42,8 +42,8 @@ class ada_imp_con():
         self.k_mat = (self.gen_track_error() * self.gen_pos_error().T)/self.gen_ad_factor()
         self.b_mat = (self.gen_track_error() * self.gen_vel_error().T)/self.gen_ad_factor()
         # TODO: clip matrixes for stability
-        # self.k_mat = np.clip(self.k_mat, -100, 100)
-        # self.b_mat = np.clip(self.b_mat, -100, 100)
+        self.k_mat = np.clip(self.k_mat, -100, 100)
+        self.b_mat = np.clip(self.b_mat, -100, 100)
         return self.k_mat, self.b_mat
     
     def gen_pos_error(self):

@@ -1,9 +1,8 @@
 # My local imports (EMG sensor, filtering, interpretors, OIAC)
 import math
 from Motors.DynamixelHardwareInterface import Motors
-
 from Sensors.EMGSensor import DelsysEMG
-from SignalProcessing.Filtering import rt_filtering
+from SignalProcessing.Filtering import rt_filtering, rt_desired_Angle_lowpass
 from SignalProcessing.Interpretors import ProportionalMyoelectricalControl as PMC
 from OIAC_Controllers import ada_imp_con, ILC, ModeControllerUpDownv1, ControlMode
 
@@ -15,12 +14,14 @@ import time
 import matplotlib.pyplot as plt
 import queue
 
+import traceback
+
 # General configuration parameters
 EMG_SAMPLE_RATE = 2000  # Hz
 SAMPLE_RATE = 166.7  # Hz
 USER_NAME = 'VictorBNielsen'
-ANGLE_MIN = 0
-ANGLE_MAX = 140
+ANGLE_MIN = math.radians(0)
+ANGLE_MAX = math.radians(140)
 
 TORQUE_MIN = -4.1
 TORQUE_MAX = 4.1
@@ -36,12 +37,14 @@ def read_EMG(raw_queue):
     filter_bicep = rt_filtering(EMG_SAMPLE_RATE, 450, 20, 2)
     filter_tricep = rt_filtering(EMG_SAMPLE_RATE, 450, 20, 2)
     interpreter = PMC(theta_min=ANGLE_MIN, theta_max=ANGLE_MAX, user_name=USER_NAME, BicepEMG=True, TricepEMG=True)
-    Bicep_RMS_queue = queue.Queue(maxsize=100)#50)
-    Tricep_RMS_queue = queue.Queue(maxsize=100)#50)
+    Bicep_RMS_queue = queue.Queue(maxsize=50)
+    Tricep_RMS_queue = queue.Queue(maxsize=50)
 
     emg = DelsysEMG(channel_range=(0,1))
-    #emg = DelsysEMG(channel_range=(0,16))
     emg.start()
+
+    time.sleep(1.0)  # Allow EMG sensor to stabilize
+
     while not stop_event.is_set():
         reading = emg.read()
 
@@ -62,7 +65,7 @@ def read_EMG(raw_queue):
         filtered_tricep_rms = float(filter_tricep.lowpass(np.atleast_1d(Tricep_RMS))[0])
 
         activation = interpreter.compute_activation([filtered_bicep_rms, filtered_tricep_rms])
-        desired_angle_deg = interpreter.compute_angle(activation[0], activation[1])
+        desired_angle_deg = math.degrees(interpreter.compute_angle(activation[0], activation[1]))
 
         try:
             raw_queue.put_nowait(desired_angle_deg)
@@ -86,7 +89,10 @@ if __name__ == "__main__":
     plot_torque = []
     plot_control_mode = []
 
-    EMG_queue = queue.Queue(maxsize=10)
+    # Test
+    desired_angle_lowpass = rt_desired_Angle_lowpass(sample_rate=SAMPLE_RATE, lp_cutoff=3, order=2)
+
+    EMG_queue = queue.Queue(maxsize=5)
 
     motor = Motors(port="COM4")
 
@@ -94,7 +100,7 @@ if __name__ == "__main__":
     time.sleep(1.0)
     print("Motor command threads started!")
 
-    emg_thread = threading.Thread(target=read_EMG, args=(EMG_queue))
+    emg_thread = threading.Thread(target=read_EMG, args=(EMG_queue,), daemon=True)
     emg_thread.start()
 
     # Filter and interpret the raw data
@@ -108,7 +114,6 @@ if __name__ == "__main__":
     # Run trial
     all_trial_stats = []
     trial_num = 10
-    SIN_SPEED = 1.5
 
     for trial in range(trial_num):
         print("Press enter to start trial")
@@ -124,6 +129,8 @@ if __name__ == "__main__":
         trial_fb_log = []
         trial_desired_position = []
         previous_position = 70.0
+        desired_angle_deg = 70.0
+        desired_angle_lowpass.reset()
 
         mode_controller.reset()
 
@@ -135,7 +142,11 @@ if __name__ == "__main__":
                     break
                 dt = current_time - last_time
                 last_time = current_time
-                desired_angle_deg = EMG_queue.get_nowait()
+                try:
+                    desired_angle_deg = desired_angle_lowpass.lowpass(np.atleast_1d(EMG_queue.get_nowait()))[0]
+                except queue.Empty:
+                    pass
+
                 trial_desired_position.append(desired_angle_deg)
                 desired_angle_rad = math.radians(desired_angle_deg)
                 desired_velocity_deg = (desired_angle_deg - previous_position) / dt
@@ -189,6 +200,7 @@ if __name__ == "__main__":
 
         except Exception as e:
             print(f"Exception during trial: {e}")
+            print(traceback.format_exc())
         
         finally:
             motor.sendMotorCommand(motor.motor_ids[0], 0)
@@ -299,12 +311,13 @@ if __name__ == "__main__":
     input()
     i = 0
     last_time = time.time()
-    loop_timer = time.time()
     trial_start_time = time.time()
     plot_ff_torque = []
     plot_fb_torque = []
     plot_total_torque = []
     previous_position = 70.0
+    desired_angle_deg = 70.0
+    desired_angle_lowpass.reset()
     try:
         while not stop_event.is_set():
                 current_time = time.time()
@@ -314,7 +327,12 @@ if __name__ == "__main__":
                 
                 dt = current_time - last_time
                 last_time = current_time
-                desired_angle_deg = EMG_queue.get_nowait()
+
+                try:
+                    desired_angle_deg = desired_angle_lowpass.lowpass(np.atleast_1d(EMG_queue.get_nowait()))[0]
+                except queue.Empty:
+                    pass
+
                 plot_desired_position.append(desired_angle_deg)
                 desired_angle_rad = math.radians(desired_angle_deg)
                 desired_velocity_deg = (desired_angle_deg - previous_position) / dt
@@ -376,7 +394,7 @@ if __name__ == "__main__":
     
     # calculate for plotting
     #Create a time vector for the 167Hz control loop
-    time_vector = np.linspace(0, len(plot_position)/SAMPLE_RATE, len(plot_position))
+    time_vector = np.linspace(0, 10, len(plot_position))
 
     # Calculate jerk
     plot_jerk = []

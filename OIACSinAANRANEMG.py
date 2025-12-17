@@ -14,7 +14,7 @@ import time
 import matplotlib.pyplot as plt
 import queue
 
-# TODO: Maybe lowpass filter the desired velocity as well
+import traceback
 
 # General configuration parameters
 SAMPLE_RATE = 166.7  # Hz
@@ -115,7 +115,6 @@ if __name__ == "__main__":
     # Run trial
     all_trial_stats = []
     trial_num = 10
-    SIN_SPEED = 2
 
     for trial in range(trial_num):
         print("Press enter to start trial")
@@ -143,7 +142,7 @@ if __name__ == "__main__":
                 dt = current_time - last_time
                 last_time = current_time
                 try:
-                    desired_angle_deg = desired_angle_lowpass.lowpass(EMG_queue.get_nowait())
+                    desired_angle_deg = desired_angle_lowpass.lowpass(np.atleast_1d(EMG_queue.get_nowait()))[0]
                 except queue.Empty:
                     pass
 
@@ -202,6 +201,7 @@ if __name__ == "__main__":
 
         except Exception as e:
             print(f"Exception during trial: {e}")
+            print(traceback.format_exc())
         
         finally:
             motor.sendMotorCommand(motor.motor_ids[0], 0)
@@ -312,7 +312,6 @@ if __name__ == "__main__":
     input()
     i = 0
     last_time = time.time()
-    loop_timer = time.time()
     trial_start_time = time.time()
     plot_ff_torque = []
     plot_fb_torque = []
@@ -324,7 +323,6 @@ if __name__ == "__main__":
         while not stop_event.is_set():
                 current_time = time.time()
                 elapsed_time = current_time - trial_start_time
-                print("Elapsed time: ", elapsed_time, end='\r')
                 if elapsed_time > 10:  # Each trial lasts 10 seconds
                     break
                 
@@ -332,7 +330,7 @@ if __name__ == "__main__":
                 last_time = current_time
                 
                 try:
-                    desired_angle_deg = desired_angle_lowpass.lowpass(EMG_queue.get_nowait())
+                    desired_angle_deg = desired_angle_lowpass.lowpass(np.atleast_1d(EMG_queue.get_nowait()))[0]
                 except queue.Empty:
                     pass
 
