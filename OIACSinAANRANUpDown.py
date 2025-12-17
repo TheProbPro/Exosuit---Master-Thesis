@@ -10,6 +10,12 @@ import signal
 import time
 import matplotlib.pyplot as plt
 
+
+import matplotlib as mpl
+
+mpl.rcParams['text.usetex'] = True
+mpl.rcParams['font.family'] = 'serif'
+
 # General configuration parameters
 SAMPLE_RATE = 166.7  # Hz
 USER_NAME = 'VictorBNielsen'
@@ -401,103 +407,115 @@ if __name__ == "__main__":
     
     #Plotting
     print("plotting data...")
-    plt.figure(figsize=(12, 6))
-    plt.subplot(4, 1, 1)
+
+    fig, axs = plt.subplots(4, 1, sharex=True, figsize=(10, 6), constrained_layout=True)
+
+    # Subplot 1: Actual vs Desired Position with shaded control modes
     start = 0
     current_mode = plot_control_mode[0]
 
     for i in range(1, len(plot_control_mode)):
-        # When mode changes, close the previous segment
         if plot_control_mode[i] != current_mode:
             color = 'lightblue' if current_mode == ControlMode.AAN else 'lightcoral'
-            plt.axvspan(time_vector[start], time_vector[i], color=color, alpha=0.3)
-
-            # start new segment
+            axs[0].axvspan(time_vector[start], time_vector[i], color=color, alpha=0.3)
             current_mode = plot_control_mode[i]
             start = i
-
-    # Shade the final segment ONCE
-    color = 'lightblue' if current_mode == ControlMode.AAN else 'lightcoral'
-    plt.axvspan(time_vector[start], time_vector[-1], color=color, alpha=0.8)
-
-    plt.plot(time_vector, plot_position, label='Actual Position (deg)')
-    plt.plot(time_vector, plot_desired_position, label='Desired Position (deg)', linestyle='--')
-    plt.title('Actual vs Desired Position (Blue = AAN, Red = RAN)')
-    plt.xlabel('Time [s]')
-    plt.ylabel('Position [deg]')
-    plt.xlim(0, 10)
-    plt.legend()
-    plt.grid()
-
-    plt.subplot(4, 1, 2)
-    plt.plot(time_vector, plot_error, label='Position Error (deg)', color='red')
-    plt.title('Position Error Over Time')
-    plt.xlabel('Time [s]')
-    plt.ylabel('Error (deg)')
-    plt.xlim(0, 10)
-    plt.legend()
-    plt.grid()
-
-    plt.subplot(4, 1, 3)
-    plt.ylim(-4.5, 4.5)
-    plt.plot(time_vector, plot_fb_torque, label='Feedback Torque (Nm)', color='orange')
-    plt.plot(time_vector, plot_ff_torque, label='Feedforward Torque (Nm)', color='green')
-    plt.plot(time_vector, plot_torque, label='Total Applied Torque (Nm)', color='purple')
-    plt.title('Feedback and Feedforward Torque Over Time')
-    plt.xlabel('Time [s]')
-    plt.ylabel('Torque (Nm)')
-    plt.xlim(0, 10)
-    plt.legend()
-    plt.grid()
-
-    plt.subplot(4, 1, 4)
-    plt.plot(time_vector, plot_jerk, label='Jerk (deg/s³)', color='blue')
-    plt.title('Jerk Over Time')
-    plt.xlabel('Time [s]')
-    plt.ylabel('Jerk (deg/s³)')
-    plt.xlim(0, 10)
-    plt.legend()
-    plt.grid()
-    plt.tight_layout()
-    plt.show()
     
-    # #plot desired and actual position in one graph and error in another graph
+    axs[0].axvspan(time_vector[start], time_vector[-1], color='lightblue' if current_mode == ControlMode.AAN else 'lightcoral', alpha=0.3)
+    axs[0].plot(time_vector, plot_position, label='Actual', linewidth=1.2)
+    axs[0].plot(time_vector, plot_desired_position, label='Desired', linestyle='--', linewidth=1.2)
+    axs[0].set_title('Actual vs Desired Position (Blue = AAN, Red = RAN)')
+    axs[0].set_ylabel('Position (deg)')
+    axs[0].legend()
+    axs[0].grid()
+
+    # Subplot 2: Position Error
+    axs[1].plot(time_vector, plot_error, color='red', linewidth=1.2)
+    axs[1].set_ylabel('Error (deg)')
+    axs[1].grid()
+
+    # Subplot 3: Feedback and Feedforward Torque
+    axs[2].plot(time_vector, plot_fb_torque, label='Feedback', linewidth=1.2)
+    axs[2].plot(time_vector, plot_ff_torque, label='Feedforward', linewidth=1.2)
+    axs[2].plot(time_vector, plot_torque, label='Total', linewidth=1.4)
+    axs[2].set_ylabel('Torque (Nm)')
+    axs[2].set_ylim(-4.5, 4.5)
+    axs[2].legend()
+    axs[2].grid()
+
+    # Subplot 4: Jerk
+    axs[3].plot(time_vector, plot_jerk, linewidth=1.2)
+    axs[3].set_xlabel('Time (s)')
+    axs[3].set_ylabel('Jerk (deg/s³)')
+    axs[3].grid()
+    axs[3].set_xlim(0, 10)
+
+    plt.rcParams.update({
+    'font.size': 8,
+    'axes.labelsize': 8,
+    'axes.titlesize': 8,
+    'legend.fontsize': 7,
+    'xtick.labelsize': 7,
+    'ytick.labelsize': 7,
+    })
+
+    plt.show()
+
     # plt.figure(figsize=(12, 6))
-    # plt.subplot(5, 1, 1)
-    # plt.plot(plot_position, label='Actual Position (deg)')
-    # plt.plot(plot_desired_position, label='Desired Position (deg)', linestyle='--')
-    # plt.title('Actual vs Desired Position')
-    # plt.xlabel('Time Steps')
-    # plt.ylabel('Position (deg)')
+    # plt.subplot(4, 1, 1)
+    # start = 0
+    # current_mode = plot_control_mode[0]
+
+    # for i in range(1, len(plot_control_mode)):
+    #     # When mode changes, close the previous segment
+    #     if plot_control_mode[i] != current_mode:
+    #         color = 'lightblue' if current_mode == ControlMode.AAN else 'lightcoral'
+    #         plt.axvspan(time_vector[start], time_vector[i], color=color, alpha=0.3)
+
+    #         # start new segment
+    #         current_mode = plot_control_mode[i]
+    #         start = i
+
+    # # Shade the final segment ONCE
+    # color = 'lightblue' if current_mode == ControlMode.AAN else 'lightcoral'
+    # plt.axvspan(time_vector[start], time_vector[-1], color=color, alpha=0.8)
+
+    # plt.plot(time_vector, plot_position, label='Actual Position (deg)')
+    # plt.plot(time_vector, plot_desired_position, label='Desired Position (deg)', linestyle='--')
+    # plt.title('Actual vs Desired Position (Blue = AAN, Red = RAN)')
+    # plt.xlabel('Time [s]')
+    # plt.ylabel('Position [deg]')
+    # plt.xlim(0, 10)
     # plt.legend()
     # plt.grid()
-    # plt.subplot(5, 1, 2)
-    # plt.plot(plot_error, label='Position Error (deg)', color='red')
+
+    # plt.subplot(4, 1, 2)
+    # plt.plot(time_vector, plot_error, label='Position Error (deg)', color='red')
     # plt.title('Position Error Over Time')
-    # plt.xlabel('Time Steps')
+    # plt.xlabel('Time [s]')
     # plt.ylabel('Error (deg)')
+    # plt.xlim(0, 10)
     # plt.legend()
     # plt.grid()
-    # plt.subplot(5, 1, 3)
-    # plt.plot(plot_fb_torque, label='Feedback Torque (Nm)', color='orange')
-    # plt.plot(plot_ff_torque, label='Feedforward Torque (Nm)', color='green')
+
+    # plt.subplot(4, 1, 3)
+    # plt.ylim(-4.5, 4.5)
+    # plt.plot(time_vector, plot_fb_torque, label='Feedback Torque (Nm)', color='orange')
+    # plt.plot(time_vector, plot_ff_torque, label='Feedforward Torque (Nm)', color='green')
+    # plt.plot(time_vector, plot_torque, label='Total Applied Torque (Nm)', color='purple')
     # plt.title('Feedback and Feedforward Torque Over Time')
-    # plt.xlabel('Time Steps')
+    # plt.xlabel('Time [s]')
     # plt.ylabel('Torque (Nm)')
+    # plt.xlim(0, 10)
     # plt.legend()
     # plt.grid()
-    # plt.subplot(5, 1, 4)
-    # plt.plot(plot_total_torque, label='Total Applied Torque (Nm)', color='purple')
-    # plt.title('Total Applied Torque Over Time')
-    # plt.xlabel('Time Steps')
-    # plt.ylabel('Torque (Nm)')
-    # plt.legend()
-    # plt.grid()
-    # plt.subplot(5, 1, 5)
-    # plt.plot(plot_torque, label='Applied Torque (Nm)', color='green')
-    # plt.title('Applied Torque Over Time')
-    # plt.xlabel('Time Steps')
-    # plt.ylabel('Torque (Nm)')
+
+    # plt.subplot(4, 1, 4)
+    # plt.plot(time_vector, plot_jerk, label='Jerk (deg/s³)', color='blue')
+    # plt.title('Jerk Over Time')
+    # plt.xlabel('Time [s]')
+    # plt.ylabel('Jerk (deg/s³)')
+    # plt.xlim(0, 10)
     # plt.legend()
     # plt.grid()
     # plt.tight_layout()

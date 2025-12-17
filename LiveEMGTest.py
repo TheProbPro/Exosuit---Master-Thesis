@@ -12,6 +12,11 @@ import sys
 import signal
 import time
 
+import matplotlib as mpl
+
+mpl.rcParams['text.usetex'] = True
+mpl.rcParams['font.family'] = 'serif'
+
 # General configuration parameters
 SAMPLE_RATE = 2000  # Hz
 USER_NAME = 'VictorBNielsen'
@@ -166,35 +171,63 @@ if __name__ == "__main__":
     print("Goodbye!")
 
     #Plotting
-    plt.figure(figsize=(10, 6))
+    # plt.figuresize=(10, 6)
+    # # Raw Bicep and tricep
+    # plt.subplot(3, 1, 1)
+    # plt.plot(raw_bicep, label='Raw Bicep EMG', color='red', alpha=0.5)
+    # plt.plot(raw_tricep, label='Raw Tricep EMG', color='blue', alpha=0.5)
+    # plt.title('Raw EMG Signals')
+    # plt.xlabel('Samples')
+    # plt.xlim(0, len(raw_bicep))
+    # plt.ylabel('Amplitude (mV)')
+    # plt.legend()
+    # plt.grid()
+    # # Processed Bicep and tricep
+    # plt.subplot(3, 1, 2)
+    # plt.plot(Bicep_processed, label='Processed Bicep EMG', color='red', alpha=0.7)
+    # plt.plot(Tricep_processed, label='Processed Tricep EMG', color='blue', alpha=0.7)
+    # plt.title('Processed EMG Signals')
+    # plt.xlabel('Samples')
+    # plt.xlim(0, len(Bicep_processed))
+    # plt.ylabel('Amplitude (mV)')
+    # plt.legend()
+    # plt.grid()
+    # # Position
+    # plt.subplot(3, 1, 3)
+    # plt.plot(position_list, label='Desired Position', color='green')
+    # plt.title('Computed Joint Position')
+    # plt.xlabel('Samples')
+    # plt.xlim(0, len(position_list))
+    # plt.ylabel('Position (degrees)')
+    # plt.legend()
+    # plt.grid()
+    # plt.tight_layout()
+    # plt.show()
+
+    time_vector = np.linspace(0, 10, num=len(raw_bicep))
+    fig, axs = plt.subplots(3, 1, sharex=True, figsize=(10, 4), constrained_layout=True)
     # Raw Bicep and tricep
-    plt.subplot(3, 1, 1)
-    plt.plot(raw_bicep, label='Raw Bicep EMG', color='red', alpha=0.5)
-    plt.plot(raw_tricep, label='Raw Tricep EMG', color='blue', alpha=0.5)
-    plt.title('Raw EMG Signals')
-    plt.xlabel('Samples')
-    plt.xlim(0, len(raw_bicep))
-    plt.ylabel('Amplitude (mV)')
-    plt.legend()
-    plt.grid()
+    axs[0].plot(time_vector, raw_bicep, label='Raw Bicep EMG', color='red', alpha=0.5)
+    axs[0].plot(time_vector, raw_tricep, label='Raw Tricep EMG', color='blue', alpha=0.5)
+    axs[0].set_title('Raw EMG Signals')
+    axs[0].set_ylabel('Amplitude (mV)')
+    axs[0].set_xlim(0, 10)
+    axs[0].legend()
+    axs[0].grid()
     # Processed Bicep and tricep
-    plt.subplot(3, 1, 2)
-    plt.plot(Bicep_processed, label='Processed Bicep EMG', color='red', alpha=0.7)
-    plt.plot(Tricep_processed, label='Processed Tricep EMG', color='blue', alpha=0.7)
-    plt.title('Processed EMG Signals')
-    plt.xlabel('Samples')
-    plt.xlim(0, len(Bicep_processed))
-    plt.ylabel('Amplitude (mV)')
-    plt.legend()
-    plt.grid()
+    axs[1].plot(time_vector, Bicep_processed, label='Processed Bicep EMG', color='red', linewidth=1.5, alpha=0.7)
+    axs[1].plot(time_vector, Tricep_processed, label='Processed Tricep EMG', color='blue', linewidth=1.5, alpha=0.7)
+    axs[1].set_title('Processed EMG Signals')
+    axs[1].set_ylabel('Amplitude (mV)')
+    axs[1].set_xlim(0, 10)
+    axs[1].legend()
+    axs[1].grid()
     # Position
-    plt.subplot(3, 1, 3)
-    plt.plot(position_list, label='Desired Position', color='green')
-    plt.title('Computed Joint Position')
-    plt.xlabel('Samples')
-    plt.xlim(0, len(position_list))
-    plt.ylabel('Position (degrees)')
-    plt.legend()
-    plt.grid()
-    plt.tight_layout()
+    axs[2].plot(time_vector, position_list, label='Desired Position', color='green', linewidth=2)
+    axs[2].set_title('Computed Joint Position')
+    axs[2].set_xlabel('Time (s)')
+    axs[2].set_ylabel('Position (degrees)')
+    axs[2].set_xlim(0, 10)
+    axs[2].legend()
+    axs[2].grid()
     plt.show()
