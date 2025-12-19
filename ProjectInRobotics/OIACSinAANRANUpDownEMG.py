@@ -4,7 +4,7 @@ from Motors.DynamixelHardwareInterface import Motors
 from Sensors.EMGSensor import DelsysEMG
 from SignalProcessing.Filtering import rt_filtering, rt_desired_Angle_lowpass
 from SignalProcessing.Interpretors import ProportionalMyoelectricalControl as PMC
-from OIAC_Controllers import ada_imp_con, ILC, ModeControllerThreshold, ControlMode
+from Controllers.OIAC_Controllers import ada_imp_con, ILC, ModeControllerUpDownv1, ControlMode
 
 # General imports
 import numpy as np
@@ -16,15 +16,14 @@ import queue
 
 import traceback
 
-
 import matplotlib as mpl
 
 mpl.rcParams['text.usetex'] = True
 mpl.rcParams['font.family'] = 'serif'
 
 # General configuration parameters
-SAMPLE_RATE = 166.7  # Hz
 EMG_SAMPLE_RATE = 2000  # Hz
+SAMPLE_RATE = 166.7  # Hz
 USER_NAME = 'VictorBNielsen'
 ANGLE_MIN = math.radians(0)
 ANGLE_MAX = math.radians(140)
@@ -49,8 +48,8 @@ def read_EMG(raw_queue):
     emg = DelsysEMG(channel_range=(0,1))
     emg.start()
 
-    time.sleep(1.0)
-    
+    time.sleep(1.0)  # Allow EMG sensor to stabilize
+
     while not stop_event.is_set():
         reading = emg.read()
 
@@ -108,15 +107,14 @@ if __name__ == "__main__":
 
     emg_thread = threading.Thread(target=read_EMG, args=(EMG_queue,), daemon=True)
     emg_thread.start()
-    time.sleep(1.0)
 
     # Filter and interpret the raw data
     joint_torque = 0.0
     last_desired_angle = 0
     i = 0
     OIAC = ada_imp_con(1) # 1 degree of freedom
-    ILC_controller = ILC(lr = 0.1)
-    mode_controller = ModeControllerThreshold()
+    ILC_controller = ILC()
+    mode_controller = ModeControllerUpDownv1()
 
     # Run trial
     all_trial_stats = []
@@ -136,8 +134,10 @@ if __name__ == "__main__":
         trial_fb_log = []
         trial_desired_position = []
         previous_position = 70.0
-        desired_angle_deg = 70.0  # Start at middle position
+        desired_angle_deg = 70.0
         desired_angle_lowpass.reset()
+
+        mode_controller.reset()
 
         try:
             while not stop_event.is_set():
@@ -167,10 +167,6 @@ if __name__ == "__main__":
                 velocity_error = desired_velocity_rad - current_velocity
 
                 current_mode = mode_controller.current_mode
-                mode_changed = mode_controller.update_mode(position_error, current_angle_rad, desired_angle_rad, current_time)
-
-                if mode_changed:
-                    current_mode = mode_controller.current_mode
 
                 K_mat, B_mat = OIAC.update_impedance(current_angle_rad, desired_angle_rad, current_velocity, desired_velocity_rad)
 
@@ -186,6 +182,8 @@ if __name__ == "__main__":
                     total_torque = tau_fb
                     ff_torque = 0.0
                 torque_clipped = np.clip(total_torque, TORQUE_MIN, TORQUE_MAX)
+
+                current_mode = mode_controller.update_control_mode(torque_clipped, elapsed_time)
 
                 trial_error_log.append(position_error)
                 trial_torque_log.append(torque_clipped)
@@ -256,7 +254,6 @@ if __name__ == "__main__":
             if trial < trial_num:
                 ILC_controller.update_learning(trial_error_log)
 
-
             # 在绘图之前添加诊断信息  在这里开始 
             
             # if len(trial_error_log) > 0:
@@ -312,8 +309,9 @@ if __name__ == "__main__":
         else:
             print("No data recorded for this trial.")
             
-    # ====================== Free run ==========================
-
+    
+    # =========================== Free run ===========================
+    mode_controller.reset()
     print("Press enter to run final trial with learned feedforward")
     input()
     i = 0
@@ -323,7 +321,7 @@ if __name__ == "__main__":
     plot_fb_torque = []
     plot_total_torque = []
     previous_position = 70.0
-    desired_angle_deg = 70.0  # Start at middle position
+    desired_angle_deg = 70.0
     desired_angle_lowpass.reset()
     try:
         while not stop_event.is_set():
@@ -334,7 +332,7 @@ if __name__ == "__main__":
                 
                 dt = current_time - last_time
                 last_time = current_time
-                
+
                 try:
                     desired_angle_deg = desired_angle_lowpass.lowpass(np.atleast_1d(EMG_queue.get_nowait()))[0]
                 except queue.Empty:
@@ -357,17 +355,12 @@ if __name__ == "__main__":
                 velocity_error = desired_velocity_rad - current_velocity
 
                 current_mode = mode_controller.current_mode
-                mode_changed = mode_controller.update_mode(position_error, current_angle_rad, desired_angle_rad, current_time)
-
-                if mode_changed:
-                    current_mode = mode_controller.current_mode
-
+                
                 K_mat, B_mat = OIAC.update_impedance(current_angle_rad, desired_angle_rad, current_velocity, desired_velocity_rad)
 
                 tau_fb = OIAC.calc_tau_fb()[0,0]
                 total_torque = 0.0
                 plot_fb_torque.append(tau_fb)
-                plot_control_mode.append(current_mode)
 
                 if current_mode == ControlMode.AAN:
                     ff_torque = ILC_controller.get_feedforward()
@@ -380,6 +373,9 @@ if __name__ == "__main__":
                     plot_ff_torque.append(ff_torque)
                 
                 torque_clipped = np.clip(total_torque, TORQUE_MIN, TORQUE_MAX)
+
+                current_mode = mode_controller.update_control_mode(torque_clipped, elapsed_time)
+                plot_control_mode.append(current_mode)
                 plot_torque.append(torque_clipped)
 
                 current = motor.torq2curcom(torque_clipped)
@@ -399,6 +395,7 @@ if __name__ == "__main__":
     print("Shutting down...")
     stop_event.set()
     motor.close()
+    # empty all queues
     
     # calculate for plotting
     #Create a time vector for the 167Hz control loop
@@ -417,8 +414,8 @@ if __name__ == "__main__":
         last_acc = acc
         plot_jerk.append(jerk)
     plot_jerk.append(0.0)  # Jerk at last point is zero
-
-    # Plotting
+    
+    #Plotting
     print("plotting data...")
     
     fig, axs = plt.subplots(4, 1, sharex=True, figsize=(10, 6), constrained_layout=True)
@@ -498,7 +495,7 @@ if __name__ == "__main__":
     # plt.title('Actual vs Desired Position (Blue = AAN, Red = RAN)')
     # plt.xlabel('Time [s]')
     # plt.ylabel('Position [deg]')
-    # plt.xlim(0, time_vector[-1])
+    # plt.xlim(0, 10)
     # plt.legend()
     # plt.grid()
 
@@ -507,7 +504,7 @@ if __name__ == "__main__":
     # plt.title('Position Error Over Time')
     # plt.xlabel('Time [s]')
     # plt.ylabel('Error (deg)')
-    # plt.xlim(0, time_vector[-1])
+    # plt.xlim(0, 10)
     # plt.legend()
     # plt.grid()
 
@@ -519,7 +516,7 @@ if __name__ == "__main__":
     # plt.title('Feedback and Feedforward Torque Over Time')
     # plt.xlabel('Time [s]')
     # plt.ylabel('Torque (Nm)')
-    # plt.xlim(0, time_vector[-1])
+    # plt.xlim(0, 10)
     # plt.legend()
     # plt.grid()
 
@@ -528,7 +525,7 @@ if __name__ == "__main__":
     # plt.title('Jerk Over Time')
     # plt.xlabel('Time [s]')
     # plt.ylabel('Jerk (deg/s³)')
-    # plt.xlim(0, time_vector[-1])
+    # plt.xlim(0, 10)
     # plt.legend()
     # plt.grid()
     # plt.tight_layout()

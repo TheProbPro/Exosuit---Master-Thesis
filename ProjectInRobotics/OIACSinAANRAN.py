@@ -1,7 +1,7 @@
 # My local imports (EMG sensor, filtering, interpretors, OIAC)
 import math
 from Motors.DynamixelHardwareInterface import Motors
-from OIAC_Controllers import ada_imp_con, ILC, ILCv1, ILCv2, ModeControllerThreshold, ModeControllerUpDown, ControlMode
+from Controllers.OIAC_Controllers import ada_imp_con, ILC, ILCv1, ILCv2, ModeControllerThreshold, ModeControllerUpDown, ControlMode
 
 # General imports
 import numpy as np

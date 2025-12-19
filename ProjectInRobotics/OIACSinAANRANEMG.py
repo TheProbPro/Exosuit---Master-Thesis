@@ -1,7 +1,10 @@
 # My local imports (EMG sensor, filtering, interpretors, OIAC)
 import math
 from Motors.DynamixelHardwareInterface import Motors
-from OIAC_Controllers import ada_imp_con, ILC, ILCv1, ILCv2, ModeControllerThreshold, ModeControllerUpDown, ModeControllerUpDownv1, ControlMode
+from Sensors.EMGSensor import DelsysEMG
+from SignalProcessing.Filtering import rt_filtering, rt_desired_Angle_lowpass
+from SignalProcessing.Interpretors import ProportionalMyoelectricalControl as PMC
+from Controllers.OIAC_Controllers import ada_imp_con, ILC, ModeControllerThreshold, ControlMode
 
 # General imports
 import numpy as np
@@ -9,6 +12,9 @@ import threading
 import signal
 import time
 import matplotlib.pyplot as plt
+import queue
+
+import traceback
 
 
 import matplotlib as mpl
@@ -18,9 +24,10 @@ mpl.rcParams['font.family'] = 'serif'
 
 # General configuration parameters
 SAMPLE_RATE = 166.7  # Hz
+EMG_SAMPLE_RATE = 2000  # Hz
 USER_NAME = 'VictorBNielsen'
-ANGLE_MIN = 0
-ANGLE_MAX = 140
+ANGLE_MIN = math.radians(0)
+ANGLE_MAX = math.radians(140)
 
 TORQUE_MIN = -4.1
 TORQUE_MAX = 4.1
@@ -30,34 +37,51 @@ MOTOR_POS_MAX = 1145
 
 stop_event = threading.Event()
 
-def sine_position(step, speed=0.05, min_val=0, max_val=140):
-    """
-    Returns a smooth sine-wave value between min_val and max_val.
+def read_EMG(raw_queue):
+    """EMG读取线程"""
+    # Initialize filters
+    filter_bicep = rt_filtering(EMG_SAMPLE_RATE, 450, 20, 2)
+    filter_tricep = rt_filtering(EMG_SAMPLE_RATE, 450, 20, 2)
+    interpreter = PMC(theta_min=ANGLE_MIN, theta_max=ANGLE_MAX, user_name=USER_NAME, BicepEMG=True, TricepEMG=True)
+    Bicep_RMS_queue = queue.Queue(maxsize=50)
+    Tricep_RMS_queue = queue.Queue(maxsize=50)
+
+    emg = DelsysEMG(channel_range=(0,1))
+    emg.start()
+
+    time.sleep(1.0)
     
-    Parameters:
-        step (int): Increasing integer input 1, 2, 3, ...
-        speed (float): Smaller = smoother & slower oscillation. Default 0.05.
-        min_val (float): Minimum value of the oscillation.
-        max_val (float): Maximum value of the oscillation.
-    """
-    amplitude = (max_val - min_val) / 2
-    offset = min_val + amplitude
-    x = step * speed
-    return amplitude * math.sin(x) + offset
+    while not stop_event.is_set():
+        reading = emg.read()
 
-def sine_velocity(step, speed=0.05, min_val=0, max_val=140):
-    """
-    Returns the velocity of a sine-wave oscillation.
+        filtered_bicep = filter_bicep.bandpass(reading[0])
+        filtered_tricep = filter_tricep.bandpass(reading[1])
 
-    Parameters:
-        step (int): Increasing integer input 1, 2, 3, ...
-        speed (float): Frequency scaling (same as position function).
-        min_val (float): Minimum position value.
-        max_val (float): Maximum position value.
-    """
-    amplitude = (max_val - min_val) / 2
-    x = step * speed
-    return amplitude * speed * math.cos(x)
+        if Bicep_RMS_queue.full():
+            Bicep_RMS_queue.get()
+        Bicep_RMS_queue.put(filtered_bicep)
+        if Tricep_RMS_queue.full():
+            Tricep_RMS_queue.get()
+        Tricep_RMS_queue.put(filtered_tricep)
+
+        Bicep_RMS = np.sqrt(np.mean(np.array(list(Bicep_RMS_queue.queue))**2))
+        Tricep_RMS = np.sqrt(np.mean(np.array(list(Tricep_RMS_queue.queue))**2))
+
+        filtered_bicep_rms = float(filter_bicep.lowpass(np.atleast_1d(Bicep_RMS))[0])
+        filtered_tricep_rms = float(filter_tricep.lowpass(np.atleast_1d(Tricep_RMS))[0])
+
+        activation = interpreter.compute_activation([filtered_bicep_rms, filtered_tricep_rms])
+        desired_angle_deg = math.degrees(interpreter.compute_angle(activation[0], activation[1]))
+
+        try:
+            raw_queue.put_nowait(desired_angle_deg)
+        except queue.Full:
+            raw_queue.get_nowait()
+            raw_queue.put_nowait(desired_angle_deg)
+        
+    emg.stop()
+    Bicep_RMS_queue.queue.clear()
+    Tricep_RMS_queue.queue.clear()
 
 # Graceful Ctrl-C
 def handle_sigint(sig, frame):
@@ -71,24 +95,32 @@ if __name__ == "__main__":
     plot_torque = []
     plot_control_mode = []
 
+    # Test
+    desired_angle_lowpass = rt_desired_Angle_lowpass(sample_rate=SAMPLE_RATE, lp_cutoff=3, order=2)
+
+    EMG_queue = queue.Queue(maxsize=5)
+
     motor = Motors(port="COM4")
 
     # Wait a moment before starting
     time.sleep(1.0)
     print("Motor command threads started!")
 
+    emg_thread = threading.Thread(target=read_EMG, args=(EMG_queue,), daemon=True)
+    emg_thread.start()
+    time.sleep(1.0)
+
     # Filter and interpret the raw data
     joint_torque = 0.0
     last_desired_angle = 0
     i = 0
     OIAC = ada_imp_con(1) # 1 degree of freedom
-    ILC_controller = ILC()
-    mode_controller = ModeControllerUpDownv1()
+    ILC_controller = ILC(lr = 0.1)
+    mode_controller = ModeControllerThreshold()
 
     # Run trial
     all_trial_stats = []
     trial_num = 10
-    SIN_SPEED = 2
 
     for trial in range(trial_num):
         print("Press enter to start trial")
@@ -103,8 +135,9 @@ if __name__ == "__main__":
         trial_mode_log = []
         trial_fb_log = []
         trial_desired_position = []
-
-        mode_controller.reset()
+        previous_position = 70.0
+        desired_angle_deg = 70.0  # Start at middle position
+        desired_angle_lowpass.reset()
 
         try:
             while not stop_event.is_set():
@@ -114,10 +147,15 @@ if __name__ == "__main__":
                     break
                 dt = current_time - last_time
                 last_time = current_time
-                desired_angle_deg = sine_position(elapsed_time, speed=SIN_SPEED)
+                try:
+                    desired_angle_deg = desired_angle_lowpass.lowpass(np.atleast_1d(EMG_queue.get_nowait()))[0]
+                except queue.Empty:
+                    pass
+
                 trial_desired_position.append(desired_angle_deg)
                 desired_angle_rad = math.radians(desired_angle_deg)
-                desired_velocity_deg = sine_velocity(elapsed_time, speed=SIN_SPEED)
+                desired_velocity_deg = (desired_angle_deg - previous_position) / dt
+                previous_position = desired_angle_deg
                 desired_velocity_rad = math.radians(desired_velocity_deg)
                 last_desired_angle = desired_angle_deg
                 step = (MOTOR_POS_MIN - MOTOR_POS_MAX)/140
@@ -129,6 +167,10 @@ if __name__ == "__main__":
                 velocity_error = desired_velocity_rad - current_velocity
 
                 current_mode = mode_controller.current_mode
+                mode_changed = mode_controller.update_mode(position_error, current_angle_rad, desired_angle_rad, current_time)
+
+                if mode_changed:
+                    current_mode = mode_controller.current_mode
 
                 K_mat, B_mat = OIAC.update_impedance(current_angle_rad, desired_angle_rad, current_velocity, desired_velocity_rad)
 
@@ -144,8 +186,6 @@ if __name__ == "__main__":
                     total_torque = tau_fb
                     ff_torque = 0.0
                 torque_clipped = np.clip(total_torque, TORQUE_MIN, TORQUE_MAX)
-
-                current_mode = mode_controller.update_control_mode(torque_clipped, elapsed_time)
 
                 trial_error_log.append(position_error)
                 trial_torque_log.append(torque_clipped)
@@ -167,6 +207,7 @@ if __name__ == "__main__":
 
         except Exception as e:
             print(f"Exception during trial: {e}")
+            print(traceback.format_exc())
         
         finally:
             motor.sendMotorCommand(motor.motor_ids[0], 0)
@@ -174,43 +215,6 @@ if __name__ == "__main__":
         
         print("max ff torque this trial: ", np.max(np.abs(trial_ff_log)), "Nm, and max fb torque: ", np.max(np.abs(trial_fb_log)), "Nm")
         print(f"Trial error log size: {len(trial_error_log)}")
-        #plot fb, ff, tau
-        # plt.figure(figsize=(10, 6))
-
-        # plt.subplot(4,1,1)
-        # plt.plot(trial_desired_position, label='Desired Position (deg)')
-        # plt.title(f'Trial {trial + 1} Desired Position')
-        # plt.xlabel('Time Steps')
-        # plt.ylabel('Position (deg)')
-        # plt.legend()
-        # plt.grid()
-
-        # plt.subplot(4,1,2)
-        # plt.plot(trial_fb_log, label='Feedback Torque (Nm)')  # 修正变量名
-        # plt.title(f'Trial {trial + 1} Feedback Torque')
-        # plt.xlabel('Time Steps')
-        # plt.ylabel('Torque (Nm)')
-        # plt.legend()
-        # plt.grid()
-
-        # plt.subplot(4,1,3)
-        # plt.plot(trial_ff_log, label='Feedforward Torque (Nm)', color='orange')
-        # plt.title(f'Trial {trial + 1} Feedforward Torque')
-        # plt.xlabel('Time Steps')
-        # plt.ylabel('Torque (Nm)')
-        # plt.legend()
-        # plt.grid()
-
-        # plt.subplot(4,1,4)
-        # plt.plot(trial_torque_log, label='Total Applied Torque (Nm)')
-        # plt.title(f'Trial {trial + 1} Control Torque')
-        # plt.xlabel('Time Steps')
-        # plt.ylabel('Torque (Nm)')
-        # plt.legend()
-        # plt.grid()
-
-        # plt.tight_layout()  # 添加这行使子图布局更紧凑
-        # plt.show()
 
         if len(trial_error_log) > 0:
             avg_error = np.mean(np.abs(trial_error_log))
@@ -251,6 +255,7 @@ if __name__ == "__main__":
 
             if trial < trial_num:
                 ILC_controller.update_learning(trial_error_log)
+
 
             # 在绘图之前添加诊断信息  在这里开始 
             
@@ -307,18 +312,19 @@ if __name__ == "__main__":
         else:
             print("No data recorded for this trial.")
             
-    
-    # =========================== Free run ===========================
-    mode_controller.reset()
+    # ====================== Free run ==========================
+
     print("Press enter to run final trial with learned feedforward")
     input()
     i = 0
     last_time = time.time()
-    loop_timer = time.time()
     trial_start_time = time.time()
     plot_ff_torque = []
     plot_fb_torque = []
     plot_total_torque = []
+    previous_position = 70.0
+    desired_angle_deg = 70.0  # Start at middle position
+    desired_angle_lowpass.reset()
     try:
         while not stop_event.is_set():
                 current_time = time.time()
@@ -328,10 +334,16 @@ if __name__ == "__main__":
                 
                 dt = current_time - last_time
                 last_time = current_time
-                desired_angle_deg = sine_position(elapsed_time, speed=SIN_SPEED)
+                
+                try:
+                    desired_angle_deg = desired_angle_lowpass.lowpass(np.atleast_1d(EMG_queue.get_nowait()))[0]
+                except queue.Empty:
+                    pass
+
                 plot_desired_position.append(desired_angle_deg)
                 desired_angle_rad = math.radians(desired_angle_deg)
-                desired_velocity_deg = sine_velocity(elapsed_time, speed=SIN_SPEED)
+                desired_velocity_deg = (desired_angle_deg - previous_position) / dt
+                previous_position = desired_angle_deg
                 desired_velocity_rad = math.radians(desired_velocity_deg)
                 last_desired_angle = desired_angle_deg
                 step = (MOTOR_POS_MIN - MOTOR_POS_MAX)/140
@@ -345,12 +357,17 @@ if __name__ == "__main__":
                 velocity_error = desired_velocity_rad - current_velocity
 
                 current_mode = mode_controller.current_mode
-                
+                mode_changed = mode_controller.update_mode(position_error, current_angle_rad, desired_angle_rad, current_time)
+
+                if mode_changed:
+                    current_mode = mode_controller.current_mode
+
                 K_mat, B_mat = OIAC.update_impedance(current_angle_rad, desired_angle_rad, current_velocity, desired_velocity_rad)
 
                 tau_fb = OIAC.calc_tau_fb()[0,0]
                 total_torque = 0.0
                 plot_fb_torque.append(tau_fb)
+                plot_control_mode.append(current_mode)
 
                 if current_mode == ControlMode.AAN:
                     ff_torque = ILC_controller.get_feedforward()
@@ -363,9 +380,6 @@ if __name__ == "__main__":
                     plot_ff_torque.append(ff_torque)
                 
                 torque_clipped = np.clip(total_torque, TORQUE_MIN, TORQUE_MAX)
-
-                current_mode = mode_controller.update_control_mode(torque_clipped, elapsed_time)
-                plot_control_mode.append(current_mode)
                 plot_torque.append(torque_clipped)
 
                 current = motor.torq2curcom(torque_clipped)
@@ -385,11 +399,10 @@ if __name__ == "__main__":
     print("Shutting down...")
     stop_event.set()
     motor.close()
-    # empty all queues
     
     # calculate for plotting
     #Create a time vector for the 167Hz control loop
-    time_vector = np.linspace(0, len(plot_position)/SAMPLE_RATE, len(plot_position))
+    time_vector = np.linspace(0, 10, len(plot_position))
 
     # Calculate jerk
     plot_jerk = []
@@ -404,10 +417,10 @@ if __name__ == "__main__":
         last_acc = acc
         plot_jerk.append(jerk)
     plot_jerk.append(0.0)  # Jerk at last point is zero
-    
-    #Plotting
-    print("plotting data...")
 
+    # Plotting
+    print("plotting data...")
+    
     fig, axs = plt.subplots(4, 1, sharex=True, figsize=(10, 6), constrained_layout=True)
 
     # Subplot 1: Actual vs Desired Position with shaded control modes
@@ -485,7 +498,7 @@ if __name__ == "__main__":
     # plt.title('Actual vs Desired Position (Blue = AAN, Red = RAN)')
     # plt.xlabel('Time [s]')
     # plt.ylabel('Position [deg]')
-    # plt.xlim(0, 10)
+    # plt.xlim(0, time_vector[-1])
     # plt.legend()
     # plt.grid()
 
@@ -494,7 +507,7 @@ if __name__ == "__main__":
     # plt.title('Position Error Over Time')
     # plt.xlabel('Time [s]')
     # plt.ylabel('Error (deg)')
-    # plt.xlim(0, 10)
+    # plt.xlim(0, time_vector[-1])
     # plt.legend()
     # plt.grid()
 
@@ -506,7 +519,7 @@ if __name__ == "__main__":
     # plt.title('Feedback and Feedforward Torque Over Time')
     # plt.xlabel('Time [s]')
     # plt.ylabel('Torque (Nm)')
-    # plt.xlim(0, 10)
+    # plt.xlim(0, time_vector[-1])
     # plt.legend()
     # plt.grid()
 
@@ -515,7 +528,7 @@ if __name__ == "__main__":
     # plt.title('Jerk Over Time')
     # plt.xlabel('Time [s]')
     # plt.ylabel('Jerk (deg/s³)')
-    # plt.xlim(0, 10)
+    # plt.xlim(0, time_vector[-1])
     # plt.legend()
     # plt.grid()
     # plt.tight_layout()

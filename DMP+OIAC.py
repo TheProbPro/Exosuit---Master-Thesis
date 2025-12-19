@@ -4,7 +4,7 @@ from Sensors.EMGSensor import DelsysEMG
 from SignalProcessing.Filtering import rt_filtering
 from SignalProcessing.Interpretors import ProportionalMyoelectricalControl as PMC
 from Motors.DynamixelHardwareInterface import Motors
-from OIAC_Controllers import ada_imp_con
+from Controllers.OIAC_Controllers import ada_imp_con
 from ProjectInRobotics.pDMP.pDMP_functions import pDMP
 
 # General imports
