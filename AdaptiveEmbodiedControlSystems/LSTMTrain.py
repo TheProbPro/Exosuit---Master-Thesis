@@ -7,6 +7,10 @@ import numpy as np
 from tqdm import tqdm
 import matplotlib.pyplot as plt
 #from sklearn.metrics import mean_squared_error, r2_score
+import matplotlib as mpl
+
+mpl.rcParams['text.usetex'] = True
+mpl.rcParams['font.family'] = 'serif'
 
 def generate_test_sine(total_points=1000, noise_std=0.0, device="cpu"):
     """
@@ -310,12 +314,14 @@ def evaluate_streaming_lstm(model, device="cpu", total_points=1000):
 
 def plot_predictions(t_pred, y_true, y_pred, title):
     plt.figure(figsize=(10,4))
-    plt.plot(t_pred, y_true, label="True signal", linewidth=2)
-    plt.plot(t_pred, y_pred, label="Model prediction", linestyle='--')
-    plt.xlabel("t")
-    plt.ylabel("value")
-    plt.title(title)
-    plt.legend()
+    plt.plot(t_pred, y_true, label="Ground truth", linewidth=2)
+    plt.plot(t_pred, y_pred, label="LSTM prediction", linestyle='--')
+    plt.xlabel("Time step", fontsize=12)
+    plt.ylabel("Amplitude", fontsize=12)
+    plt.title(title, fontsize=12)
+    plt.xlim([t_pred[0], t_pred[-1]])
+    plt.legend(fontsize=10, loc='upper right')
+    plt.grid()
     plt.tight_layout()
     plt.show()
 
