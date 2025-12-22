@@ -15,7 +15,7 @@ mpl.rcParams['font.family'] = 'serif'
 
 TRAIN_CSV = "Outputs/RecordedEMG/EMG_Recording_LSTM.csv"
 TEST_CSV = "Outputs/RecordedEMG/EMG_Recording_LSTM_Test.csv"
-COL = 'Processed EMG'#'Muscle Activation'#'Position'
+COL = 'Position'#'Processed EMG'#'Muscle Activation'
 
 class CSVWindowedDataset(Dataset):
     def __init__(self, csv_file, seq_len):

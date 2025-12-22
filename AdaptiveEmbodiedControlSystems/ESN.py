@@ -15,11 +15,12 @@ class ESN(nn.Module):
         self.output_size = output_size
         self.leaking_rate = leaking_rate
         
-        # Initialize input weights
-        self.W_in = torch.randn(reservoir_size, input_size) * 1.0
+        # Initialize input weights as nn.Parameter for proper device handling
+        self.W_in = nn.Parameter(torch.randn(reservoir_size, input_size) * 1.0, requires_grad=False)
         
-        # Initialize reservoir weights (sparse)
-        self.W_res = self._initialize_reservoir(reservoir_size, connectivity, spectral_radius)
+        # Initialize reservoir weights (sparse) as nn.Parameter
+        W_res_init = self._initialize_reservoir(reservoir_size, connectivity, spectral_radius)
+        self.W_res = nn.Parameter(W_res_init, requires_grad=False)
         
         # Output weights (will be trained)
         self.W_out = nn.Linear(reservoir_size, output_size, bias=True)
