@@ -229,6 +229,7 @@ class Motors:
             if dxl_getdata_result != True:
                 self.close()
                 raise Exception("Failed to get data from motor ID for current")
+            
             self.now_pos[i] = self.pos_gsr.getData(self.motor_ids[i], 132, 4)
             self.now_vel[i] = self.byte2num(self.vel_gsr.getData(self.motor_ids[i], 128, 4), 4) * self.RPM
             self.now_cur[i] = self.byte2num(self.cur_gsr.getData(self.motor_ids[i], 126, 2), 2) * 2.69 * 0.001   # 1 current unit = 2.69 mA * conversion to A
@@ -326,6 +327,13 @@ class Motors:
         self.disable_torque()
         self.portHandler.closePort()
         print("Port closed.")
+
+    """ Change the baudrate of all motors new_baud: 0 = 9,600, 1 = 57,600, 2 = 115,200, 3 = 1,000,000, 4 = 2,000,000, 5 = 3,000,000, 6 = 4,000,000, 7 = 4,500,000 """
+    def changeBaudrate(self, new_baud=7):
+        self.disable_torque()
+        for i in range(self.num_motors):
+            self.write(self.motor_ids[i], 8, 1, new_baud)
+        self.close()
 
     # Conversion methods
     """ Convert unsigned int to signed int based on the number of bytes (2 or 4) """
