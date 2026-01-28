@@ -13,29 +13,31 @@ import signal
 import time
 import matplotlib.pyplot as plt
 import queue
+import pandas as pd
 
 import traceback
-
 
 import matplotlib as mpl
 
 mpl.rcParams['text.usetex'] = True
 mpl.rcParams['font.family'] = 'serif'
 
+# TODO: Make position control vs. torque control.
+# Maybe add LSTM prediction
+# Maybe train ILC over pretrained trajectories
+# For Exosuit try to measure if we can keep the tension on the cable when flexing the arm fully
+# Remeber to add hysteresis thresholding to the switching controllers
+
 # General configuration parameters
-SAMPLE_RATE = 166.7  # Hz TODO: This needs to be measured again, since baudrate has been updated to 4.5Mbps
+SAMPLE_RATE = 135 #166.7  # Hz TODO: This needs to be measured again, since baudrate has been updated to 4.5Mbps
 EMG_SAMPLE_RATE = 2000  # Hz
 USER_NAME = 'VictorBNielsen'
 ANGLE_MIN = math.radians(0)
 ANGLE_MAX = math.radians(140)
 
 # TODO: Exosuit motor can apply torques of up to 10.6 Nm, but we limit it temporarely for safety
-TORQUE_MIN = -4.1
-TORQUE_MAX = 4.1
-
-# TODO: Make the program load these values from the motor calibration files
-MOTOR_POS_MIN = 2280
-MOTOR_POS_MAX = 1145
+TORQUE_MAX = 8.2
+TORQUE_MIN = -TORQUE_MAX
 
 stop_event = threading.Event()
 
@@ -97,7 +99,12 @@ if __name__ == "__main__":
     plot_torque = []
     plot_control_mode = []
 
-    # Test
+    # Load MOTOR_POS min and max from calibration file if available
+    df = pd.read_csv(f'Calib/Users/{USER_NAME}/motor_calib_data.csv')
+    MOTOR_POS_MIN = df['Extended'][0]
+    MOTOR_POS_MAX = df['Flexed'][0]
+    print(f"Loaded motor calibration data: MOTOR_POS_MIN={MOTOR_POS_MIN}, MOTOR_POS_MAX={MOTOR_POS_MAX}")
+
     desired_angle_lowpass = rt_desired_Angle_lowpass(sample_rate=SAMPLE_RATE, lp_cutoff=3, order=2)
 
     EMG_queue = queue.Queue(maxsize=5)
@@ -140,6 +147,7 @@ if __name__ == "__main__":
         previous_position = 70.0
         desired_angle_deg = 70.0  # Start at middle position
         desired_angle_lowpass.reset()
+        #loop_times = []
 
         try:
             while not stop_event.is_set():
@@ -148,23 +156,24 @@ if __name__ == "__main__":
                 if elapsed_time > 10:  # Each trial lasts 10 seconds
                     break
                 dt = current_time - last_time
+                #loop_times.append(dt)
                 last_time = current_time
                 try:
                     desired_angle_deg = desired_angle_lowpass.lowpass(np.atleast_1d(EMG_queue.get_nowait()))[0]
                 except queue.Empty:
                     pass
-
+                
                 trial_desired_position.append(desired_angle_deg)
                 desired_angle_rad = math.radians(desired_angle_deg)
                 desired_velocity_deg = (desired_angle_deg - previous_position) / dt
                 previous_position = desired_angle_deg
                 desired_velocity_rad = math.radians(desired_velocity_deg)
                 last_desired_angle = desired_angle_deg
-                step = (MOTOR_POS_MIN - MOTOR_POS_MAX)/140
-                motor_pos = motor.get_position()[0]
-                current_angle_deg = (MOTOR_POS_MIN - motor_pos) / step
+                step = (MOTOR_POS_MAX - MOTOR_POS_MIN)/140
+                motor_pos = motor.get_position(motor_id=motor.motor_ids[0])
+                current_angle_deg = (motor_pos - MOTOR_POS_MIN) / step
                 current_angle_rad = math.radians(current_angle_deg)
-                current_velocity = motor.get_velocity()[0]
+                current_velocity = motor.get_velocity(motor_id=motor.motor_ids[0])
                 position_error = current_angle_rad - desired_angle_rad
                 velocity_error = desired_velocity_rad - current_velocity
 
@@ -187,7 +196,7 @@ if __name__ == "__main__":
                 else:
                     total_torque = tau_fb
                     ff_torque = 0.0
-                torque_clipped = np.clip(total_torque, TORQUE_MIN, TORQUE_MAX)
+                torque_clipped = -np.clip(total_torque, TORQUE_MIN, TORQUE_MAX)
 
                 trial_error_log.append(position_error)
                 trial_torque_log.append(torque_clipped)
@@ -198,10 +207,12 @@ if __name__ == "__main__":
                 trial_mode_log.append(current_mode)
 
                 current = motor.torq2curcom(torque_clipped)
-                if motor_pos < MOTOR_POS_MAX and torque_clipped < 0:
+                if motor_pos > MOTOR_POS_MAX and torque_clipped > 0:
                     motor.sendMotorCommand(motor.motor_ids[0], 0)
-                elif motor_pos > MOTOR_POS_MIN and torque_clipped > 0:
+                    print("Motor at MAX position, stopping positive torque: {}".format(torque_clipped))
+                elif motor_pos < MOTOR_POS_MIN and torque_clipped < 0:
                     motor.sendMotorCommand(motor.motor_ids[0], 0)
+                    print("Motor at MIN position, stopping negative torque: {}".format(torque_clipped))
                 else:
                     motor.sendMotorCommand(motor.motor_ids[0], current)
 
@@ -215,6 +226,12 @@ if __name__ == "__main__":
             motor.sendMotorCommand(motor.motor_ids[0], 0)
             i = 0
         
+        # avg_iteration_time = sum(loop_times) / len(loop_times)
+        # frequency = 1.0 / avg_iteration_time
+        # print(f"Average iteration time: {avg_iteration_time*1000:.2f} ms")
+        # print(f"Control loop frequency: {frequency:.2f} Hz")
+        # print(f"Min time: {min(loop_times)*1000:.2f} ms, Max time: {max(loop_times)*1000:.2f} ms")
+
         print("max ff torque this trial: ", np.max(np.abs(trial_ff_log)), "Nm, and max fb torque: ", np.max(np.abs(trial_fb_log)), "Nm")
         print(f"Trial error log size: {len(trial_error_log)}")
 
@@ -295,12 +312,12 @@ if __name__ == "__main__":
                 previous_position = desired_angle_deg
                 desired_velocity_rad = math.radians(desired_velocity_deg)
                 last_desired_angle = desired_angle_deg
-                step = (MOTOR_POS_MIN - MOTOR_POS_MAX)/140
-                motor_pos = motor.get_position()[0]
-                current_angle_deg = (MOTOR_POS_MIN - motor_pos) / step
+                step = (MOTOR_POS_MAX - MOTOR_POS_MIN)/140
+                motor_pos = motor.get_position(motor_id=motor.motor_ids[0])
+                current_angle_deg = (motor_pos - MOTOR_POS_MIN) / step
                 plot_position.append(current_angle_deg)
                 current_angle_rad = math.radians(current_angle_deg)
-                current_velocity = motor.get_velocity()[0]
+                current_velocity = motor.get_velocity(motor_id=motor.motor_ids[0])
                 position_error = current_angle_rad - desired_angle_rad
                 plot_error.append(math.degrees(position_error))
                 velocity_error = desired_velocity_rad - current_velocity
@@ -328,14 +345,16 @@ if __name__ == "__main__":
                     ff_torque = 0.0
                     plot_ff_torque.append(ff_torque)
                 
-                torque_clipped = np.clip(total_torque, TORQUE_MIN, TORQUE_MAX)
+                torque_clipped = -np.clip(total_torque, TORQUE_MIN, TORQUE_MAX)
                 plot_torque.append(torque_clipped)
 
                 current = motor.torq2curcom(torque_clipped)
-                if motor_pos < MOTOR_POS_MAX and torque_clipped < 0:
+                if motor_pos > MOTOR_POS_MAX and torque_clipped > 0:
                     motor.sendMotorCommand(motor.motor_ids[0], 0)
-                elif motor_pos > MOTOR_POS_MIN and torque_clipped > 0:
+                    print("Motor at MAX position, stopping positive torque: {}".format(torque_clipped))
+                elif motor_pos < MOTOR_POS_MIN and torque_clipped < 0:
                     motor.sendMotorCommand(motor.motor_ids[0], 0)
+                    print("Motor at MIN position, stopping negative torque: {}".format(torque_clipped))
                 else:
                     motor.sendMotorCommand(motor.motor_ids[0], current)
 
