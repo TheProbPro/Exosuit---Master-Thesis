@@ -393,6 +393,75 @@ class ILCv2():
         self.current_trial = 0
         print("[ILC] Reset completed")
 
+# TODO: I have implemented a hysteresis class and used it both on error threhold control switch and up/down torque control switch. 
+# We have to double check when using the exoskeleton that the direction of torque is still correct. 
+# We might have to tune it and we might have to remove it from the direction based switch.
+# We might also have to modify the threshold control switch a bit, but we can talk about that before doing the simulation.
+# We can also talk about modifying the hysteresis threshold class.
+class Hysteresis():
+    """
+    Hysteresis thresholding class.
+    low_thresh: Lower threshold for switching off
+    high_thresh: Upper threshold for switching on
+    on_dwell_s: Minimum time to stay on after switching on
+    off_dwell_s: Minimum time to stay off after switching off
+    state: Initial state (True=on, False=off)
+    """
+    def __init__(self, low_thresh=5.6, high_thresh=5.7, on_dwell_s=0.0, off_dwell_s=0.0, initial_state=False):
+        self.low_thresh = low_thresh
+        self.high_thresh = high_thresh
+        self.on_dwell_s = on_dwell_s
+        self.off_dwell_s = off_dwell_s
+        self.state = initial_state
+
+    def update(self, value:float, current_time:float | None):
+        """
+        Update state based on input value and time.
+        
+        value: Current data sample
+        current_time: Timestamp in second, if None uses time.monotonic()
+        """
+        if current_time is None:
+            current_time = time.monotonic()
+
+        # Define instantaneous intent based on hysteresis band
+        if not self.state:
+            # Currently OFF: only consider turning ON if we cross high
+            if value > self.high_thresh:
+                intent = "on"
+            else:
+                intent = None
+        else:
+            # Currently ON: only consider turning OFF if we go below low
+            if value < self.low_thresh:
+                intent = "off"
+            else:
+                intent = None
+
+        # No intent => cancel any pending candidate
+        if intent is None:
+            self._candidate = None
+            self._candidate_start_t = None
+            return self.state
+
+        # Start / continue candidate timing
+        if intent != self._candidate:
+            self._candidate = intent
+            self._candidate_start_t = current_time
+
+        elapsed = current_time - self._candidate_start_t
+        required = self.on_dwell_s if intent == "on" else self.off_dwell_s
+
+        # Commit if dwell satisfied
+        if elapsed >= required:
+            self.state = (intent == "on")
+            self._candidate = None
+            self._candidate_start_t = None
+
+        return self.state
+
+
+
 class ModeControllerThreshold():
     """
     模式管理器 - 根据论文图9实现AAN/RAN切换逻辑
@@ -415,6 +484,7 @@ class ModeControllerThreshold():
         self.stable_tracking_start_time = None
         self.ran_motion_range_history = []
         self.ran_error_history = []
+        self.hysteresis = Hysteresis(low_thresh=math.radians(5.6), high_thresh=math.radians(5.7), on_dwell_s=0.01, off_dwell_s=0.01, initial_state=False)
         
     def update_mode(self, position_error, current_angle, desired_angle, current_time):
         """
@@ -433,7 +503,7 @@ class ModeControllerThreshold():
         
         if self.current_mode == ControlMode.AAN:
             # AAN -> RAN 条件检查
-            if abs(position_error) < self.aan_to_ran_error_threshold:
+            if self.hysteresis.update(abs(position_error)):#abs(position_error) < self.aan_to_ran_error_threshold:
                 if self.stable_tracking_start_time is None:
                     self.stable_tracking_start_time = current_time
                 elif (current_time - self.stable_tracking_start_time) > self.aan_to_ran_stable_time:
@@ -464,7 +534,7 @@ class ModeControllerThreshold():
                 
                 # 运动幅度不足或误差过大
                 if (avg_motion < self.ran_to_aan_motion_threshold or 
-                    avg_error > self.ran_to_aan_error_threshold):
+                    not self.hysteresis.update(avg_error)):#avg_error > self.ran_to_aan_error_threshold):
                     self.current_mode = ControlMode.AAN
                     self.ran_motion_range_history.clear()
                     self.ran_error_history.clear()
@@ -626,12 +696,13 @@ class ModeControllerUpDownv1():
         # 切换参数
         self.last_switch_time = 0
         self.min_switch_interval = 0.6   # 最小切换间隔
+        self.hysteresis = Hysteresis(low_thresh=-0.1, high_thresh=0.1, on_dwell_s=0.01, off_dwell_s=0.01, initial_state=False)
 
     def update_control_mode(self, torque, t):
         current_time = t
         can_switch = (current_time - self.last_switch_time) >= self.min_switch_interval
         old_mode = self.current_mode
-        if torque < 0:
+        if not self.hysteresis.update(torque):#torque < 0:
             if self.current_mode != ControlMode.AAN and can_switch:
                 self.current_mode = ControlMode.AAN
                 self.last_switch_time = current_time
