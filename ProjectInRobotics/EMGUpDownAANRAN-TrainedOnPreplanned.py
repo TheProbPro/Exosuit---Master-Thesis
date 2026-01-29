@@ -13,6 +13,8 @@ import signal
 import time
 import matplotlib.pyplot as plt
 import queue
+import pandas as pd
+from pathlib import Path
 
 import traceback
 
@@ -20,6 +22,10 @@ import matplotlib as mpl
 
 mpl.rcParams['text.usetex'] = True
 mpl.rcParams['font.family'] = 'serif'
+
+# SavePath
+SAVE_PATH = Path(f"C:/Users/nvigg/Documents/GitHub/Exosuit---Master-Thesis/Outputs/{Path(__file__).stem}/")
+SAVE_PATH.mkdir(parents=True, exist_ok=True)
 
 # General configuration parameters
 EMG_SAMPLE_RATE = 2000  # Hz
@@ -35,6 +41,35 @@ MOTOR_POS_MIN = 2280
 MOTOR_POS_MAX = 1145
 
 stop_event = threading.Event()
+
+def sine_position(step, speed=0.05, min_val=0, max_val=140):
+    """
+    Returns a smooth sine-wave value between min_val and max_val.
+    
+    Parameters:
+        step (int): Increasing integer input 1, 2, 3, ...
+        speed (float): Smaller = smoother & slower oscillation. Default 0.05.
+        min_val (float): Minimum value of the oscillation.
+        max_val (float): Maximum value of the oscillation.
+    """
+    amplitude = (max_val - min_val) / 2
+    offset = min_val + amplitude
+    x = step * speed
+    return amplitude * math.sin(x) + offset
+
+def sine_velocity(step, speed=0.05, min_val=0, max_val=140):
+    """
+    Returns the velocity of a sine-wave oscillation.
+
+    Parameters:
+        step (int): Increasing integer input 1, 2, 3, ...
+        speed (float): Frequency scaling (same as position function).
+        min_val (float): Minimum position value.
+        max_val (float): Maximum position value.
+    """
+    amplitude = (max_val - min_val) / 2
+    x = step * speed
+    return amplitude * speed * math.cos(x)
 
 def read_EMG(raw_queue):
     """EMG读取线程"""
@@ -119,6 +154,7 @@ if __name__ == "__main__":
     # Run trial
     all_trial_stats = []
     trial_num = 10
+    SIN_SPEED = 2
 
     for trial in range(trial_num):
         print("Press enter to start trial")
@@ -130,7 +166,7 @@ if __name__ == "__main__":
         trial_k_log = []
         trial_b_log = []
         trial_ff_log = []
-        trial_mode_log = []
+        # trial_mode_log = []
         trial_fb_log = []
         trial_desired_position = []
         previous_position = 70.0
@@ -147,14 +183,15 @@ if __name__ == "__main__":
                     break
                 dt = current_time - last_time
                 last_time = current_time
-                try:
-                    desired_angle_deg = desired_angle_lowpass.lowpass(np.atleast_1d(EMG_queue.get_nowait()))[0]
-                except queue.Empty:
-                    pass
+                # try:
+                #     desired_angle_deg = desired_angle_lowpass.lowpass(np.atleast_1d(EMG_queue.get_nowait()))[0]
+                # except queue.Empty:
+                #     pass
 
+                desired_angle_deg = sine_position(elapsed_time, speed=SIN_SPEED)
                 trial_desired_position.append(desired_angle_deg)
                 desired_angle_rad = math.radians(desired_angle_deg)
-                desired_velocity_deg = (desired_angle_deg - previous_position) / dt
+                desired_velocity_deg = sine_velocity(elapsed_time, speed=SIN_SPEED)
                 previous_position = desired_angle_deg
                 desired_velocity_rad = math.radians(desired_velocity_deg)
                 last_desired_angle = desired_angle_deg
@@ -166,24 +203,27 @@ if __name__ == "__main__":
                 position_error = current_angle_rad - desired_angle_rad
                 velocity_error = desired_velocity_rad - current_velocity
 
-                current_mode = mode_controller.current_mode
+                # current_mode = mode_controller.current_mode
 
                 K_mat, B_mat = OIAC.update_impedance(current_angle_rad, desired_angle_rad, current_velocity, desired_velocity_rad)
 
                 tau_fb = OIAC.calc_tau_fb()[0,0]
-                total_torque = 0.0
+                ff_torque = 0.0
+                if trial > 0:
+                    ff_torque = ILC_controller.get_feedforward()
+                total_torque = tau_fb + ff_torque
 
-                if current_mode == ControlMode.AAN:
-                    ff_torque = 0.0
-                    if trial > 0:
-                        ff_torque = ILC_controller.get_feedforward()
-                    total_torque = tau_fb + ff_torque
-                else:
-                    total_torque = tau_fb
-                    ff_torque = 0.0
+                # if current_mode == ControlMode.AAN:
+                #     ff_torque = 0.0
+                #     if trial > 0:
+                #         ff_torque = ILC_controller.get_feedforward()
+                #     total_torque = tau_fb + ff_torque
+                # else:
+                #     total_torque = tau_fb
+                #     ff_torque = 0.0
                 torque_clipped = np.clip(total_torque, TORQUE_MIN, TORQUE_MAX)
 
-                current_mode = mode_controller.update_control_mode(torque_clipped, elapsed_time)
+                # current_mode = mode_controller.update_control_mode(torque_clipped, elapsed_time)
 
                 trial_error_log.append(position_error)
                 trial_torque_log.append(torque_clipped)
@@ -191,7 +231,7 @@ if __name__ == "__main__":
                 trial_b_log.append(B_mat[0,0])
                 trial_ff_log.append(ff_torque)
                 trial_fb_log.append(tau_fb)
-                trial_mode_log.append(current_mode)
+                # trial_mode_log.append(current_mode)
 
                 current = motor.torq2curcom(torque_clipped)
                 if motor_pos < MOTOR_POS_MAX and torque_clipped < 0:
@@ -221,11 +261,11 @@ if __name__ == "__main__":
             avg_b = np.mean(trial_b_log)
             
             # 统计模式使用情况
-            aan_count = sum(1 for m in trial_mode_log if m == ControlMode.AAN)
-            ran_count = sum(1 for m in trial_mode_log if m == ControlMode.RAN)
-            total_count = len(trial_mode_log)
-            aan_percentage = (aan_count / total_count * 100) if total_count > 0 else 0
-            ran_percentage = (ran_count / total_count * 100) if total_count > 0 else 0
+            # aan_count = sum(1 for m in trial_mode_log if m == ControlMode.AAN)
+            # ran_count = sum(1 for m in trial_mode_log if m == ControlMode.RAN)
+            # total_count = len(trial_mode_log)
+            # aan_percentage = (aan_count / total_count * 100) if total_count > 0 else 0
+            # ran_percentage = (ran_count / total_count * 100) if total_count > 0 else 0
             
             trial_stats = {
                 'trial': trial + 1,
@@ -233,79 +273,40 @@ if __name__ == "__main__":
                 'max_error_deg': math.degrees(max_error),
                 'avg_k': avg_k,
                 'avg_b': avg_b,
-                'aan_percentage': aan_percentage,
-                'ran_percentage': ran_percentage
+                #'aan_percentage': aan_percentage,
+                #'ran_percentage': ran_percentage
             }
             all_trial_stats.append(trial_stats)
             
             print(f"Average tracking error: {math.degrees(avg_error):.2f}°")
             print(f"Maximum tracking error: {math.degrees(max_error):.2f}°")
             print(f"Average K: {avg_k:.8f}, Average B: {avg_b:.8f}")
-            print(f"Mode usage: AAN={aan_percentage:.1f}%, RAN={ran_percentage:.1f}%")
-            print(f"Mode switches: {len(mode_controller.mode_history)}")
+            #print(f"Mode usage: AAN={aan_percentage:.1f}%, RAN={ran_percentage:.1f}%")
+            #print(f"Mode switches: {len(mode_controller.mode_history)}")
             
             # 显示模式切换历史
-            if mode_controller.mode_history:
-                print("\nMode switch history:")
-                for switch in mode_controller.mode_history:
-                    print(f"  t={switch['time']-trial_start_time:.1f}s: "
-                          f"{switch['from']} -> {switch['to']}")
+            # if mode_controller.mode_history:
+            #     print("\nMode switch history:")
+            #     for switch in mode_controller.mode_history:
+            #         print(f"  t={switch['time']-trial_start_time:.1f}s: "
+            #               f"{switch['from']} -> {switch['to']}")
 
             if trial < trial_num:
                 ILC_controller.update_learning(trial_error_log)
 
-            # 在绘图之前添加诊断信息  在这里开始 
-            
-            # if len(trial_error_log) > 0:
-            #     # 诊断信息
-            #     print(f"\n=== 诊断信息 Trial {trial + 1} ===")
-            #     print(f"trial_fb_log 长度: {len(trial_fb_log)}")
-            #     print(f"trial_ff_log 长度: {len(trial_ff_log)}")
-            #     print(f"trial_torque_log 长度: {len(trial_torque_log)}")
-                
-            #     print(f"\ntrial_fb_log 范围: [{min(trial_fb_log):.4f}, {max(trial_fb_log):.4f}]")
-            #     print(f"trial_ff_log 范围: [{min(trial_ff_log):.4f}, {max(trial_ff_log):.4f}]")
-            #     print(f"trial_torque_log 范围: [{min(trial_torque_log):.4f}, {max(trial_torque_log):.4f}]")
-                
-            #     print(f"\ntrial_fb_log 前5个值: {trial_fb_log[:5]}")
-            #     print(f"trial_ff_log 前5个值: {trial_ff_log[:5]}")
-                
-            #     avg_error = np.mean(np.abs(trial_error_log))
-            #     max_error = np.max(np.abs(trial_error_log))
-            #     avg_k = np.mean(trial_k_log)
-            #     avg_b = np.mean(trial_b_log)
-                
-            #     # 统计模式使用情况
-            #     aan_count = sum(1 for m in trial_mode_log if m == ControlMode.AAN)
-            #     ran_count = sum(1 for m in trial_mode_log if m == ControlMode.RAN)
-            #     total_count = len(trial_mode_log)
-            #     aan_percentage = (aan_count / total_count * 100) if total_count > 0 else 0
-            #     ran_percentage = (ran_count / total_count * 100) if total_count > 0 else 0
-                
-            #     trial_stats = {
-            #         'trial': trial + 1,
-            #         'avg_error_deg': math.degrees(avg_error),
-            #         'max_error_deg': math.degrees(max_error),
-            #         'avg_k': avg_k,
-            #         'avg_b': avg_b,
-            #         'aan_percentage': aan_percentage,
-            #         'ran_percentage': ran_percentage
-            #     }
-            #     all_trial_stats.append(trial_stats)
-                
-            #     print(f"\nAverage tracking error: {math.degrees(avg_error):.2f}°")
-            #     print(f"Maximum tracking error: {math.degrees(max_error):.2f}°")
-            #     print(f"Average K: {avg_k:.8f}, Average B: {avg_b:.8f}")
-            #     print(f"Mode usage: AAN={aan_percentage:.1f}%, RAN={ran_percentage:.1f}%")
-            #     print(f"Mode switches: {len(mode_controller.mode_history)}")
-                
-            #     # 显示模式切换历史
-            #     if mode_controller.mode_history:
-            #         print("\nMode switch history:")
-            #         for switch in mode_controller.mode_history:
-            #             print(f"  t={switch['time']-trial_start_time:.1f}s: "
-            #                 f"{switch['from']} -> {switch['to']}")
-                           
+            # TODO: Save ff_torque profile to .csv file format Only last iteration. Also save data that needs to be plotted later
+            FILE_NAME = f"Trial_{trial+1}_Data.csv"
+            df = pd.DataFrame({
+                'Desired_Position_deg': trial_desired_position,
+                'Applied_Torque_Nm': trial_torque_log,
+                'Position_Error_rad': trial_error_log,
+                'K_value_Nm_per_rad': trial_k_log,
+                'B_value_Nm_per_rad_per_s': trial_b_log,
+                'Feedforward_Torque_Nm': trial_ff_log,
+                'Feedback_Torque_Nm': trial_fb_log
+            })
+            df.to_csv(SAVE_PATH / FILE_NAME, index=False)
+
         else:
             print("No data recorded for this trial.")
             
@@ -471,64 +472,18 @@ if __name__ == "__main__":
 
     plt.show()
 
-    # plt.figure(figsize=(12, 6))
-    # plt.subplot(4, 1, 1)
-    # start = 0
-    # current_mode = plot_control_mode[0]
+    FILE_NAME = f"Final_Trial_Data.csv"
+    df = pd.DataFrame({
+        'Time_s': time_vector,
+        'Desired_Position_deg': plot_desired_position,
+        'Actual_Position_deg': plot_position,
+        'Position_Error_deg': plot_error,
+        'Total_Torque_Nm': plot_torque,
+        'Feedback_Torque_Nm': plot_fb_torque,
+        'Feedforward_Torque_Nm': plot_ff_torque,
+        'Jerk_deg_per_s3': plot_jerk
+    })
+    df.to_csv(SAVE_PATH / FILE_NAME, index=False)
 
-    # for i in range(1, len(plot_control_mode)):
-    #     # When mode changes, close the previous segment
-    #     if plot_control_mode[i] != current_mode:
-    #         color = 'lightblue' if current_mode == ControlMode.AAN else 'lightcoral'
-    #         plt.axvspan(time_vector[start], time_vector[i], color=color, alpha=0.3)
-
-    #         # start new segment
-    #         current_mode = plot_control_mode[i]
-    #         start = i
-
-    # # Shade the final segment ONCE
-    # color = 'lightblue' if current_mode == ControlMode.AAN else 'lightcoral'
-    # plt.axvspan(time_vector[start], time_vector[-1], color=color, alpha=0.8)
-
-    # plt.plot(time_vector, plot_position, label='Actual Position (deg)')
-    # plt.plot(time_vector, plot_desired_position, label='Desired Position (deg)', linestyle='--')
-    # plt.title('Actual vs Desired Position (Blue = AAN, Red = RAN)')
-    # plt.xlabel('Time [s]')
-    # plt.ylabel('Position [deg]')
-    # plt.xlim(0, 10)
-    # plt.legend()
-    # plt.grid()
-
-    # plt.subplot(4, 1, 2)
-    # plt.plot(time_vector, plot_error, label='Position Error (deg)', color='red')
-    # plt.title('Position Error Over Time')
-    # plt.xlabel('Time [s]')
-    # plt.ylabel('Error (deg)')
-    # plt.xlim(0, 10)
-    # plt.legend()
-    # plt.grid()
-
-    # plt.subplot(4, 1, 3)
-    # plt.ylim(-4.5, 4.5)
-    # plt.plot(time_vector, plot_fb_torque, label='Feedback Torque (Nm)', color='orange')
-    # plt.plot(time_vector, plot_ff_torque, label='Feedforward Torque (Nm)', color='green')
-    # plt.plot(time_vector, plot_torque, label='Total Applied Torque (Nm)', color='purple')
-    # plt.title('Feedback and Feedforward Torque Over Time')
-    # plt.xlabel('Time [s]')
-    # plt.ylabel('Torque (Nm)')
-    # plt.xlim(0, 10)
-    # plt.legend()
-    # plt.grid()
-
-    # plt.subplot(4, 1, 4)
-    # plt.plot(time_vector, plot_jerk, label='Jerk (deg/s³)', color='blue')
-    # plt.title('Jerk Over Time')
-    # plt.xlabel('Time [s]')
-    # plt.ylabel('Jerk (deg/s³)')
-    # plt.xlim(0, 10)
-    # plt.legend()
-    # plt.grid()
-    # plt.tight_layout()
-    # plt.show()
 
     print("Goodbye!")
