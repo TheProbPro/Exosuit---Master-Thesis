@@ -413,6 +413,8 @@ class Hysteresis():
         self.on_dwell_s = on_dwell_s
         self.off_dwell_s = off_dwell_s
         self.state = initial_state
+        self._candidate = None
+        self._candidate_start_t = None
 
     def update(self, value:float, current_time:float | None):
         """
@@ -503,7 +505,7 @@ class ModeControllerThreshold():
         
         if self.current_mode == ControlMode.AAN:
             # AAN -> RAN 条件检查
-            if self.hysteresis.update(abs(position_error)):#abs(position_error) < self.aan_to_ran_error_threshold:
+            if self.hysteresis.update(abs(position_error), current_time=None):#abs(position_error) < self.aan_to_ran_error_threshold:
                 if self.stable_tracking_start_time is None:
                     self.stable_tracking_start_time = current_time
                 elif (current_time - self.stable_tracking_start_time) > self.aan_to_ran_stable_time:
@@ -534,7 +536,7 @@ class ModeControllerThreshold():
                 
                 # 运动幅度不足或误差过大
                 if (avg_motion < self.ran_to_aan_motion_threshold or 
-                    not self.hysteresis.update(avg_error)):#avg_error > self.ran_to_aan_error_threshold):
+                    not self.hysteresis.update(avg_error, current_time=None)):#avg_error > self.ran_to_aan_error_threshold):
                     self.current_mode = ControlMode.AAN
                     self.ran_motion_range_history.clear()
                     self.ran_error_history.clear()
@@ -702,7 +704,7 @@ class ModeControllerUpDownv1():
         current_time = t
         can_switch = (current_time - self.last_switch_time) >= self.min_switch_interval
         old_mode = self.current_mode
-        if not self.hysteresis.update(torque):#torque < 0:
+        if not self.hysteresis.update(torque, current_time=None):#torque < 0:
             if self.current_mode != ControlMode.AAN and can_switch:
                 self.current_mode = ControlMode.AAN
                 self.last_switch_time = current_time

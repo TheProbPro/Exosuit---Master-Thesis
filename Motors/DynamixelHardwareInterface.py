@@ -278,52 +278,53 @@ class Motors:
         print(f"All motors set to {mode} control mode.")
 
     """ Get the current position of all motors in ticks (0-4095) """
-    def get_position(self):
-        for i in range(self.num_motors):
-            self.now_pos[i] = self.read(self.motor_ids[i], 132, 4)
-        return self.now_pos
-
-    def get_position(self, motor_id):
-        assert (motor_id in self.motor_ids), f"Motor ID {motor_id} not found."
-        pos = self.read(motor_id, 132, 4)
-        self.now_pos[self.motor_ids.index(motor_id)] = pos
-        return pos
-
-    """ Get the current velocity of all motors in rad/s """
-    def get_velocity(self):
-        for i in range(self.num_motors):
-            vel = self.read(self.motor_ids[i], 128, 4)
-            vel = self.byte2num(vel, 4)
-            self.now_vel[i] = vel * self.RPM
-        return self.now_vel
+    def get_position(self, motor_id=None):
+        if motor_id is None:
+            for i in range(self.num_motors):
+                self.now_pos[i] = self.read(self.motor_ids[i], 132, 4)
+            return self.now_pos
+        else:
+            assert motor_id in self.motor_ids, f"Motor ID {motor_id} not found."
+            idx = self.motor_ids.index(motor_id)
+            pos = self.read(motor_id, 132, 4)
+            self.now_pos[idx] = pos
+            return pos
     
-    def get_velocity(self, motor_id):
-        assert (motor_id in self.motor_ids), f"Motor ID {motor_id} not found."
-        vel = self.read(motor_id, 128, 4)
-        vel = self.byte2num(vel, 4)
-        vel = vel * self.RPM
-        self.now_vel[self.motor_ids.index(motor_id)] = vel
-        return vel
+    """ Get the current velocity of all motors in rad/s """
+    def get_velocity(self, motor_id=None):
+        if motor_id is None:
+            for i in range(self.num_motors):
+                vel = self.read(self.motor_ids[i], 128, 4)
+                vel = self.byte2num(vel, 4)
+                self.now_vel[i] = vel * self.RPM
+            return self.now_vel
+        else:
+            assert motor_id in self.motor_ids
+            vel = self.read(motor_id, 128, 4)
+            vel = self.byte2num(vel, 4)
+            vel = vel * self.RPM
+            self.now_vel[self.motor_ids.index(motor_id)] = vel
+            return vel
 
     """ Get the current current of all motors in mA """
-    def get_current_torque(self):
-        for i in range(self.num_motors):
-            cur = self.read(self.motor_ids[i], 126, 2)
+    def get_current_torque(self, motor_id=None):
+        if motor_id is None:
+            for i in range(self.num_motors):
+                cur = self.read(self.motor_ids[i], 126, 2)
+                cur = self.byte2num(cur, 2)
+                self.now_cur[i] = cur * 2.69 * 0.001   # 1 current unit = 2.69 mA * conversion to A
+                # Convert current to torque
+                self.now_tor[i] = self.cur2torq(self.now_cur[i])
+            return self.now_cur, self.now_tor
+        else:
+            assert (motor_id in self.motor_ids), f"Motor ID {motor_id} not found."
+            cur = self.read(motor_id, 126, 2)
             cur = self.byte2num(cur, 2)
-            self.now_cur[i] = cur * 2.69 * 0.001   # 1 current unit = 2.69 mA * conversion to A
-            # Convert current to torque
-            self.now_tor[i] = self.cur2torq(self.now_cur[i])
-        return self.now_cur, self.now_tor
-    
-    def get_current_torque(self, motor_id):
-        assert (motor_id in self.motor_ids), f"Motor ID {motor_id} not found."
-        cur = self.read(motor_id, 126, 2)
-        cur = self.byte2num(cur, 2)
-        cur = cur * 2.69 * 0.001   # 1 current unit = 2.69 mA * conversion to A
-        self.now_cur[self.motor_ids.index(motor_id)] = cur
-        tor = self.cur2torq(cur)
-        self.now_tor[self.motor_ids.index(motor_id)] = tor
-        return cur, tor
+            cur = cur * 2.69 * 0.001   # 1 current unit = 2.69 mA * conversion to A
+            self.now_cur[self.motor_ids.index(motor_id)] = cur
+            tor = self.cur2torq(cur)
+            self.now_tor[self.motor_ids.index(motor_id)] = tor
+            return cur, tor
     
     """ Control the a given motor (motor_id), using the given control method. Command should be the desired position, velocity or current based on the control mode. Remember to use correct conversion functions in order to have values the motor understands. """
     def sendMotorCommand(self, motor_id, command):
@@ -403,39 +404,41 @@ class Motors:
 
 
 if __name__ == "__main__":
-    motors = Motors(baudrate=4500000)
+    # motors = Motors(baudrate=4500000)
+    motors = Motors(port="COM4")
+    # motors.enable_torque()
     
-    #print("Initial positions:", motors.get_position())
+    print("Initial positions:", motors.get_position(motors.motor_ids[0]))
     # Test position control
-    # motors.sendMotorCommand(motors.motor_ids[0], 2550)  # Move to middle position
-    # time.sleep(2)
+    motors.sendMotorCommand(motors.motor_ids[0], 2280)  # Move to middle position
+    time.sleep(2)
 
-    # motors.sendMotorCommand(motors.motor_ids[0], 1050)  # Move to max position
-    # time.sleep(2)
+    motors.sendMotorCommand(motors.motor_ids[0], 1145)  # Move to max position
+    time.sleep(2)
     
-    # position = motors.get_position()
-    # print("Current position:", position)
-    # print((2550-position)/(1500/140))
-    # print(2550 - (98*(1500/140)))
+    position = motors.get_position(motors.motor_ids[0])
+    print("Current position:", position)
+    print((2550-position)/(1500/140))
+    print(2550 - (98*(1500/140)))
 
     # Test current control
     # Down
-    torque = 0.5
-    current = motors.torq2curcom(torque)
+    # torque = 0.5
+    # current = motors.torq2curcom(torque)
 
-    motors.sendMotorCommand(motors.motor_ids[0], current)
-    time.sleep(1)
+    # motors.sendMotorCommand(motors.motor_ids[0], current)
+    # time.sleep(1)
 
-    # Up
-    torque = 0.5
-    current = motors.torq2curcom(torque)
+    # # Up
+    # torque = 0.5
+    # current = motors.torq2curcom(torque)
 
-    motors.sendMotorCommand(motors.motor_ids[0], current)
-    time.sleep(1)
+    # motors.sendMotorCommand(motors.motor_ids[0], current)
+    # time.sleep(1)
 
-    # Down
-    motors.sendMotorCommand(motors.motor_ids[0], -current)
-    time.sleep(1)
+    # # Down
+    # motors.sendMotorCommand(motors.motor_ids[0], -current)
+    # time.sleep(1)
 
     print("Motors initialized successfully")
 

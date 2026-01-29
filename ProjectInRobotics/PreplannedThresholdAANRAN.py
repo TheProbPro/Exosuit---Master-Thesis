@@ -76,7 +76,7 @@ if __name__ == "__main__":
     plot_torque = []
     plot_control_mode = []
 
-    motor = Motors(port="COM4")
+    motor = Motors(port="COM4", baudrate=4500000)
 
     # Wait a moment before starting
     time.sleep(1.0)
@@ -98,6 +98,7 @@ if __name__ == "__main__":
     for trial in range(trial_num):
         print("Press enter to start trial")
         input()
+        
         trial_start_time = time.time()
         last_time = time.time()
         trial_error_log = []
@@ -108,6 +109,7 @@ if __name__ == "__main__":
         # trial_mode_log = []
         trial_fb_log = []
         trial_desired_position = []
+        analyze_hz = []
 
         try:
             while not stop_event.is_set():
@@ -117,6 +119,9 @@ if __name__ == "__main__":
                     break
                 dt = current_time - last_time
                 last_time = current_time
+
+                analyze_hz.append(dt)
+
                 desired_angle_deg = sine_position(elapsed_time, speed=SIN_SPEED)
                 trial_desired_position.append(desired_angle_deg)
                 desired_angle_rad = math.radians(desired_angle_deg)
@@ -124,10 +129,10 @@ if __name__ == "__main__":
                 desired_velocity_rad = math.radians(desired_velocity_deg)
                 last_desired_angle = desired_angle_deg
                 step = (MOTOR_POS_MIN - MOTOR_POS_MAX)/140
-                motor_pos = motor.get_position()[0]
+                motor_pos = motor.get_position(motor.motor_ids[0])
                 current_angle_deg = (MOTOR_POS_MIN - motor_pos) / step
                 current_angle_rad = math.radians(current_angle_deg)
-                current_velocity = motor.get_velocity()[0]
+                current_velocity = motor.get_velocity(motor.motor_ids[0])
                 position_error = current_angle_rad - desired_angle_rad
                 velocity_error = desired_velocity_rad - current_velocity
 
@@ -180,6 +185,12 @@ if __name__ == "__main__":
         finally:
             motor.sendMotorCommand(motor.motor_ids[0], 0)
             i = 0
+        
+        avg_iteration_time = sum(analyze_hz) / len(analyze_hz)
+        frequency = 1.0 / avg_iteration_time
+        print(f"Average iteration time: {avg_iteration_time*1000:.2f} ms")
+        print(f"Control loop frequency: {frequency:.2f} Hz")
+        print(f"Min time: {min(analyze_hz)*1000:.2f} ms, Max time: {max(analyze_hz)*1000:.2f} ms")
         
         print("max ff torque this trial: ", np.max(np.abs(trial_ff_log)), "Nm, and max fb torque: ", np.max(np.abs(trial_fb_log)), "Nm")
         print(f"Trial error log size: {len(trial_error_log)}")
@@ -267,11 +278,11 @@ if __name__ == "__main__":
                 desired_velocity_rad = math.radians(desired_velocity_deg)
                 last_desired_angle = desired_angle_deg
                 step = (MOTOR_POS_MIN - MOTOR_POS_MAX)/140
-                motor_pos = motor.get_position()[0]
+                motor_pos = motor.get_position(motor.motor_ids[0])
                 current_angle_deg = (MOTOR_POS_MIN - motor_pos) / step
                 plot_position.append(current_angle_deg)
                 current_angle_rad = math.radians(current_angle_deg)
-                current_velocity = motor.get_velocity()[0]
+                current_velocity = motor.get_velocity(motor.motor_ids[0])
                 position_error = current_angle_rad - desired_angle_rad
                 plot_error.append(math.degrees(position_error))
                 velocity_error = desired_velocity_rad - current_velocity
