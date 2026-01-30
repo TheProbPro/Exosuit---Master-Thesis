@@ -459,7 +459,6 @@ class Hysteresis():
             self.state = (intent == "on")
             self._candidate = None
             self._candidate_start_t = None
-
         return self.state
 
 
@@ -505,7 +504,7 @@ class ModeControllerThreshold():
         
         if self.current_mode == ControlMode.AAN:
             # AAN -> RAN 条件检查
-            if self.hysteresis.update(abs(position_error), current_time=None):#abs(position_error) < self.aan_to_ran_error_threshold:
+            if not self.hysteresis.update(abs(position_error), current_time=None):#abs(position_error) < self.aan_to_ran_error_threshold:
                 if self.stable_tracking_start_time is None:
                     self.stable_tracking_start_time = current_time
                 elif (current_time - self.stable_tracking_start_time) > self.aan_to_ran_stable_time:
@@ -536,7 +535,7 @@ class ModeControllerThreshold():
                 
                 # 运动幅度不足或误差过大
                 if (avg_motion < self.ran_to_aan_motion_threshold or 
-                    not self.hysteresis.update(avg_error, current_time=None)):#avg_error > self.ran_to_aan_error_threshold):
+                    self.hysteresis.update(avg_error, current_time=None)):#avg_error > self.ran_to_aan_error_threshold):
                     self.current_mode = ControlMode.AAN
                     self.ran_motion_range_history.clear()
                     self.ran_error_history.clear()

@@ -24,13 +24,13 @@ mpl.rcParams['text.usetex'] = True
 mpl.rcParams['font.family'] = 'serif'
 
 # SavePath
-SAVE_PATH = Path(f"C:/Users/nvigg/Documents/GitHub/Exosuit---Master-Thesis/Outputs/{Path(__file__).stem}/")
+USER_NAME = 'VictorBNielsen'
+SAVE_PATH = Path(f"C:/Users/nvigg/Documents/GitHub/Exosuit---Master-Thesis/Outputs/{Path(__file__).stem}/{USER_NAME}/")
 SAVE_PATH.mkdir(parents=True, exist_ok=True)
 
 # General configuration parameters
 EMG_SAMPLE_RATE = 2000  # Hz
 SAMPLE_RATE = 166.7  # Hz
-USER_NAME = 'VictorBNielsen'
 ANGLE_MIN = math.radians(0)
 ANGLE_MAX = math.radians(140)
 
@@ -105,7 +105,7 @@ if __name__ == "__main__":
 
     EMG_queue = queue.Queue(maxsize=5)
 
-    motor = Motors(port="COM4")
+    motor = Motors(port="COM4", baudrate=4500000)
 
     # Wait a moment before starting
     time.sleep(1.0)
@@ -446,6 +446,7 @@ if __name__ == "__main__":
     FILE_NAME = f"Final_Trial_Data.csv"
     df = pd.DataFrame({
         'Time_s': time_vector,
+        'Control_Mode': plot_control_mode,
         'Actual_Position_deg': plot_position,
         'Desired_Position_deg': plot_desired_position,
         'Position_Error_deg': plot_error,

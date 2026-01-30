@@ -1,5 +1,5 @@
 from Sensors.EMGSensor import DelsysEMG
-from SignalProcessing.Filtering import rt_filtering
+from SignalProcessing.Filtering import rt_desired_Angle_lowpass, rt_filtering
 from SignalProcessing.Interpretors import ProportionalMyoelectricalControl as PMC
 
 # General imports
@@ -9,11 +9,17 @@ import threading
 import signal
 import time
 import matplotlib.pyplot as plt
+import pandas as pd
+from pathlib import Path
 
+CONTROL_SAMPLE_RATE = 166.7  # Hz
 SAMPLE_RATE = 2000  # Hz
 USER_NAME = 'VictorBNielsen'
 ANGLE_MIN = 0
 ANGLE_MAX = 140
+SAVE_PATH = Path(f"C:/Users/nvigg/Documents/GitHub/Exosuit---Master-Thesis/Outputs/{Path(__file__).stem}/{USER_NAME}/")
+SAVE_PATH.mkdir(parents=True, exist_ok=True)
+
 
 plot_raw_bicep_emg = []
 plot_raw_tricep_emg = []
@@ -22,11 +28,7 @@ plot_processed_tricep_emg = []
 plot_bicep_activation = []
 plot_tricep_activation = []
 plot_desired_angle = []
-# plot_control_bicep_reading = []
-# plot_control_tricep_reading = []
-# plot_control_bicep_activation = []
-# plot_control_tricep_activation = []
-# plot_control_desired_angle = []
+plot_control_desired_angle = []
 
 stop_event = threading.Event()
 
@@ -80,25 +82,14 @@ def read_EMG(raw_queue):
         plot_desired_angle.append(desired_angle_deg)
 
         try:
-            raw_queue.put_nowait((reading, activation, desired_angle_deg))
+            raw_queue.put_nowait(desired_angle_deg)
         except queue.Full:
             raw_queue.get_nowait()
-            raw_queue.put_nowait((reading, activation, desired_angle_deg))
+            raw_queue.put_nowait(desired_angle_deg)
         
     emg.stop()
     Bicep_RMS_queue.queue.clear()
     Tricep_RMS_queue.queue.clear()
-
-        # try:
-        #     raw_queue.put_nowait(reading)
-        # except queue.Full:
-        #     try:
-        #         raw_queue.get_nowait()
-        #         raw_queue.put_nowait(reading)
-        #     except queue.Full:
-        #         pass
-        # except Exception as e:
-        #     print(f"[reader] error: {e}", file=sys.stderr)
 
 def handle_sigint(sig, frame):
     """Ctrl-C处理"""
@@ -111,41 +102,55 @@ if __name__ == "__main__":
     control_loop_frequency = 166.7  # Hz
     dt = 1/control_loop_frequency
     raw_queue = queue.Queue(maxsize=5)
-    raw_bicep_log = []
-    raw_tricep_log = []
-    bicep_activation_log = []
-    tricep_activation_log = []
-    desired_angle_log = []
+    desired_angle_lowpass = rt_desired_Angle_lowpass(sample_rate=CONTROL_SAMPLE_RATE, lp_cutoff=3, order=2)
 
     print("press enter to start EMG reading thread...")
     input()
 
     reader_thread = threading.Thread(target=read_EMG, args=(raw_queue,), daemon=True)
     reader_thread.start()
+    time.sleep(1.0)
+
+
     t = time.time()
     while not stop_event.is_set() and (time.time() - t) < 10:
         print("elapsed time:", time.time() - t, end='\r')
         try:
-            reading, activation, desired_angle = raw_queue.get_nowait()
+            desired_angle_deg = desired_angle_lowpass.lowpass(np.atleast_1d(raw_queue.get_nowait()))[0]
         except queue.Empty:
             continue
 
-        raw_bicep_log.append(reading[0])
-        raw_tricep_log.append(reading[1])
-        bicep_activation_log.append(activation[0])
-        tricep_activation_log.append(activation[1])
-        desired_angle_log.append(desired_angle)
+        plot_control_desired_angle.append(desired_angle_deg)
 
-        #time.sleep(dt)
+        time.sleep(dt)
 
     stop_event.set()
     reader_thread.join()
 
-    print(f"bicep samples collected: {len(raw_bicep_log)}")
+
+    # Save data to .csv
+    print("Length of recorded arrays: Raw Bicep EMG:", len(plot_raw_bicep_emg), "Raw Tricep EMG:", len(plot_raw_tricep_emg),
+          "Processed Bicep EMG:", len(plot_processed_bicep_emg), "Processed Tricep EMG:", len(plot_processed_tricep_emg),
+          "Bicep Activation:", len(plot_bicep_activation), "Tricep Activation:", len(plot_tricep_activation),
+          "Desired Angle (Thread):", len(plot_desired_angle), "Desired Angle (Control Loop):", len(plot_control_desired_angle))
+    df_thread = pd.DataFrame({
+        'Raw_Bicep_EMG': plot_raw_bicep_emg,
+        'Raw_Tricep_EMG': plot_raw_tricep_emg,
+        'Processed_Bicep_EMG': plot_processed_bicep_emg,
+        'Processed_Tricep_EMG': plot_processed_tricep_emg,
+        'Bicep_Activation': plot_bicep_activation,
+        'Tricep_Activation': plot_tricep_activation,
+        'Desired_Angle_Thread': plot_desired_angle,
+    })
+    df_thread.to_csv(SAVE_PATH / f"EMG_Data_{USER_NAME}.csv", index=False)
+    df_control = pd.DataFrame({
+        'Desired_Angle_Control_Loop': plot_control_desired_angle,
+    })
+    df_control.to_csv(SAVE_PATH / f"EMG_Control_Loop_Data_{USER_NAME}.csv", index=False)
 
     # plot emg signal from thread and control loop
     plt.figure(figsize=(12, 8))
-    plt.subplot(3, 1, 1)
+    plt.subplot(4, 1, 1)
     plt.plot(plot_raw_bicep_emg, label='Raw Bicep EMG (Thread)', alpha=0.5)
     plt.plot(plot_raw_tricep_emg, label='Raw Tricep EMG (Thread)', alpha=0.5)
     plt.xlabel('Samples')
@@ -153,7 +158,7 @@ if __name__ == "__main__":
     plt.ylabel('EMG Signal (mV)')
     plt.title('Raw EMG Signals')
     plt.legend()
-    plt.subplot(3, 1, 2)
+    plt.subplot(4, 1, 2)
     plt.plot(plot_processed_bicep_emg, label='Processed Bicep EMG (Thread)', alpha=0.5)
     plt.plot(plot_processed_tricep_emg, label='Processed Tricep EMG (Thread)', alpha=0.5)
     plt.xlabel('Samples')
@@ -161,39 +166,19 @@ if __name__ == "__main__":
     plt.ylabel('Filtered EMG Signal (mV)')
     plt.title('Processed EMG Signals')
     plt.legend()
-    plt.subplot(3, 1, 3)
+    plt.subplot(4, 1, 3)
     plt.plot(plot_desired_angle, label='Desired Angle (Thread)', alpha=0.5)
     plt.xlabel('Samples')
     plt.xlim(0, len(plot_desired_angle))
     plt.ylabel('Angle (degrees)')
     plt.title('Desired Angle')
     plt.legend()
-    plt.tight_layout()
-    plt.show()
-
-    plt.figure(figsize=(12, 8))
-    plt.subplot(3, 1, 1)
-    plt.plot(raw_bicep_log, label='Raw Bicep EMG (Control Loop)', alpha=0.5)
-    plt.plot(raw_tricep_log, label='Raw Tricep EMG (Control Loop)', alpha=0.5)
+    plt.subplot(4, 1, 4)
+    plt.plot(plot_control_desired_angle, label='Desired Angle (Control Loop)', alpha=0.5, color='orange')
     plt.xlabel('Samples')
-    plt.xlim(0, len(raw_bicep_log))
-    plt.ylabel('EMG Signal')
-    plt.title('Control Loop EMG Signals')
-    plt.legend()
-    plt.subplot(3, 1, 2)
-    plt.plot(bicep_activation_log, label='Bicep Activation (Control Loop)', alpha=0.5)
-    plt.plot(tricep_activation_log, label='Tricep Activation (Control Loop)', alpha=0.5)
-    plt.xlabel('Samples')
-    plt.xlim(0, len(bicep_activation_log))
-    plt.ylabel('Activation')
-    plt.title('Control Loop Muscle Activation')
-    plt.legend()
-    plt.subplot(3, 1, 3)
-    plt.plot(desired_angle_log, label='Desired Angle (Control Loop)', alpha=0.5)
-    plt.xlabel('Samples')
-    plt.xlim(0, len(desired_angle_log))
+    plt.xlim(0, len(plot_control_desired_angle))
     plt.ylabel('Angle (degrees)')
-    plt.title('Control Loop Desired Angle')
+    plt.title('Desired Angle in Control Loop')
     plt.legend()
     plt.tight_layout()
     plt.show()
