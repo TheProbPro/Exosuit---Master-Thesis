@@ -11,8 +11,10 @@ from Sensors.EMGSensor import DelsysEMG
 # TODO: Clean this script and optimize it for when tests needs to be performed
 
 Sensor_channels = [0, 1] # Bicep, Tricep
-User_name = 'VictorBNielsen'
+# User_name = 'VictorBNielsen'
+# User_name = 'ZicehnWang'
 # User_name = 'XiaofengXiong'
+User_name = 'Cao'
 
 def _calc_MVC(signal, sampling_rate=2000, win_ms=200):
         i = int(np.max(signal))

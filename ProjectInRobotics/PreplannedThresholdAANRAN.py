@@ -18,7 +18,9 @@ mpl.rcParams['text.usetex'] = True
 mpl.rcParams['font.family'] = 'serif'
 
 # SavePath
-USER_NAME = 'VictorBNielsen'
+# USER_NAME = 'VictorBNielsen'
+# USER_NAME = 'ZicehnWang'
+USER_NAME = 'Cao'
 SAVE_PATH = Path(f"C:/Users/nvigg/Documents/GitHub/Exosuit---Master-Thesis/Outputs/{Path(__file__).stem}/{USER_NAME}/")
 SAVE_PATH.mkdir(parents=True, exist_ok=True)
 
