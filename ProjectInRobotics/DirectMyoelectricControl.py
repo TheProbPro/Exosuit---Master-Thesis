@@ -28,9 +28,9 @@ mpl.rcParams['font.family'] = 'serif'
 #########################################################
 
 # SavePath
-# USER_NAME = 'VictorBNielsen'
+USER_NAME = 'VictorBNielsen'
 # USER_NAME = 'ZicehnWang'
-USER_NAME = 'Cao'
+# USER_NAME = 'Cao'
 SAVE_PATH = Path(f"C:/Users/nvigg/Documents/GitHub/Exosuit---Master-Thesis/Outputs/{Path(__file__).stem}/{USER_NAME}/")
 SAVE_PATH.mkdir(parents=True, exist_ok=True)
 
@@ -118,6 +118,15 @@ if __name__ == "__main__":
 
     # Filter and interpret the raw data
     last_desired_angle = 0
+
+    desired_angle_deg = 70.0  # Start at middle position
+    print("Testing EMG aquisition try to move your arm")
+    while desired_angle_deg == 70:
+        try:
+            desired_angle_deg = desired_angle_lowpass.lowpass(np.atleast_1d(EMG_queue.get_nowait()))[0]
+        except queue.Empty:
+            print("queue is empty")
+            pass
             
     # ====================== Free run ==========================
 
@@ -126,12 +135,12 @@ if __name__ == "__main__":
     last_time = time.time()
     trial_start_time = time.time()
     previous_position = 70.0
-    desired_angle_deg = 70.0  # Start at middle position
+    
     try:
         while not stop_event.is_set():
                 current_time = time.time()
                 elapsed_time = current_time - trial_start_time
-                if elapsed_time > 10:  # Each trial lasts 10 seconds
+                if elapsed_time > 20:  # Each trial lasts 10 seconds
                     break
                 
                 dt = current_time - last_time
@@ -142,6 +151,7 @@ if __name__ == "__main__":
                 except queue.Empty:
                     pass
 
+                print(f"Desired Angle: {desired_angle_deg:.2f} degrees")
                 plot_desired_position.append(desired_angle_deg)
                 desired_angle_rad = math.radians(desired_angle_deg)
                 desired_velocity_deg = (desired_angle_deg - previous_position) / dt

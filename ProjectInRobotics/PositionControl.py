@@ -117,12 +117,20 @@ if __name__ == "__main__":
     emg_thread.start()
     time.sleep(1.0)
 
-    # PID controller for position control
-    controller = PID(Kp=2.0, Ki=0.5, Kd=0.1, output_limits=(0, 140)) 
+    # PID controller for position control TODO: Tune the gains better
+    controller = PID(Kp=500.0, Ki=0.1, Kd=25.0) 
 
     # Filter and interpret the raw data
     last_desired_angle = 0
-            
+
+    desired_angle_deg = 70.0  # Start at middle position
+    print("Testing EMG aquisition try to move your arm")
+    while desired_angle_deg == 70:
+        try:
+            desired_angle_deg = desired_angle_lowpass.lowpass(np.atleast_1d(EMG_queue.get_nowait()))[0]
+        except queue.Empty:
+            pass
+
     # ====================== Free run ==========================
 
     print("Press enter to run position control for 10 seconds...")
@@ -130,7 +138,7 @@ if __name__ == "__main__":
     last_time = time.time()
     trial_start_time = time.time()
     previous_position = 70.0
-    desired_angle_deg = 70.0  # Start at middle position
+    
     try:
         while not stop_event.is_set():
                 current_time = time.time()
