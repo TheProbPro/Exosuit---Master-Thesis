@@ -116,9 +116,12 @@ if __name__ == "__main__":
     average_jerk_rad_per_s3 = np.mean(jerk_rad_per_s3_matrix, axis=0)
     standard_deviation_jerk_rad_per_s3 = np.std(jerk_rad_per_s3_matrix, axis=0)
 
+    # Create new timevector to ensure it still spans 10 seconds
+    time_vector = np.linspace(0, 10, shortest)
+
     # Create a new average dataframe to store the values in and save it as a csv file in the parent folder
     average_df = pd.DataFrame({
-        "Time_s": time_vector[0],
+        "Time_s": time_vector,
         "Average_Actual_Position_deg": average_actual_position_deg,
         "Standard_Deviation_Actual_Position_deg": standard_deviation_actual_position_deg,
         "Average_Desired_Position_deg": average_desired_position_deg,
