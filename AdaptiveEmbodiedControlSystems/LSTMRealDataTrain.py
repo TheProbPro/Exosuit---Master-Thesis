@@ -306,7 +306,7 @@ def plot_predictions(t_pred, y_true, y_pred, title):
     plt.show()
 
 
-
+Model_Save_Path = "Outputs/models/LSTM/Windowed_LSTM.pth"
 
 if __name__ == "__main__":
     print("Training Windowed LSTM...")
@@ -328,24 +328,24 @@ if __name__ == "__main__":
     plt.tight_layout()
     plt.show()
 
-    print("Training Continuous LSTM...")
-    ContinuousLSTM, Continuous_avg_loss, Continuous_total_loss = train_continuous_lstm()
-    # Plotting the avg loss and the windowed total loss arrays in two subplots
-    plt.figure(figsize=(12, 5))
-    plt.subplot(1, 2, 1)
-    plt.plot(Continuous_avg_loss, label='Average Loss per Epoch')
-    plt.xlabel('Epoch')
-    plt.ylabel('Average Loss')
-    plt.title('Average Loss over Epochs (Continuous LSTM)')
-    plt.legend()
-    plt.subplot(1, 2, 2)
-    plt.plot(Continuous_total_loss, label='Total Loss per Epoch', color='orange')
-    plt.xlabel('Epoch')
-    plt.ylabel('Total Loss')
-    plt.title('Total Loss over Epochs (Continuous LSTM)')
-    plt.legend()
-    plt.tight_layout()
-    plt.show()
+    # print("Training Continuous LSTM...")
+    # ContinuousLSTM, Continuous_avg_loss, Continuous_total_loss = train_continuous_lstm()
+    # # Plotting the avg loss and the windowed total loss arrays in two subplots
+    # plt.figure(figsize=(12, 5))
+    # plt.subplot(1, 2, 1)
+    # plt.plot(Continuous_avg_loss, label='Average Loss per Epoch')
+    # plt.xlabel('Epoch')
+    # plt.ylabel('Average Loss')
+    # plt.title('Average Loss over Epochs (Continuous LSTM)')
+    # plt.legend()
+    # plt.subplot(1, 2, 2)
+    # plt.plot(Continuous_total_loss, label='Total Loss per Epoch', color='orange')
+    # plt.xlabel('Epoch')
+    # plt.ylabel('Total Loss')
+    # plt.title('Total Loss over Epochs (Continuous LSTM)')
+    # plt.legend()
+    # plt.tight_layout()
+    # plt.show()
 
     # ---- Evaluate and plot predictions for both models ----
 
@@ -357,6 +357,7 @@ if __name__ == "__main__":
         device="cpu",
         total_points=1000
     )
+
     plot_predictions(
         t_pred_w,
         y_true_w,
@@ -364,15 +365,17 @@ if __name__ == "__main__":
         title="Windowed LSTM Prediction vs True Sine"
     )
 
+    torch.save(WindowedLSTM.state_dict(), Model_Save_Path)
+
     # 2. Streaming model evaluation
-    t_pred_s, y_true_s, y_pred_s = evaluate_streaming_lstm(
-        model=ContinuousLSTM,
-        device="cpu",
-        total_points=1000
-    )
-    plot_predictions(
-        t_pred_s,
-        y_true_s,
-        y_pred_s,
-        title="Streaming LSTM Prediction vs True Sine"
-    )
+    # t_pred_s, y_true_s, y_pred_s = evaluate_streaming_lstm(
+    #     model=ContinuousLSTM,
+    #     device="cpu",
+    #     total_points=1000
+    # )
+    # plot_predictions(
+    #     t_pred_s,
+    #     y_true_s,
+    #     y_pred_s,
+    #     title="Streaming LSTM Prediction vs True Sine"
+    # )
