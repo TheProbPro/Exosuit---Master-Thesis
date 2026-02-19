@@ -100,8 +100,6 @@ def train_moving_window_lstm():
 
     return model, average_loss_array, total_loss_array
 
-
-
 def train_continuous_lstm():
     # Hyperparameters
     hidden_state = 64

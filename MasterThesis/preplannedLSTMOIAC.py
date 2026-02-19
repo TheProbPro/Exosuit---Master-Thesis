@@ -1,9 +1,6 @@
 # My local imports (EMG sensor, filtering, interpretors, OIAC)
 import math
 from Motors.DynamixelHardwareInterface import Motors
-from Sensors.EMGSensor import DelsysEMG
-from SignalProcessing.Filtering import rt_filtering, rt_desired_Angle_lowpass
-from SignalProcessing.Interpretors import ProportionalMyoelectricalControl as PMC
 from Controllers.OIAC_Controllers import ada_imp_con
 from AdaptiveEmbodiedControlSystems.LSTM import LSTMModel
 
@@ -78,6 +75,7 @@ if __name__ == "__main__":
     plot_error = []
     plot_torque = []
     plot_control_mode = []
+    SIN_SPEED = 2
 
     # Load MOTOR_POS min and max from calibration file if available
     df = pd.read_csv(f'Calib/Users/{USER_NAME}/motor_calib_data.csv')
@@ -85,17 +83,9 @@ if __name__ == "__main__":
     MOTOR_POS_MAX = df['Flexed'][0]
     print(f"Loaded motor calibration data: MOTOR_POS_MIN={MOTOR_POS_MIN}, MOTOR_POS_MAX={MOTOR_POS_MAX}")
 
-    desired_angle_lowpass = rt_desired_Angle_lowpass(sample_rate=SAMPLE_RATE, lp_cutoff=3, order=2)
-
-    EMG_queue = queue.Queue(maxsize=5)
-
     motor = Motors(port="COM3", baudrate=4500000)
 
     # Wait a moment before starting
-    time.sleep(1.0)
-
-    emg_thread = threading.Thread(target=read_EMG, args=(EMG_queue,), daemon=True)
-    emg_thread.start()
     time.sleep(1.0)
 
     # Filter and interpret the raw data
@@ -103,6 +93,14 @@ if __name__ == "__main__":
     last_desired_angle = 0
     i = 0
     OIAC = ada_imp_con(1) # 1 degree of freedom
+
+    # Initialize LSTM model
+    Model_Save_Path = "Outputs/models/LSTM/Windowed_LSTM.pth"
+    device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+    model = LSTMModel(input_size=1, hidden_size=64, output_size=1, num_layers=1, batch_first=True)
+    model.load_state_dict(torch.load(Model_Save_Path, map_location=torch.device(device)))
+    model.eval()
+    LSTM_queue = queue.Queue(maxsize=25)
 
     # Run trial
     all_trial_stats = []
@@ -118,9 +116,6 @@ if __name__ == "__main__":
     plot_ff_torque = []
     plot_fb_torque = []
     plot_total_torque = []
-    previous_position = 70.0
-    desired_angle_deg = 70.0  # Start at middle position
-    desired_angle_lowpass.reset()
     try:
         while not stop_event.is_set():
                 current_time = time.time()
@@ -130,15 +125,26 @@ if __name__ == "__main__":
                 
                 dt = current_time - last_time
                 last_time = current_time
-                
+
+                desired_angle_deg = sine_position(elapsed_time, speed=SIN_SPEED)
                 try:
-                    desired_angle_deg = desired_angle_lowpass.lowpass(np.atleast_1d(EMG_queue.get_nowait()))[0]
-                except queue.Empty:
-                    pass
+                    LSTM_queue.put_nowait(desired_angle_deg)
+                except queue.Full:
+                    LSTM_queue.get_nowait()
+                    LSTM_queue.put_nowait(desired_angle_deg)
+
+                pred_angle = None
+                if LSTM_queue.full():
+                    x = torch.tensor(np.array(LSTM_queue.queue(), dtype=np.float32)).to(device).view(1, 25, 1)  # Shape: (1, seq_len, 1)
+                    pred = model(x)
+                    pred_angle = pred.squeeze().item()
+                
+                if pred_angle is not None:
+                    desired_angle_deg = pred_angle  # Use LSTM prediction as desired angle
 
                 plot_desired_position.append(desired_angle_deg)
                 desired_angle_rad = math.radians(desired_angle_deg)
-                desired_velocity_deg = (desired_angle_deg - previous_position) / dt
+                desired_velocity_deg = sine_velocity(elapsed_time, speed=SIN_SPEED)
                 previous_position = desired_angle_deg
                 desired_velocity_rad = math.radians(desired_velocity_deg)
                 last_desired_angle = desired_angle_deg
@@ -152,8 +158,8 @@ if __name__ == "__main__":
                 plot_error.append(math.degrees(position_error))
                 velocity_error = desired_velocity_rad - current_velocity
 
+                
                 K_mat, B_mat = OIAC.update_impedance(current_angle_rad, desired_angle_rad, current_velocity, desired_velocity_rad)
-
                 tau_fb = OIAC.calc_tau_fb()[0,0]
                 total_torque = 0.0
                 plot_fb_torque.append(tau_fb)
