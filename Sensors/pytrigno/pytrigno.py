@@ -320,7 +320,7 @@ class TrignoIMU(_BaseTrignoDaq):
                  cmd_port=50040, data_port=50044, timeout=10):
         super(TrignoIMU, self).__init__(
             host=host, cmd_port=cmd_port, data_port=data_port,
-            total_channels=48, timeout=timeout)
+            total_channels=144, timeout=timeout)
 
         self.channel_range = channel_range
         self.samples_per_read = samples_per_read

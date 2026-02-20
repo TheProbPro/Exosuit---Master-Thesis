@@ -62,7 +62,7 @@ class DelsysEMGIMU:
     def start(self):
         if not self.is_running:
             self.emg_dev.start()
-            #self.imu_dev.start()
+            # self.imu_dev.start()
             self.is_running = True
 
     def read_emg(self):
@@ -78,18 +78,18 @@ class DelsysEMGIMU:
     def read(self):
         """
         Read both streams once.
-        Returns: {"emg": np.ndarray, "accel": np.ndarray}
+        Returns: {"emg": np.ndarray, "imu": np.ndarray}
         """
         if not self.is_running:
             raise RuntimeError("Device not started. Call start() before read().")
         emg = self.emg_dev.read()
-        accel = self.imu_dev.read()
-        return {"emg": emg, "accel": accel}
+        imu = self.imu_dev.read()
+        return {"emg": emg, "imu": imu}
 
     def stop(self):
         if self.is_running:
             # Stop in reverse order just to be neat
-            #self.imu_dev.stop()
+            # self.imu_dev.stop()
             self.emg_dev.stop()
             self.is_running = False
 
