@@ -9,13 +9,14 @@ import matplotlib.pyplot as plt
 import pandas as pd
 #from sklearn.metrics import mean_squared_error, r2_score
 import matplotlib as mpl
+import os
 
 mpl.rcParams['text.usetex'] = True
 mpl.rcParams['font.family'] = 'serif'
 
-TRAIN_CSV = "Outputs/RecordedEMG/EMG_Recording_LSTM.csv"
-TEST_CSV = "Outputs/RecordedEMG/EMG_Recording_LSTM_Test.csv"
-COL = 'Position'#'Processed EMG'#'Muscle Activation'
+TRAIN_CSV = "Outputs/RecordedEMG/TrainLSTM.csv"
+TEST_CSV = "Outputs/RecordedEMG/TestLSTM.csv"
+COL = 'emg_pos'#'Processed EMG'#'Muscle Activation'
 
 class CSVWindowedDataset(Dataset):
     def __init__(self, csv_file, seq_len):
@@ -63,7 +64,7 @@ def train_moving_window_lstm():
     num_layers = 1
     batch_size = 32
     learning_rate = 0.001
-    num_epochs = 20
+    num_epochs = 25
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     average_loss_array = np.array([])
     total_loss_array = np.array([])
@@ -363,6 +364,10 @@ if __name__ == "__main__":
         title="Windowed LSTM Prediction vs True Sine"
     )
 
+    # Save the windowed LSTM model and make sure the save path exists
+    save_dir = os.path.dirname(Model_Save_Path)
+    if not os.path.exists(save_dir):
+        os.makedirs(save_dir)
     torch.save(WindowedLSTM.state_dict(), Model_Save_Path)
 
     # 2. Streaming model evaluation
