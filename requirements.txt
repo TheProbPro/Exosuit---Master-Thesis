@@ -3,6 +3,7 @@ matplotlib
 scipy
 pandas
 tqdm
+ahrs
 
 # This might need to be removed im not sure it will work. Alternatively use: pip3 install torch torchvision --index-url https://download.pytorch.org/whl/cu130
 torch torchvision --index-url https://download.pytorch.org/whl/cu130
