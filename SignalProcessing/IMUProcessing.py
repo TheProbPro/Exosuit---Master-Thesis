@@ -66,8 +66,8 @@ class IMUProcessing:
         acc_lower_normalized = acc_lower / na_l
 
         # Update quaternions using Madgwick filter
-        q_upper_new = self.madgwick_upper.update(self.q_upper, gyr=gyr_upper_rad, acc=acc_upper_normalized)
-        q_lower_new = self.madgwick_lower.update(self.q_lower, gyr=gyr_lower_rad, acc=acc_lower_normalized)
+        q_upper_new = self.madgwick_upper.updateIMU(self.q_upper, gyr=gyr_upper_rad, acc=acc_upper_normalized)
+        q_lower_new = self.madgwick_lower.updateIMU(self.q_lower, gyr=gyr_lower_rad, acc=acc_lower_normalized)
         if q_upper_new is not None:
             self.q_upper = q_upper_new
         if q_lower_new is not None:
