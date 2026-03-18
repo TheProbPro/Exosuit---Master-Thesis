@@ -6,10 +6,12 @@ class IMUProcessing:
     This class processes the raw IMU data from the upper and lower arm in order to convert it to quaternions and calculate the elbow angle.
     The class uses the Madgwick filter to calculate the quaternions from the accelerometer and gyroscope data. The elbow angle is calculated from the relative orientation of the upper and lower arm quaternions.
     """
-    def __init__(self, sample_rate=148, beta=0.02):
+    def __init__(self, sample_rate=148, beta=0.02, theta_min=0.0, theta_max=140.0):
         """
         :param sample_rate: Sample rate of the IMU data gathering in Hz (default: 148)
         :param beta: Madgwick filter gain (default: 0.02) raise if the sample rate is low, lower if the sample rate is high. The optimal value depends on the noise level of the IMU data and the dynamics of the motion being measured.
+        :param theta_min: Minimum allowed elbow angle in degrees (default: 0.0)
+        :param theta_max: Maximum allowed elbow angle in degrees (default: 140.0)
         """
         self.sample_rate = sample_rate
         self.madgwick_upper = Madgwick(sample_rate=sample_rate, beta=beta)
@@ -18,6 +20,10 @@ class IMUProcessing:
         self.q_lower = np.array([1.0, 0.0, 0.0, 0.0])  # Initial quaternion for lower IMU
         self.gyr_bias_upper = [0.0, 0.0, 0.0]
         self.gyr_bias_lower = [0.0, 0.0, 0.0]
+        self.zero = 0.0
+        self.hinge_axis_samples = []
+        self.theta_min = theta_min
+        self.theta_max = theta_max
 
     def calculate_bias(self, imu_list: list):
         """
@@ -28,7 +34,6 @@ class IMUProcessing:
         returns: the gyroscope bias for the upper and lower arm as a tuple (gyr_bias_upper, gyr_bias_lower)
         """
         g_u = []
-        
         g_l = []
         for s in imu_list:
             s = np.asarray(s, dtype=float).reshape(-1)
@@ -40,6 +45,47 @@ class IMUProcessing:
 
         return (self.gyr_bias_upper, self.gyr_bias_lower)
         
+    def calculate_zeroing(self, imu_list: list):
+        """
+        Calculates the zeroing baseline for the elbow angle from a list containing the raw IMU data.
+        
+        :param imu_list: a list containing the raw IMU data, for the upper and lower arm, in the format [(acc_upper, gyr_upper), (acc_lower, gyr_lower)], where acc is the accelerometer data and gyr is the gyroscope data, over a 1 s window with the arm in a straight position.
+        
+        returns: the zeroing baseline for the elbow angle in degrees as a float
+        """
+        elbow_angles = []
+        hinge_axis_samples = []
+        for s in imu_list:
+            s = np.asarray(s, dtype=float).reshape(-1)
+            acc_u = s[0:3]
+            gyr_u = s[3:6]
+            acc_l = s[9:12]
+            gyr_l = s[12:15]
+            
+            quat_u, quat_l = self.calculate_quarternions(acc_u, gyr_u, acc_l, gyr_l)
+            q_rel = self._quat_mul(self._quat_conj(quat_u), quat_l)  # q_u^{-1} ⊗ q_l  (unit quats)
+
+            # Axis-angle from relative quaternion
+            w = np.clip(q_rel[0], -1.0, 1.0)
+            angle_rad = 2.0*np.arccos(w)
+            #print(f"angle_rad = {angle_rad:.4f} radians, {np.degrees(angle_rad):.2f} degrees")
+            sin_half = np.sqrt(max(1.0 - w*w, 1e-12))
+            axis = q_rel[1:] / sin_half
+
+            # Calculate signed hinge axis angle - This is casual, not completely simmilar to the previous code
+            hinge_axis_samples.append(axis.copy())
+            hinge_axis = np.mean(np.vstack(hinge_axis_samples), axis=0)
+            hinge_axis /= np.linalg.norm(hinge_axis)
+
+            sign = np.sign(axis @ hinge_axis)
+            elbow_flex_deg = np.degrees(angle_rad * sign)
+            
+            elbow_angles.append(elbow_flex_deg)
+
+        zeroing_baseline = np.mean(elbow_angles)
+        self.zero = zeroing_baseline
+
+        return self.zero
 
     def calculate_quarternions(self, acc_upper: np.ndarray, gyr_upper: np.ndarray, acc_lower: np.ndarray, gyr_lower: np.ndarray):
         """
@@ -57,7 +103,7 @@ class IMUProcessing:
         gyr_lower_rad = np.deg2rad(gyr_lower) - self.gyr_bias_lower
 
         # Normalize accelerometer data
-        na_u =np.linalg.norm(acc_upper)
+        na_u = np.linalg.norm(acc_upper)
         na_l = np.linalg.norm(acc_lower)
         if na_u < 1e-6 or na_l < 1e-6:
             return self.q_upper, self.q_lower  # Avoid division by zero, return previous quaternions
@@ -88,40 +134,57 @@ class IMUProcessing:
         returns: the elbow angle in degrees as a numpy array of shape (N,) where N is the number of samples, with positive values indicating flexion and negative values indicating extension.
         """
 
-        # Convert lists of quaternions to numpy arrays
-        Q_u = np.asarray(quat_upper)
-        Q_l = np.asarray(quat_lower)
+        q_rel = self._quat_mul(self._quat_conj(quat_upper), quat_lower)  # q_u^{-1} ⊗ q_l  (unit quats)
 
-        # Relative quaternion Q_rel = conj(Q_u) ⊗ Q_l
-        Q_u_conj = Q_u.copy()
-        Q_u_conj[:, 1:] *= -1.0
+        # Axis-angle from relative quaternion
+        w = np.clip(q_rel[0], -1.0, 1.0)
+        angle_rad = 2.0*np.arccos(w)
+        sin_half = np.sqrt(max(1.0 - w*w, 1e-12))
+        axis = q_rel[1:] / sin_half
 
-        # Quaternion multiplication (conjugate of upper arm quaternion multiplied by lower arm quaternion)
-        w1,x1,y1,z1 = Q_u_conj.T
-        w2,x2,y2,z2 = Q_l.T
-        Q_rel = np.column_stack([
+        # Calculate signed hinge axis angle - This is casual, not completely simmilar to the previous code
+        self.hinge_axis_samples.append(axis.copy())
+        hinge_axis = np.mean(np.vstack(self.hinge_axis_samples), axis=0)
+        hinge_axis /= np.linalg.norm(hinge_axis)
+
+        # Signed hinge angle
+        sign = np.sign(axis @ hinge_axis)
+        elbow_flex_deg = np.degrees(angle_rad * sign)
+
+        # Zero using first second (straight arm)
+        elbow_flex_deg -= self.zero
+
+        # Clip it to fit range of motion
+        elbow_flex_deg = np.clip(elbow_flex_deg, self.theta_min, self.theta_max)
+        return elbow_flex_deg
+
+    def process_imu(self, acc_upper: np.ndarray, gyr_upper: np.ndarray, acc_lower: np.ndarray, gyr_lower: np.ndarray):
+        """
+        Convenience function to process the raw IMU data and directly get the elbow angle in degrees.
+        
+        :param acc_upper: Accelerometer data for the upper arm as a numpy array of shape (3,) containing the x, y, z accelerations in m/s^2
+        :param gyr_upper: Gyroscope data for the upper arm as a numpy array of shape (3,) containing the x, y, z angular velocities in degrees/s
+        :param acc_lower: Accelerometer data for the lower arm as a numpy array of shape (3,) containing the x, y, z accelerations in m/s^2
+        :param gyr_lower: Gyroscope data for the lower arm as a numpy array of shape (3,) containing the x, y, z angular velocities in degrees/s
+        
+        returns: the elbow angle in degrees as a numpy array of shape (N,) where N is the number of samples, with positive values indicating flexion and negative values indicating extension.
+        """
+        quat_upper, quat_lower = self.calculate_quarternions(acc_upper, gyr_upper, acc_lower, gyr_lower)
+        elbow_angle = self.calculate_elbow_angle(quat_upper, quat_lower)
+        
+        return elbow_angle
+    
+    @staticmethod
+    def _quat_conj(q):
+        return np.array([q[0], -q[1], -q[2], -q[3]], dtype=float)
+
+    @staticmethod
+    def _quat_mul(q1, q2):
+        w1,x1,y1,z1 = q1
+        w2,x2,y2,z2 = q2
+        return np.array([
             w1*w2 - x1*x2 - y1*y2 - z1*z2,
             w1*x2 + x1*w2 + y1*z2 - z1*y2,
             w1*y2 - x1*z2 + y1*w2 + z1*x2,
             w1*z2 + x1*y2 - y1*x2 + z1*w2
-        ])
-
-        # Axis-angle from relative quaternion
-        w = np.clip(Q_rel[:,0], -1.0, 1.0)
-        theta = 2.0*np.arccos(w)  # radians
-        sin_half = np.sqrt(np.maximum(1.0 - w*w, 1e-12))
-        axis = Q_rel[:,1:] / sin_half[:,None]  # (N,3)
-
-        # Estimate axis TODO: This used to be over a window of time, so this might need to be changed to either a calibration step or a known angle we are interested in ex. hinge_axis = np.array([0.0, 1.0, 0.0])  # example: known elbow axis.
-        hinge_axis = np.mean(axis, axis=0)
-        hinge_axis = hinge_axis / np.linalg.norm(hinge_axis)
-
-        # Signed hinge angle
-        sign = np.sign(axis @ hinge_axis)
-        elbow_flex_deg = np.degrees(theta * sign)
-
-        # Zero using first second (straight arm)
-        zero = np.mean(elbow_flex_deg)
-        elbow_flex_deg -= zero
-
-        return elbow_flex_deg
+        ], dtype=float)

@@ -84,6 +84,7 @@ if __name__ == "__main__":
     imu_mag_y_1 = []
     imu_mag_z_1 = []
    
+    print("Starting 10s acquisition of EMG and IMU data. keep your arm still for the first second to allow gyro bias estimation. Press Ctrl+C to stop early.")
     time.sleep(10.0)
     stop_event.set()
     t_emg.join()

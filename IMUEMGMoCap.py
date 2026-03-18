@@ -18,7 +18,7 @@ stop_event = threading.Event()
 n_Sensors = 3
 
 IMU_Frequency = 148
-EMG_SAMPLE_RATE = 1248
+EMG_SAMPLE_RATE = 1259
 
 ANGLE_MIN = math.radians(0)
 ANGLE_MAX = math.radians(140)
@@ -32,7 +32,11 @@ def Read_IMU(Sensor, output_queue):
     while not stop_event.is_set():
         data = Sensor.read_imu()
         timestamp = time.time()
-        output_queue.put((data, timestamp))
+        try:
+            output_queue.put_nowait((data, timestamp))
+        except queue.Full:
+            output_queue.get_nowait()
+            output_queue.put_nowait((data, timestamp))
 
 
 def Read_EMG(Sensor, raw_queue):
@@ -85,7 +89,7 @@ signal.signal(signal.SIGINT, handle_sigint)
 
 if __name__ == "__main__":
     # Create output queues
-    imu_queue = queue.Queue()
+    imu_queue = queue.Queue(maxsize=5)
     emg_queue = queue.Queue(maxsize=5)
 
     imuProcessor = IMUProcessing()
@@ -101,11 +105,13 @@ if __name__ == "__main__":
     t_imu.start()
 
     # perform 1 sec of data acquisition to calculate the gyroscope bias
+    print("Press enter to start 1 second of data acquisition for gyroscope bias and angle zeroing calculation...")
+    input()
     imu_data_for_bias = []
     start = time.time()
     while time.time() - start < 1.0:
         try:
-            imu_data, _ = imu_queue.get(timeout=0.1)
+            imu_data, _ = imu_queue.get_nowait()
             # extract the first 9 and last 9 indexes for the upper and lower arm respectively, and append to the list for bias calculation
             first_sensor = imu_data[:9]
             last_sensor = imu_data[-9:]
@@ -114,15 +120,20 @@ if __name__ == "__main__":
             continue
     
     imulist = list(imu_data_for_bias)
-    imuProcessor.calculate_gyro_bias(imulist)
-    gyro_bias_upper, gyro_bias_lower = imuProcessor.get_gyro_bias()
+    gyro_bias_upper, gyro_bias_lower = imuProcessor.calculate_bias(imulist)
     print(f"Gyroscope bias for upper arm: {gyro_bias_upper}")
     print(f"Gyroscope bias for forearm: {gyro_bias_lower}")
+
+    # Zeroing calculations using same data
+    zero = imuProcessor.calculate_zeroing(imulist)
+    print(f"Zeroing baseline for elbow angle: {zero}")
 
     #Initialize lowpass filter for desired angle
     desired_angle_filter = rt_desired_Angle_lowpass(166.7, lp_cutoff=3, order=2)
 
     # 10 second loop to read and process data
+    print("Press enter to start 10 seconds of data acquisition and processing...")
+    input()
     imu_angle_list = []
     emg_angle_list = []
     start_time = time.time()
@@ -133,19 +144,19 @@ if __name__ == "__main__":
         except queue.Empty:
             continue
 
-        # extract the first 9 and last 9 indexes for the upper and lower arm respectively of the imu data
-        first_sensor = imu_data[:9]
-        last_sensor = imu_data[-9:]
+        imu_data = np.asarray(imu_data, dtype=float).reshape(-1)
 
         # Extract accelerometer and gyroscope data for upper and lower arm
-        acc_upper = np.array(first_sensor[0:3])
-        gyr_upper = np.array(first_sensor[3:6])
-        acc_lower = np.array(last_sensor[0:3])
-        gyr_lower = np.array(last_sensor[3:6])
+        acc_upper = imu_data[0:3]
+        gyr_upper = imu_data[3:6]
+        acc_lower = imu_data[18:21]
+        gyr_lower = imu_data[21:24]
 
         # Process imu data to get quaternions and elbow angle
         quat_upper, quat_lower = imuProcessor.calculate_quarternions(acc_upper, gyr_upper, acc_lower, gyr_lower)
         elbow_angle = imuProcessor.calculate_elbow_angle(quat_upper, quat_lower)
+        # Alternatively
+        # elbow_angle = imuProcessor.process_imu(acc_upper, gyr_upper, acc_lower, gyr_lower)
 
         # Save imu elbow angle and timestamp for later analysis
         imu_angle_list.append((elbow_angle, imu_timestamp))
@@ -153,6 +164,10 @@ if __name__ == "__main__":
         # Process EMG data to get desired angle
         emg_angle_list.append((desired_angle_filter.lowpass(np.atleast_1d(emg_data)), emg_timestamp))
 
+    stop_event.set()
+    t_emg.join()
+    t_imu.join()
+    emg_imu.stop()
     
     # Save the angles and timestamps to .csv for later analysis
     imu_df = pd.DataFrame(imu_angle_list, columns=['Elbow_Angle', 'Timestamp'])

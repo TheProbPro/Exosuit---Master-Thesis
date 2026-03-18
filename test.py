@@ -23,16 +23,16 @@ from ProjectInRobotics.pDMP.pDMP_functions import pDMP
 
 
 # EXPERIMENT PARAMETERS
-dt = 0.1 # system sample time
-exp_time = 80 # total experiment time
+dt = 1/166 # system sample time
+exp_time = 10 # total experiment time
 samples = int(1/dt) * exp_time
 
-DOF = 4 # degrees of freedom (number of DMPs to be learned)
+DOF = 1 # degrees of freedom (number of DMPs to be learned)
 N = 25 # number of weights per DMP (more weights can reproduce more complicated shapes)
 alpha = 8 # DMP gain alpha
 beta = 2 # DMP gain beta
-lambd = 0.995 # forgetting factor
-tau = 8 # DMP time period = 1/frequency (NOTE: this is the frequency of a periodic DMP)
+lambd = 0.55 # forgetting factor
+tau = 10 # DMP time period = 1/frequency (NOTE: this is the frequency of a periodic DMP)
 phi = 0 # DMP phase
 
 mode = 1 # DMP mode of operation (see below for details)
@@ -51,10 +51,11 @@ myDMP = pDMP(DOF, N, alpha, beta, lambd, dt)
 for i in range ( samples ):
 
     # generate phase
-    phi += 2*np.pi * dt/tau
+    phi += 8*np.pi * dt/tau
     
     # generate an example trajectory (e.g., the movement that is to be learned)
     y = np.array([np.sin(phi), np.cos(phi), -np.sin(phi), -np.cos(phi)])
+    # y = np.array([np.sin(phi)])
     # calculate time derivatives
     dy = (y - y_old) / dt 
     ddy = (dy - dy_old) / dt
@@ -65,18 +66,32 @@ for i in range ( samples ):
     # set phase and period for DMPs
     myDMP.set_phase( np.array([phi,phi,phi,phi]) )
     myDMP.set_period( np.array([tau,tau,tau,tau]) )
+    # myDMP.set_phase( np.array([phi]) )
+    # myDMP.set_period( np.array([tau]) )
     
     
     
     # DMP mode of operation
-    if i < int( 0.5 * samples ): # learn/update for half of the experiment time, then repeat that DMP until the end
+    if i < int( 0.2 * samples ): # learn/update for half of the experiment time, then repeat that DMP until the end
         if( mode == 1 ):
             myDMP.learn(y, dy, ddy) # learn DMP based on a trajectory
         elif ( mode == 2 ):
             myDMP.update(U) # update DMP based on an update factor
-    else:
-        myDMP.update(U) 
-        #myDMP.repeat() # repeat the learned DMP
+    elif i >= int( 0.2 * samples ) and i < int( 0.4 * samples ): # repeat the learned DMP for a while
+        U = 0.1*y
+        myDMP.update(U)
+    elif i >= int( 0.4 * samples ) and i < int( 0.6 * samples ): # repeat the learned DMP until the end of the experiment
+        U = 10 *y
+        myDMP.update(U)
+    elif i >= int( 0.6 * samples ) and i < int( 0.8 * samples ): # repeat the learned DMP until the end of the experiment
+        U = 0*y
+        myDMP.update(U)
+    else : # repeat the learned DMP until the end of the experiment
+        U = -1*y
+        myDMP.update(U)
+    # else:
+    #     myDMP.update(U) 
+    #     #myDMP.repeat() # repeat the learned DMP
     
     # DMP integration
     myDMP.integration()
@@ -89,7 +104,8 @@ for i in range ( samples ):
     # store data for plotting
     x, dx, ph, ta = myDMP.get_state()
     time = dt*i
-    data.append([time,phi,x[1],y[1]])
+    data.append([time,phi,x[0],y[0]])
+    # data.append([time,phi,x,y])
 
 
 
