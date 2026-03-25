@@ -17,6 +17,7 @@ def optimize_1(k, activation, t, q, theta_min, theta_max):
     return optimized_angle
 
 
+# TODO: Maybe this needs to be changed to use the difference between the current and previous angle to decide the direction of motion.
 def optimize_2(k, activation, t, q, theta_min, theta_max):
     """
     Optimizes movement based on EMG signal
