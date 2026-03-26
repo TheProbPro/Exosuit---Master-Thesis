@@ -31,11 +31,12 @@ def optimize_2(k, activation, t, q, theta_min, theta_max):
     Returns:
     optimized_angle: the optimized angle for the movement
     """
-    w = 1
-    if activation < 0:
-        w = (theta_max - q) / theta_max
-    elif activation > 0:
-        w = (q - theta_min) / theta_min
+    # w = 0
+    # if activation > 0:
+    #     w = (theta_max - q) / theta_max
+    # elif activation < 0:
+    #     w = q / theta_max
+    w = (theta_max - q) / theta_max
 
     delta_q = k * activation * t * w
     optimized_angle = q + delta_q
@@ -54,12 +55,12 @@ def optimize_3(k, activation, t, q, theta_min, theta_max, deadband=0.1):
     q_next = max(0, min(140, q_next))
     return q_next
 
-def optimize_4(k, activation, t, q, theta_min, theta_max, alpha=0.5):
+def optimize_4(k, activation, t, q, delta_q_prev, theta_min, theta_max, alpha=0.5):
     delta_q_raw = k * activation * t
-    delta_q = alpha * delta_q_raw + (1-alpha) * q
+    delta_q = alpha * delta_q_raw + (1-alpha) * delta_q_prev
     optimized_angle = q + delta_q
     optimized_angle = max(min(optimized_angle, theta_max), theta_min)
-    return optimized_angle
+    return optimized_angle, delta_q_prev
 
 def optimize_5_pd(activation, velocity, t, q, theta_min, theta_max, k, b=0.5,):
     velocity = b * velocity + k * activation
