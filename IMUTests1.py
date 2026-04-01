@@ -39,7 +39,7 @@ USERNAME = "VictorBNielsen"
 n_Sensors = 3
 
 EMG_FS = 1259  # EMG sampling frequency (Hz)
-MOTOR_FS = 166.7  # Motor control frequency (Hz)
+MOTOR_FS = 200  # Motor control frequency (Hz)
 IMU_FS = 148  # IMU sampling frequency (Hz) TODO: SET THIS LATER
 
 THETA_MIN = np.deg2rad(0)
@@ -59,7 +59,7 @@ def Read_IMU(Sensor, output_queue):
             output_queue.get_nowait()  # discard oldest
             output_queue.put_nowait(data)
 
-def Read_EMG(Sensor, emg_pos_queue, emg_activation_queue):
+def Read_EMG(Sensor, emg_activation_queue):
     # Initialize filters
     filter_bicep = rt_filtering(EMG_FS, 450, 20, 2)
     filter_tricep = rt_filtering(EMG_FS, 450, 20, 2)
@@ -94,14 +94,6 @@ def Read_EMG(Sensor, emg_pos_queue, emg_activation_queue):
             emg_activation_queue.get_nowait()
             emg_activation_queue.put_nowait(activation)
 
-        desired_angle_deg = math.degrees(interpreter.compute_angle(activation[0], activation[1]))
-
-        try:
-            emg_pos_queue.put_nowait(desired_angle_deg)
-        except queue.Full:
-            emg_pos_queue.get_nowait()
-            emg_pos_queue.put_nowait(desired_angle_deg)
-
     Tricep_RMS_queue.queue.clear()
     Bicep_RMS_queue.queue.clear()
 
@@ -114,7 +106,6 @@ signal.signal(signal.SIGINT, handle_sigint)
 # Define main
 if __name__ == "__main__":
     # Define EMG queues
-    emg_pos_queue = queue.Queue(maxsize=5)
     emg_activation_queue = queue.Queue(maxsize=5)
     imu_queue = queue.Queue(maxsize=5)
 
@@ -127,7 +118,7 @@ if __name__ == "__main__":
     emg_imu.start()
     time.sleep(1.0)
 
-    emg_thread = threading.Thread(target=Read_EMG, args=(emg_imu, emg_pos_queue, emg_activation_queue))
+    emg_thread = threading.Thread(target=Read_EMG, args=(emg_imu, emg_activation_queue))
     imu_thread = threading.Thread(target=Read_IMU, args=(emg_imu, imu_queue))
     emg_thread.start()
     imu_thread.start()
@@ -140,7 +131,7 @@ if __name__ == "__main__":
     start = time.time()
     while time.time() - start < 1.0:
         try:
-            imu_data, _ = imu_queue.get_nowait()
+            imu_data = imu_queue.get_nowait()
             # extract the first 9 and last 9 indexes for the upper and lower arm respectively, and append to the list for bias calculation
             first_sensor = imu_data[:9]
             last_sensor = imu_data[-9:]
@@ -185,7 +176,6 @@ if __name__ == "__main__":
             continue
 
     print(f"processing time {np.mean(ptime):.2f} ms, operating frequency {1/np.mean(ptime):.2f} Hz")
-    emg_pos_queue.queue.clear()  # Clear the queue after the test
     emg_activation_queue.queue.clear()  # Clear the queue after the test
     imu_queue.queue.clear()  # Clear the queue after the test
     ptime.clear()
@@ -195,7 +185,7 @@ if __name__ == "__main__":
     test2_desired_IMU_angles = []
     test2_desired_angles = []
     test2_activations = []
-    k = 1.3 * np.pi / 3
+    k = 4.8 * np.pi
     q = 0  # Initial angle (degrees)
     print("Starting Test 2: IMU processing + optimization 1")
     start_time = time.time()
@@ -232,7 +222,6 @@ if __name__ == "__main__":
         test2_activations.append(a)
 
     print(f"processing time {np.mean(ptime):.2f} ms, operating frequency {1/np.mean(ptime):.2f} Hz")
-    emg_pos_queue.queue.clear()  # Clear the queue after the test
     emg_activation_queue.queue.clear()  # Clear the queue after the test
     imu_queue.queue.clear()  # Clear the queue after the test
     ptime.clear()
@@ -241,7 +230,7 @@ if __name__ == "__main__":
     test3_desired_IMU_angles = []
     test3_desired_angles = []
     test3_activations = []
-    k = np.pi
+    k = 14 * np.pi
     q = 0  # Initial angle (degrees)
     print("Starting Test 3: EMG processing + optimization 2")
     start_time = time.time()
@@ -278,7 +267,6 @@ if __name__ == "__main__":
         test3_activations.append(a)
 
     print(f"processing time {np.mean(ptime):.2f} ms, operating frequency {1/np.mean(ptime):.2f} Hz")
-    emg_pos_queue.queue.clear()  # Clear the queue after the test
     emg_activation_queue.queue.clear()  # Clear the queue after the test
     imu_queue.queue.clear()  # Clear the queue after the test
     ptime.clear()
@@ -287,7 +275,7 @@ if __name__ == "__main__":
     test4_desired_IMU_angles = []
     test4_desired_angles = []
     test4_activations = []
-    k = 0.9 * np.pi
+    k = 11.5 * np.pi
     q = 0  # Initial angle (degrees)
     delta_q_prev_emg = 0
     delta_q_prev = 0
@@ -326,7 +314,6 @@ if __name__ == "__main__":
         test4_activations.append(a)
 
     print(f"processing time {np.mean(ptime):.2f} ms, operating frequency {1/np.mean(ptime):.2f} Hz")
-    emg_pos_queue.queue.clear()  # Clear the queue after the test
     emg_activation_queue.queue.clear()  # Clear the queue after the test
     imu_queue.queue.clear()  # Clear the queue after the test
     ptime.clear()
@@ -335,9 +322,9 @@ if __name__ == "__main__":
     test5_desired_IMU_angles = []
     test5_desired_angles = []
     test5_activations = []
-    k = 1
+    k = 2
     b = 0.01
-    v = 0.9 * np.pi
+    v = 4 * np.pi
     q = 0  # Initial angle (degrees)
 
     print("Starting Test 5: IMU processing + optimization 5")
@@ -375,203 +362,6 @@ if __name__ == "__main__":
         test5_activations.append(a)
 
     print(f"processing time {np.mean(ptime):.2f} ms, operating frequency {1/np.mean(ptime):.2f} Hz")
-    emg_pos_queue.queue.clear()  # Clear the queue after the test
-    emg_activation_queue.queue.clear()  # Clear the queue after the test
-    imu_queue.queue.clear()  # Clear the queue after the test
-    ptime.clear()
-
-    # Test 6: IMU processing + pDMP
-    dt = 1/166.7
-    phi = 0
-    tau = 0.5
-    DMP = pDMP(DOF=1, N=25, alpha=8, beta=2, lambd=0.9, dt=dt)
-    # Teach DMP 0 trajectory for 2s
-    y_old = 0
-    dy_old = 0
-    start_time = time.time()
-    last_time = start_time
-    while time.time() - start_time < 2:  # Teach for 2 seconds
-        phi += 16*np.pi * dt/tau
-        y = np.array([0])
-        dy = (y - y_old) / dt 
-        ddy = (dy - dy_old) / dt
-        DMP.set_phase(phi)
-        DMP.set_period(tau)
-        DMP.learn(y, dy, ddy)
-        DMP.integration()
-        ptime.append(time.time() - last_time)
-        last_time = time.time()
-
-        # old values	
-        y_old = y
-        dy_old = dy
-        
-        # store data for plotting
-        x, dx, ph, ta = DMP.get_state()
-
-    print(f"Teaching processing time {np.mean(ptime):.2f} ms, operating frequency {1/np.mean(ptime):.2f} Hz")
-    ptime.clear()
-
-    # Run DMP with EMG input for 10s
-    test6_desired_angles = []
-    test6_activations = []
-    v = (1.3*np.pi)/2
-    print("Starting Test 6: EMG processing + pDMP")
-    start_time = time.time()
-    last_time = start_time
-    while time.time() - start_time < 10:  # Run for 10 seconds
-        try:
-            activation = emg_activation_queue.get_nowait()
-        except queue.Empty:
-            continue
-
-        a = activation[0] - activation[1]  # Compute net activation (bicep - tricep)
-        
-        DMP.set_phase(phi)
-        DMP.set_period(tau)
-
-        U = np.asarray([a*v])  # EMG activation as input
-        DMP.update(U)
-        DMP.integration()
-        x, dx, ph, ta = DMP.get_state()
-        test6_desired_angles.append(x[0])
-        test6_activations.append(a)
-        dt = time.time() - last_time
-        ptime.append(dt)
-        last_time = time.time()
-
-    print(f"Running processing time {np.mean(ptime):.2f} ms, operating frequency {1/np.mean(ptime):.2f} Hz")
-    emg_pos_queue.queue.clear()  # Clear the queue after the test
-    emg_activation_queue.queue.clear()  # Clear the queue after the test¨
-    imu_queue.queue.clear()  # Clear the queue after the test
-    ptime.clear()
-
-    # Test 7: IMU processing + pDMP coupling
-    dt = 1/166.7
-    phi = 0
-    tau = 0.5
-    DMP = pDMPCoupling1(DOF=1, N=25, alpha=8, beta=2, lambd=0.9, dt=dt)
-    # Teach DMP 0 trajectory for 2s
-    y_old = 0
-    dy_old = 0
-    start_time = time.time()
-    last_time = start_time
-    while time.time() - start_time < 2:  # Teach for 2 seconds
-        phi += 2*np.pi * dt/tau
-        y = np.array([0])
-        dy = (y - y_old) / dt 
-        ddy = (dy - dy_old) / dt
-        DMP.set_phase(phi)
-        DMP.set_period(tau)
-        DMP.learn(y, dy, ddy)
-        DMP.integration()
-        ptime.append(time.time() - last_time)
-        last_time = time.time()
-
-        # old values	
-        y_old = y
-        dy_old = dy
-        
-        # store data for plotting
-        x, dx, ph, ta = DMP.get_state()
-
-    print(f"Teaching processing time {np.mean(ptime):.2f} ms, operating frequency {1/np.mean(ptime):.2f} Hz")
-    ptime.clear()
-
-    # Run DMP with IMU input for 10s
-    test7_desired_angles = []
-    test7_activations = []
-    start_time = time.time()
-    last_time = start_time
-    while time.time() - start_time < 10:  # Run for 10 seconds
-        try:
-            activation = emg_activation_queue.get_nowait()
-        except queue.Empty:
-            continue
-
-        a = activation[0] - activation[1]  # Compute net activation (bicep - tricep)
-        
-        DMP.set_phase(phi)
-        DMP.set_period(tau)
-
-        DMP.repeat()
-
-        DMP.integration(a)
-
-        x, dx, ph, ta = DMP.get_state()
-        test7_desired_angles.append(x[0])
-        test7_activations.append(a)
-        ptime.append(time.time() - last_time)
-        last_time = time.time()
-
-    print(f"Running processing time {np.mean(ptime):.2f} ms, operating frequency {1/np.mean(ptime):.2f} Hz")
-    emg_pos_queue.queue.clear()  # Clear the queue after the test
-    emg_activation_queue.queue.clear()  # Clear the queue after the test
-    imu_queue.queue.clear()  # Clear the queue after the test
-    ptime.clear()
-
-
-    # Test 8: IMU processing + pDMP omega
-    dt = 1/166.7
-    phi = 0
-    tau = 0.5
-    omega0 = 2*np.pi/tau
-    DMP = pDMPOmega(DOF=1, N=25, alpha=8, beta=2, lambd=0.9, dt=dt)
-    DMP.set_frequency([omega0])
-    # Teach DMP 0 trajectory for 2s
-    y_old = 0
-    dy_old = 0
-    start_time = time.time()
-    last_time = start_time
-    while time.time() - start_time < 2:  # Teach for 2 seconds
-        y = np.array([np.sin(omega0*(time.time() - start_time))])
-        dy = (y - y_old) / dt 
-        ddy = (dy - dy_old) / dt
-
-        DMP.learn(y, dy, ddy)
-        DMP.integration()
-        ptime.append(time.time() - last_time)
-        last_time = time.time()
-
-        # old values	
-        y_old = y
-        dy_old = dy
-        
-        # store data for plotting
-        x, dx, ph, ta = DMP.get_state()
-
-    print(f"Teaching processing time {np.mean(ptime):.2f} ms, operating frequency {1/np.mean(ptime):.2f} Hz")
-    ptime.clear()
-
-    # Run DMP with IMU input for 10s
-    test8_desired_angles = []
-    test8_activations = []
-    start_time = time.time()
-    last_time = start_time
-    k = 1.0
-    while time.time() - start_time < 10:  # Run for 10 seconds
-        try:
-            activation = emg_activation_queue.get_nowait()
-        except queue.Empty:
-            continue
-
-        a = activation[0] - activation[1]  # Compute net activation (bicep - tricep)
-        omega = omega0 * (1 + k * a)
-        
-        DMP.set_frequency([omega])
-
-        DMP.repeat()
-
-        DMP.integration()
-
-        x, dx, ph, ta = DMP.get_state()
-        test8_desired_angles.append(x[0])
-        test8_activations.append(a)
-        ptime.append(time.time() - last_time)
-        last_time = time.time()
-
-    print(f"Running processing time {np.mean(ptime):.2f} ms, operating frequency {1/np.mean(ptime):.2f} Hz")
-    emg_pos_queue.queue.clear()  # Clear the queue after the test
     emg_activation_queue.queue.clear()  # Clear the queue after the test
     imu_queue.queue.clear()  # Clear the queue after the test
     ptime.clear()
@@ -613,18 +403,6 @@ if __name__ == "__main__":
     test5_IMU_accelerations = np.diff(test5_IMU_velocities) / dt
     test5_IMU_jerks = np.diff(test5_IMU_accelerations) / dt
 
-    test6_velocities = np.diff(test6_desired_angles) / dt
-    test6_accelerations = np.diff(test6_velocities) / dt
-    test6_jerks = np.diff(test6_accelerations) / dt
-
-    test7_velocities = np.diff(test7_desired_angles) / dt
-    test7_accelerations = np.diff(test7_velocities) / dt
-    test7_jerks = np.diff(test7_accelerations) / dt
-
-    test8_velocities = np.diff(test8_desired_angles) / dt
-    test8_accelerations = np.diff(test8_velocities) / dt
-    test8_jerks = np.diff(test8_accelerations) / dt
-
     # Print stats for each test
     print(f"Test 1: EMG to position - jerk mean: {np.mean(np.abs(test1_jerks)):.2f} degrees/s^3, jerk max: {np.max(test1_jerks):.2f} degrees/s^3, jerk min: {np.min(test1_jerks):.2f} degrees/s^3")
     print(f"Test 2: EMG to position - jerk mean: {np.mean(np.abs(test2_jerks)):.2f} degrees/s^3, jerk max: {np.max(test2_jerks):.2f} degrees/s^3, jerk min: {np.min(test2_jerks):.2f} degrees/s^3")
@@ -635,9 +413,6 @@ if __name__ == "__main__":
     print(f"Test 4: EMG to position (EMG optimized) - jerk mean: {np.mean(np.abs(test4_IMU_jerks)):.2f} degrees/s^3, jerk max: {np.max(test4_IMU_jerks):.2f} degrees/s^3, jerk min: {np.min(test4_IMU_jerks):.2f} degrees/s^3")
     print(f"Test 5: EMG to position - jerk mean: {np.mean(np.abs(test5_jerks)):.2f} degrees/s^3, jerk max: {np.max(test5_jerks):.2f} degrees/s^3, jerk min: {np.min(test5_jerks):.2f} degrees/s^3")
     print(f"Test 5: EMG to position (EMG optimized) - jerk mean: {np.mean(np.abs(test5_IMU_jerks)):.2f} degrees/s^3, jerk max: {np.max(test5_IMU_jerks):.2f} degrees/s^3, jerk min: {np.min(test5_IMU_jerks):.2f} degrees/s^3")
-    print(f"Test 6: EMG to position - jerk mean: {np.mean(np.abs(test6_jerks)):.2f} degrees/s^3, jerk max: {np.max(test6_jerks):.2f} degrees/s^3, jerk min: {np.min(test6_jerks):.2f} degrees/s^3")
-    print(f"Test 7: EMG to position - jerk mean: {np.mean(np.abs(test7_jerks)):.2f} degrees/s^3, jerk max: {np.max(test7_jerks):.2f} degrees/s^3, jerk min: {np.min(test7_jerks):.2f} degrees/s^3")
-    print(f"Test 8: EMG to position - jerk mean: {np.mean(np.abs(test8_jerks)):.2f} degrees/s^3, jerk max: {np.max(test8_jerks):.2f} degrees/s^3, jerk min: {np.min(test8_jerks):.2f} degrees/s^3")
 
     # Generate plots for all tests
     plt.figure(figsize=(15, 10))
@@ -856,81 +631,6 @@ if __name__ == "__main__":
     plt.ylabel("Acceleration (degrees/s^2)")
     plt.subplot(5, 1, 5)
     plt.plot(test5_IMU_jerks, label="Jerk")
-    plt.xlabel("Time (s)")
-    plt.ylabel("Jerk (degrees/s^3)")
-    plt.tight_layout()
-    plt.show()
-
-    plt.figure(figsize=(15, 10))
-    plt.title("Test 6: EMG to position + pDMP")
-    plt.subplot(5,1,1)
-    plt.plot(test6_activations, label="Activation")
-    plt.xlabel("Time (s)")
-    plt.ylabel("Activation")
-    plt.subplot(5, 1, 2)
-    plt.plot(test6_desired_angles, label="Desired Angle")
-    plt.xlabel("Time (s)")
-    plt.ylabel("Desired Angle (degrees)")
-    plt.subplot(5, 1, 3)
-    plt.plot(test6_velocities, label="Velocity")
-    plt.xlabel("Time (s)")
-    plt.ylabel("Velocity (degrees/s)")
-    plt.subplot(5, 1, 4)
-    plt.plot(test6_accelerations, label="Acceleration")
-    plt.xlabel("Time (s)")
-    plt.ylabel("Acceleration (degrees/s^2)")
-    plt.subplot(5, 1, 5)
-    plt.plot(test6_jerks, label="Jerk")
-    plt.xlabel("Time (s)")
-    plt.ylabel("Jerk (degrees/s^3)")
-    plt.tight_layout()
-    plt.show()
-
-    plt.figure(figsize=(15, 10))
-    plt.title("Test 7: EMG to position + pDMP coupling")
-    plt.subplot(5,1,1)
-    plt.plot(test7_activations, label="Activation")
-    plt.xlabel("Time (s)")
-    plt.ylabel("Activation")
-    plt.subplot(5, 1, 2)
-    plt.plot(test7_desired_angles, label="Desired Angle")
-    plt.xlabel("Time (s)")
-    plt.ylabel("Desired Angle (degrees)")
-    plt.subplot(5, 1, 3)
-    plt.plot(test7_velocities, label="Velocity")
-    plt.xlabel("Time (s)")
-    plt.ylabel("Velocity (degrees/s)")
-    plt.subplot(5, 1, 4)
-    plt.plot(test7_accelerations, label="Acceleration")
-    plt.xlabel("Time (s)")
-    plt.ylabel("Acceleration (degrees/s^2)")
-    plt.subplot(5, 1, 5)
-    plt.plot(test7_jerks, label="Jerk")
-    plt.xlabel("Time (s)")
-    plt.ylabel("Jerk (degrees/s^3)")
-    plt.tight_layout()
-    plt.show()
-    
-    plt.figure(figsize=(15, 10))
-    plt.title("Test 8: EMG to position + pDMP omega")
-    plt.subplot(5,1,1)
-    plt.plot(test8_activations, label="Activation")
-    plt.xlabel("Time (s)")
-    plt.ylabel("Activation")
-    plt.subplot(5, 1, 2)
-    plt.plot(test8_desired_angles, label="Desired Angle")
-    plt.xlabel("Time (s)")
-    plt.ylabel("Desired Angle (degrees)")
-    plt.subplot(5, 1, 3)
-    plt.plot(test8_velocities, label="Velocity")
-    plt.xlabel("Time (s)")
-    plt.ylabel("Velocity (degrees/s)")
-    plt.subplot(5, 1, 4)
-    plt.plot(test8_accelerations, label="Acceleration")
-    plt.xlabel("Time (s)")
-    plt.ylabel("Acceleration (degrees/s^2)")
-    plt.subplot(5, 1, 5)
-    plt.plot(test8_jerks, label="Jerk")
     plt.xlabel("Time (s)")
     plt.ylabel("Jerk (degrees/s^3)")
     plt.tight_layout()

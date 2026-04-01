@@ -23,7 +23,8 @@ from ProjectInRobotics.pDMP.pDMP_functions import pDMPOmega
 
 
 # EXPERIMENT PARAMETERS
-dt = 1/166 # system sample time
+# dt = 1/166 # system sample time
+dt = 1/2000
 exp_time = 10 # total experiment time
 samples = int(1/dt) * exp_time
 
@@ -47,7 +48,7 @@ myDMP = pDMP(DOF, N, alpha, beta, lambd, dt)
 
 
 # Experiment 1 - learn a 0 trajectory and modify the trajectory based on the update function with EMG signals.
-v = (1.3*np.pi)/2
+v = np.pi/22
 # MAIN LOOP
 for i in range ( samples ):
 
@@ -116,7 +117,8 @@ plt.show()
 # Experiement 3 - Learn a sinusoidal trajectory and modify the trajectory using the coupling term aka. the EMG activation signal.
 
 # EXPERIMENT PARAMETERS
-dt = 1/166 # system sample time
+# dt = 1/166 # system sample time
+dt = 1/2000 # system sample time
 exp_time = 10 # total experiment time
 samples = int(1/dt) * exp_time
 
@@ -266,7 +268,8 @@ plt.show()
 # # Experiment 5 - Learn a sinusoidal trajectory and modify the trajectory using the omega term aka. the DMP frequency.
 
 # EXPERIMENT PARAMETERS
-dt = 0.05#1/166 # system sample time
+# dt = 0.05#1/166 # system sample time
+dt = 1/2000 # system sample time
 exp_time = 20#100 # total experiment time
 samples = int(1/dt) * exp_time
 
@@ -274,7 +277,7 @@ DOF = 1 # degrees of freedom (number of DMPs to be learned)
 N = 25#25 # number of weights per DMP (more weights can reproduce more complicated shapes)
 alpha = 8 # DMP gain alpha
 beta = 2 # DMP gain beta
-lambd = 0.9 # forgetting factor
+lambd = 0.999 # forgetting factor
 tau = 5 #10 # DMP time period = 1/frequency (NOTE: this is the frequency of a periodic DMP)
 phi = 0 # DMP phase
 
@@ -321,7 +324,8 @@ for i in range(samples):
         myDMP.set_frequency(np.array([omega]))
 
     # integrate (this updates phi internally)
-    myDMP.repeat() # update phi for repeating the DMP
+    if i >= int(0.2 * samples):
+        myDMP.repeat() # update phi for repeating the DMP
     myDMP.integration()
 
     # update old values

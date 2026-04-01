@@ -30,13 +30,13 @@ Tests: firstly just EMG no IMU, then test the best performing ones with both EMG
 '''
 
 # Define global parameters
-mpl.rcParams['text.usetex'] = True
-mpl.rcParams['font.family'] = 'serif'
+# mpl.rcParams['text.usetex'] = True
+# mpl.rcParams['font.family'] = 'serif'
 
 USERNAME = "VictorBNielsen"
 
 EMG_FS = 2000  # EMG sampling frequency (Hz)
-MOTOR_FS = 166.7  # Motor control frequency (Hz)
+MOTOR_FS = 60#166.7  # Motor control frequency (Hz)
 IMU_FS = 0  # IMU sampling frequency (Hz) TODO: SET THIS LATER
 
 THETA_MIN = np.deg2rad(0)
@@ -48,7 +48,7 @@ TAU_MIN = -TAU_MAX
 stop_event = threading.Event()
 
 # Define threading method for gathering emg data
-def read_EMG(emg_pos_queue, emg_activation_queue):
+def read_EMG(emg_pos_queue):
     # Initialize filters
     filter_bicep = rt_filtering(EMG_FS, 450, 20, 2)
     filter_tricep = rt_filtering(EMG_FS, 450, 20, 2)
@@ -82,20 +82,14 @@ def read_EMG(emg_pos_queue, emg_activation_queue):
 
         activation = interpreter.compute_activation([filtered_bicep_rms, filtered_tricep_rms])
 
-        try:
-            emg_activation_queue.put_nowait(activation)
-        except queue.Full:
-            emg_activation_queue.get_nowait()
-            emg_activation_queue.put_nowait(activation)
-
         desired_angle_deg = math.degrees(interpreter.compute_angle(activation[0], activation[1]))
 
         try:
-            emg_pos_queue.put_nowait(desired_angle_deg)
+            emg_pos_queue.put_nowait((desired_angle_deg, activation))
         except queue.Full:
             emg_pos_queue.get_nowait()
-            emg_pos_queue.put_nowait(desired_angle_deg)
-        
+            emg_pos_queue.put_nowait((desired_angle_deg, activation))
+
     emg.stop()
     Bicep_RMS_queue.queue.clear()
     Tricep_RMS_queue.queue.clear()
@@ -110,35 +104,37 @@ signal.signal(signal.SIGINT, handle_sigint)
 if __name__ == "__main__":
     # Define EMG queues
     emg_pos_queue = queue.Queue(maxsize=5)
-    emg_activation_queue = queue.Queue(maxsize=5)
 
     # Define desired angle lowpass filter
-    desired_angle_lowpass = rt_desired_Angle_lowpass(sample_rate=EMG_FS, lp_cutoff=3, order=2)
+    desired_angle_lowpass = rt_desired_Angle_lowpass(sample_rate=MOTOR_FS, lp_cutoff=3, order=2)
 
     # Create and start the EMG thread
-    emg_thread = threading.Thread(target=read_EMG, args=(emg_pos_queue, emg_activation_queue))
+    emg_thread = threading.Thread(target=read_EMG, args=(emg_pos_queue,))
     emg_thread.start()
     time.sleep(1.0)  # Allow some time for the EMG thread to start and gather data
 
     # Test 1: Pure EMG processing
     test1_desired_angles = []
     print("Starting Test 1: EMG to position")
+    input()
     ptime = []
+    dt = 1/MOTOR_FS
     start_time = time.time()
     last_time = start_time
+    desired_angle_deg = 0
     while time.time() - start_time < 10:  # Run the test for 10 seconds
         try:
-            desired_angle_deg = emg_pos_queue.get_nowait()
-            filtered_desired_angle = float(desired_angle_lowpass.lowpass(np.atleast_1d(desired_angle_deg))[0])
-            test1_desired_angles.append(filtered_desired_angle)
-            ptime.append(time.time() - last_time)
-            last_time = time.time()
+            desired_angle_deg, _ = emg_pos_queue.get_nowait()
         except queue.Empty:
             continue
+        test1_desired_angles.append(desired_angle_lowpass.lowpass(np.atleast_1d(desired_angle_deg))[0])
+        ptime.append(time.time() - last_time)
+        last_time = time.time()
+        time.sleep(np.max(0, int(dt - ptime[-1])))
 
+    print(f"length of test1_desired_angles: {len(test1_desired_angles)}")
     print(f"processing time {np.mean(ptime):.2f} ms, operating frequency {1/np.mean(ptime):.2f} Hz")
     emg_pos_queue.queue.clear()  # Clear the queue after the test
-    emg_activation_queue.queue.clear()  # Clear the queue after the test
     ptime.clear()
 
 
@@ -148,13 +144,13 @@ if __name__ == "__main__":
     test2_activations = []
     k = 1.3 * np.pi / 3
     q = 0  # Initial angle (degrees)
+    test2_desired_angles.append(q)
     print("Starting Test 2: EMG processing + optimization 1")
     start_time = time.time()
     last_time = start_time
     while time.time() - start_time < 10:  # Run the test for 10 seconds
         try:
-            desired_angle_deg = emg_pos_queue.get_nowait()
-            activation = emg_activation_queue.get_nowait()
+            desired_angle_deg, activation = emg_pos_queue.get_nowait()
         except queue.Empty:
             continue
 
@@ -165,15 +161,18 @@ if __name__ == "__main__":
         ptime.append(dt)
         last_time = time.time()
         optimized_angle_emg = optimize_1(k, a, dt, filtered_desired_angle, THETA_MIN, THETA_MAX)
-        optimized_angle = optimize_1(k, a, dt, q, THETA_MIN, THETA_MAX)
+        optimized_angle = optimize_1(k, a, dt, test2_desired_angles[-1], THETA_MIN, THETA_MAX)
 
         test2_desired_emg_angles.append(optimized_angle_emg)
         test2_desired_angles.append(optimized_angle)
         test2_activations.append(a)
+        time.sleep(np.max(0, int(dt - ptime[-1])))
+    
+    # remove the initial angle from the optimized angles lists
+    test2_desired_angles.remove(test2_desired_angles[0])
 
     print(f"processing time {np.mean(ptime):.2f} ms, operating frequency {1/np.mean(ptime):.2f} Hz")
     emg_pos_queue.queue.clear()  # Clear the queue after the test
-    emg_activation_queue.queue.clear()  # Clear the queue after the test
     ptime.clear()
 
     # Test 3: EMG processing + optimization 2
@@ -182,13 +181,13 @@ if __name__ == "__main__":
     test3_activations = []
     k = np.pi
     q = 0  # Initial angle (degrees)
+    test3_desired_angles.append(q)
     print("Starting Test 3: EMG processing + optimization 2")
     start_time = time.time()
     last_time = start_time
     while time.time() - start_time < 10:  # Run the test for 10 seconds
         try:
-            desired_angle_deg = emg_pos_queue.get_nowait()
-            activation = emg_activation_queue.get_nowait()
+            desired_angle_deg, activation = emg_pos_queue.get_nowait()
         except queue.Empty:
             continue
 
@@ -199,15 +198,18 @@ if __name__ == "__main__":
         ptime.append(dt)
         last_time = time.time()
         optimized_angle_emg = optimize_2(k, a, dt, filtered_desired_angle, THETA_MIN, THETA_MAX)
-        optimized_angle = optimize_2(k, a, dt, q, THETA_MIN, THETA_MAX)
+        optimized_angle = optimize_2(k, a, dt, test3_desired_angles[-1], THETA_MIN, THETA_MAX)
 
         test3_desired_emg_angles.append(optimized_angle_emg)
         test3_desired_angles.append(optimized_angle)
         test3_activations.append(a)
+        time.sleep(np.max(0, int(dt - ptime[-1])))
+
+    # remove the initial angle from the optimized angles lists
+    test3_desired_angles.remove(test3_desired_angles[0])
 
     print(f"processing time {np.mean(ptime):.2f} ms, operating frequency {1/np.mean(ptime):.2f} Hz")
     emg_pos_queue.queue.clear()  # Clear the queue after the test
-    emg_activation_queue.queue.clear()  # Clear the queue after the test
     ptime.clear()
 
     # Test 4: EMG processing + optimization 4
@@ -216,6 +218,7 @@ if __name__ == "__main__":
     test4_activations = []
     k = 0.9 * np.pi
     q = 0  # Initial angle (degrees)
+    test4_desired_angles.append(q)
     delta_q_prev_emg = 0
     delta_q_prev = 0
     print("Starting Test 4: EMG processing + optimization 4")
@@ -223,8 +226,7 @@ if __name__ == "__main__":
     last_time = start_time
     while time.time() - start_time < 10:  # Run the test for 10 seconds
         try:
-            desired_angle_deg = emg_pos_queue.get_nowait()
-            activation = emg_activation_queue.get_nowait()
+            desired_angle_deg, activation = emg_pos_queue.get_nowait()
         except queue.Empty:
             continue
 
@@ -235,15 +237,18 @@ if __name__ == "__main__":
         last_time = time.time()
         ptime.append(dt)
         optimized_angle_emg, delta_q_prev_emg = optimize_4(k, a, dt, filtered_desired_angle, delta_q_prev_emg, THETA_MIN, THETA_MAX)
-        optimized_angle, delta_q_prev = optimize_4(k, a, dt, q, delta_q_prev, THETA_MIN, THETA_MAX)
+        optimized_angle, delta_q_prev = optimize_4(k, a, dt, test4_desired_angles[-1], delta_q_prev, THETA_MIN, THETA_MAX)
 
         test4_desired_emg_angles.append(optimized_angle_emg)
         test4_desired_angles.append(optimized_angle)
         test4_activations.append(a)
+        time.sleep(np.max(0, int(dt - ptime[-1])))
+
+    # remove the initial angle from the optimized angles lists
+    test4_desired_angles.remove(test4_desired_angles[0])
 
     print(f"processing time {np.mean(ptime):.2f} ms, operating frequency {1/np.mean(ptime):.2f} Hz")
     emg_pos_queue.queue.clear()  # Clear the queue after the test
-    emg_activation_queue.queue.clear()  # Clear the queue after the test
     ptime.clear()
 
     # Test 5: EMG processing + optimization 5
@@ -254,14 +259,13 @@ if __name__ == "__main__":
     b = 0.01
     v = 0.9 * np.pi
     q = 0  # Initial angle (degrees)
-
+    test5_desired_angles.append(q)
     print("Starting Test 5: EMG processing + optimization 5")
     start_time = time.time()
     last_time = start_time
     while time.time() - start_time < 10:  # Run the test for 10 seconds
         try:
-            desired_angle_deg = emg_pos_queue.get_nowait()
-            activation = emg_activation_queue.get_nowait()
+            desired_angle_deg, activation = emg_pos_queue.get_nowait()
         except queue.Empty:
             continue
 
@@ -272,19 +276,22 @@ if __name__ == "__main__":
         ptime.append(dt)
         last_time = time.time()
         optimized_angle_emg = optimize_5_pd(a, v, dt, filtered_desired_angle, THETA_MIN, THETA_MAX, k, b)
-        optimized_angle = optimize_5_pd(a, v, dt, q, THETA_MIN, THETA_MAX, k, b)
+        optimized_angle = optimize_5_pd(a, v, dt, test5_desired_angles[-1], THETA_MIN, THETA_MAX, k, b)
 
         test5_desired_emg_angles.append(optimized_angle_emg)
         test5_desired_angles.append(optimized_angle)
         test5_activations.append(a)
+        time.sleep(np.max(0, int(dt - ptime[-1])))
+
+    # remove the initial angle from the optimized angles lists
+    test5_desired_angles.remove(test5_desired_angles[0])
 
     print(f"processing time {np.mean(ptime):.2f} ms, operating frequency {1/np.mean(ptime):.2f} Hz")
     emg_pos_queue.queue.clear()  # Clear the queue after the test
-    emg_activation_queue.queue.clear()  # Clear the queue after the test
     ptime.clear()
 
     # Test 6: emg processing + pDMP
-    dt = 1/166.7
+    dt = 1/MOTOR_FS
     phi = 0
     tau = 0.5
     DMP = pDMP(DOF=1, N=25, alpha=8, beta=2, lambd=0.9, dt=dt)
@@ -298,8 +305,8 @@ if __name__ == "__main__":
         y = np.array([0])
         dy = (y - y_old) / dt 
         ddy = (dy - dy_old) / dt
-        DMP.set_phase(phi)
-        DMP.set_period(tau)
+        DMP.set_phase(np.array([phi]))
+        DMP.set_period(np.array([tau]))
         DMP.learn(y, dy, ddy)
         DMP.integration()
         ptime.append(time.time() - last_time)
@@ -311,6 +318,8 @@ if __name__ == "__main__":
         
         # store data for plotting
         x, dx, ph, ta = DMP.get_state()
+
+        time.sleep(np.max(0, int(dt - ptime[-1])))
 
     print(f"Teaching processing time {np.mean(ptime):.2f} ms, operating frequency {1/np.mean(ptime):.2f} Hz")
     ptime.clear()
@@ -324,14 +333,14 @@ if __name__ == "__main__":
     last_time = start_time
     while time.time() - start_time < 10:  # Run for 10 seconds
         try:
-            activation = emg_activation_queue.get_nowait()
+            _, activation = emg_pos_queue.get_nowait()
         except queue.Empty:
             continue
 
         a = activation[0] - activation[1]  # Compute net activation (bicep - tricep)
         
-        DMP.set_phase(phi)
-        DMP.set_period(tau)
+        DMP.set_phase(np.array([phi]))
+        DMP.set_period(np.array([tau]))
 
         U = np.asarray([a*v])  # EMG activation as input
         DMP.update(U)
@@ -342,14 +351,14 @@ if __name__ == "__main__":
         dt = time.time() - last_time
         ptime.append(dt)
         last_time = time.time()
+        time.sleep(np.max(0, int(dt - ptime[-1])))
 
     print(f"Running processing time {np.mean(ptime):.2f} ms, operating frequency {1/np.mean(ptime):.2f} Hz")
     emg_pos_queue.queue.clear()  # Clear the queue after the test
-    emg_activation_queue.queue.clear()  # Clear the queue after the test
     ptime.clear()
 
     # Test 7: emg processing + pDMP coupling
-    dt = 1/166.7
+    dt = 1/MOTOR_FS
     phi = 0
     tau = 0.5
     DMP = pDMPCoupling1(DOF=1, N=25, alpha=8, beta=2, lambd=0.9, dt=dt)
@@ -363,10 +372,10 @@ if __name__ == "__main__":
         y = np.array([0])
         dy = (y - y_old) / dt 
         ddy = (dy - dy_old) / dt
-        DMP.set_phase(phi)
-        DMP.set_period(tau)
+        DMP.set_phase(np.array([phi]))
+        DMP.set_period(np.array([tau]))
         DMP.learn(y, dy, ddy)
-        DMP.integration()
+        # DMP.integration()
         ptime.append(time.time() - last_time)
         last_time = time.time()
 
@@ -376,6 +385,8 @@ if __name__ == "__main__":
         
         # store data for plotting
         x, dx, ph, ta = DMP.get_state()
+
+        time.sleep(np.max(0, int(dt - ptime[-1])))
 
     print(f"Teaching processing time {np.mean(ptime):.2f} ms, operating frequency {1/np.mean(ptime):.2f} Hz")
     ptime.clear()
@@ -387,18 +398,18 @@ if __name__ == "__main__":
     last_time = start_time
     while time.time() - start_time < 10:  # Run for 10 seconds
         try:
-            activation = emg_activation_queue.get_nowait()
+            _, activation = emg_pos_queue.get_nowait()
         except queue.Empty:
             continue
 
         a = activation[0] - activation[1]  # Compute net activation (bicep - tricep)
         
-        DMP.set_phase(phi)
-        DMP.set_period(tau)
+        DMP.set_phase(np.array([phi]))
+        DMP.set_period(np.array([tau]))
 
         DMP.repeat()
 
-        DMP.integration(a)
+        DMP.integration(np.array([a]))
 
         x, dx, ph, ta = DMP.get_state()
         test7_desired_angles.append(x[0])
@@ -406,14 +417,15 @@ if __name__ == "__main__":
         ptime.append(time.time() - last_time)
         last_time = time.time()
 
+        time.sleep(np.max(0, int(dt - ptime[-1])))
+
     print(f"Running processing time {np.mean(ptime):.2f} ms, operating frequency {1/np.mean(ptime):.2f} Hz")
     emg_pos_queue.queue.clear()  # Clear the queue after the test
-    emg_activation_queue.queue.clear()  # Clear the queue after the test
     ptime.clear()
 
 
     # Test 8: emg processing + pDMP omega
-    dt = 1/166.7
+    dt = 1/MOTOR_FS
     phi = 0
     tau = 0.5
     omega0 = 2*np.pi/tau
@@ -441,6 +453,8 @@ if __name__ == "__main__":
         # store data for plotting
         x, dx, ph, ta = DMP.get_state()
 
+        time.sleep(np.max(0, int(dt - ptime[-1])))
+
     print(f"Teaching processing time {np.mean(ptime):.2f} ms, operating frequency {1/np.mean(ptime):.2f} Hz")
     ptime.clear()
 
@@ -452,7 +466,7 @@ if __name__ == "__main__":
     k = 1.0
     while time.time() - start_time < 10:  # Run for 10 seconds
         try:
-            activation = emg_activation_queue.get_nowait()
+            _, activation = emg_pos_queue.get_nowait()
         except queue.Empty:
             continue
 
@@ -471,12 +485,17 @@ if __name__ == "__main__":
         ptime.append(time.time() - last_time)
         last_time = time.time()
 
+        time.sleep(np.max(0, int(dt - ptime[-1])))
+
     print(f"Running processing time {np.mean(ptime):.2f} ms, operating frequency {1/np.mean(ptime):.2f} Hz")
     emg_pos_queue.queue.clear()  # Clear the queue after the test
-    emg_activation_queue.queue.clear()  # Clear the queue after the test
     ptime.clear()
 
+    stop_event.set()
+    emg_thread.join()
+
     # Calculate the velocity, acceleration and jerk for each test
+    dt = 1/MOTOR_FS
     test1_velocities = np.diff(test1_desired_angles) / dt
     test1_accelerations = np.diff(test1_velocities) / dt
     test1_jerks = np.diff(test1_accelerations) / dt
@@ -546,15 +565,15 @@ if __name__ == "__main__":
     plt.plot(test1_desired_angles, label="Desired Angle")
     plt.xlabel("Time (s)")
     plt.ylabel("Desired Angle (degrees)")
-    plt.subplot(4, 1, 3)
+    plt.subplot(4, 1, 2)
     plt.plot(test1_velocities, label="Velocity")
     plt.xlabel("Time (s)")
     plt.ylabel("Velocity (degrees/s)")
-    plt.subplot(4, 1, 4)
+    plt.subplot(4, 1, 3)
     plt.plot(test1_accelerations, label="Acceleration")
     plt.xlabel("Time (s)")
     plt.ylabel("Acceleration (degrees/s^2)")
-    plt.subplot(4, 1, 5)
+    plt.subplot(4, 1, 4)
     plt.plot(test1_jerks, label="Jerk")
     plt.xlabel("Time (s)")
     plt.ylabel("Jerk (degrees/s^3)")

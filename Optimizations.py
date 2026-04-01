@@ -31,12 +31,12 @@ def optimize_2(k, activation, t, q, theta_min, theta_max):
     Returns:
     optimized_angle: the optimized angle for the movement
     """
-    # w = 0
-    # if activation > 0:
-    #     w = (theta_max - q) / theta_max
-    # elif activation < 0:
-    #     w = q / theta_max
-    w = (theta_max - q) / theta_max
+    w = 0
+    if activation > 0:
+        w = (theta_max - q) / theta_max
+    elif activation < 0:
+        w = q / theta_max
+    # w = (theta_max - q) / theta_max
 
     delta_q = k * activation * t * w
     optimized_angle = q + delta_q
