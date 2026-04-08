@@ -60,7 +60,7 @@ def optimize_4(k, activation, t, q, delta_q_prev, theta_min, theta_max, alpha=0.
     delta_q = alpha * delta_q_raw + (1-alpha) * delta_q_prev
     optimized_angle = q + delta_q
     optimized_angle = max(min(optimized_angle, theta_max), theta_min)
-    return optimized_angle, delta_q_prev
+    return optimized_angle, delta_q
 
 def optimize_5_pd(activation, velocity, t, q, theta_min, theta_max, k, b=0.5,):
     velocity = b * velocity + k * activation

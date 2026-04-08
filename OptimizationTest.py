@@ -5,9 +5,9 @@ import matplotlib.pyplot as plt
 THETA_MIN = np.deg2rad(0)
 THETA_MAX = np.deg2rad(140)
 
-FS = 2000 #166 #60
-
+FS = 2000 # EMG
 if __name__ == "__main__":
+    print("Starting EMG optimization test at 2000 Hz...")
     print(f"Theta max: {THETA_MAX}, Theta min: {THETA_MIN}")
     # Generate test muscle activations (EMG signal) using sinewave between -1 and 1
     time = np.linspace(0, 10, FS)  # Time vector from 0 to 10 seconds
@@ -21,8 +21,7 @@ if __name__ == "__main__":
     optimized_angles_5 = []
     
     # Initialize parameters for the optimizers along with the optimizers themselves
-    # k = 4.5*np.pi
-    k = 4.8*np.pi
+    k = 4.8*np.pi # EMG
     t = 1/FS  # Time between updates (seconds)
     q = 0  # Initial angle (degrees)
     optimized_angles_1.append(q)
@@ -31,7 +30,7 @@ if __name__ == "__main__":
 
     print(f"maximum angle for optimizer 1: {np.rad2deg(max(optimized_angles_1)):.2f} degrees, minimum angle for optimizer 1: {np.rad2deg(min(optimized_angles_1)):.2f} degrees")
 
-    k= 18 * np.pi
+    k= 18 * np.pi # EMG
     optimized_angles_2.append(q)
     for a in activation:
         optimized_angles_2.append(optimize_2(k, a, t, optimized_angles_2[-1], THETA_MIN, THETA_MAX))
@@ -43,7 +42,7 @@ if __name__ == "__main__":
     #     optimized_angles_3.append(optimize_3(k, a, t, optimized_angles_3[-1], THETA_MIN, THETA_MAX, 0.1))
     # print(f"maximum angle for optimizer 3: {np.rad2deg(max(optimized_angles_3)):.2f} degrees, minimum angle for optimizer 3: {np.rad2deg(min(optimized_angles_3)):.2f} degrees")
 
-    k = 11.5 * np.pi
+    k = 4.8 * np.pi # EMG
     optimized_angles_4.append(q)
     delta_q_prev = 0
     for a in activation:
@@ -51,10 +50,10 @@ if __name__ == "__main__":
         optimized_angles_4.append(optimized_angle)
     print(f"maximum angle for optimizer 4: {np.rad2deg(max(optimized_angles_4)):.2f} degrees, minimum angle for optimizer 4: {np.rad2deg(min(optimized_angles_4)):.2f} degrees")
     
-    k = 4 * np.pi
+    k = 2 * np.pi # EMG
     optimized_angles_5.append(q)
     for a in activation:
-        optimized_angles_5.append(optimize_5_pd(a, k, t, optimized_angles_5[-1], THETA_MIN, THETA_MAX, 18, 0.001))
+        optimized_angles_5.append(optimize_5_pd(a, k, t, optimized_angles_5[-1], THETA_MIN, THETA_MAX, 15, 0.001))
     print(f"maximum angle for optimizer 5: {np.rad2deg(max(optimized_angles_5)):.2f} degrees, minimum angle for optimizer 5: {np.rad2deg(min(optimized_angles_5)):.2f} degrees")
     
     # Remove the initial angle from the optimized angles lists
@@ -88,7 +87,7 @@ if __name__ == "__main__":
 
     # Plot each optimized angle in different graphs comparing them to the input signal and with the position, velocity, acceleration and jerk.
     plt.figure(figsize=(12, 10))
-    plt.title("Optimizer 1")
+    plt.title("Optimizer 1: EMG")
     plt.subplot(5, 1, 1)
     plt.plot(time, activation, label="Activation")
     plt.xlabel("Time (s)")
@@ -119,7 +118,7 @@ if __name__ == "__main__":
     #-----------------------------------------------------------------
 
     plt.figure(figsize=(12, 10))
-    plt.title("Optimizer 2")
+    plt.title("Optimizer 2: EMG")
     plt.subplot(5, 1, 1)
     plt.plot(time, activation, label="Activation")
     plt.xlabel("Time (s)")
@@ -150,7 +149,7 @@ if __name__ == "__main__":
     #-----------------------------------------------------------------
 
     # plt.figure(figsize=(12, 10))
-    # plt.title("Optimizer 3")
+    # plt.title("Optimizer 3: EMG")
     # plt.subplot(5, 1, 1)
     # plt.plot(time, activation, label="Activation")
     # plt.xlabel("Time (s)")
@@ -181,7 +180,7 @@ if __name__ == "__main__":
     #-----------------------------------------------------------------
 
     plt.figure(figsize=(12, 10))
-    plt.title("Optimizer 4")
+    plt.title("Optimizer 4: EMG")
     plt.subplot(5, 1, 1)
     plt.plot(time, activation, label="Activation")
     plt.xlabel("Time (s)")
@@ -212,7 +211,241 @@ if __name__ == "__main__":
     #-----------------------------------------------------------------
 
     plt.figure(figsize=(12, 10))
-    plt.title("Optimizer 5")
+    plt.title("Optimizer 5: EMG")
+    plt.subplot(5, 1, 1)
+    plt.plot(time, activation, label="Activation")
+    plt.xlabel("Time (s)")
+    plt.ylabel("Activation")
+
+    plt.subplot(5, 1, 2)
+    plt.plot(time, optimized_angles_5, label="Optimized Angle")
+    plt.xlabel("Time (s)")
+    plt.ylabel("Optimized Angle (rad)")
+
+    plt.subplot(5, 1, 3)
+    plt.plot(time[:-1], velocities_5, label="Velocity")
+    plt.xlabel("Time (s)")
+    plt.ylabel("Velocity (rad/s)")
+
+    plt.subplot(5, 1, 4)
+    plt.plot(time[:-2], accelerations_5, label="Acceleration")
+    plt.xlabel("Time (s)")
+    plt.ylabel("Acceleration (rad/s^2)")
+
+    plt.subplot(5, 1, 5)
+    plt.plot(time[:-3], jerks_5, label="Jerk")
+    plt.xlabel("Time (s)")
+    plt.ylabel("Jerk (rad/s^3)")
+    plt.tight_layout()
+    plt.show()
+
+
+
+    print("Starting IMU optimization test at 148 Hz...")
+    FS = 148 # IMU
+    # Generate test muscle activations (EMG signal) using sinewave between -1 and 1
+    time = np.linspace(0, 10, FS)  # Time vector from 0 to 10 seconds
+    activation = np.sin(2 * np.pi * 0.2 * time)  # Sine wave with frequency of 0.2 Hz
+
+    # Create empty lists to store optimized angles for each optimizer
+    optimized_angles_1 = []
+    optimized_angles_2 = []
+    # optimized_angles_3 = []
+    optimized_angles_4 = []
+    optimized_angles_5 = []
+    
+    # Initialize parameters for the optimizers along with the optimizers themselves
+    k = 4.8 * np.pi # IMU
+    t = 1/FS  # Time between updates (seconds)
+    q = 0  # Initial angle (degrees)
+    optimized_angles_1.append(q)
+    for a in activation:
+        optimized_angles_1.append(optimize_1(k, a, t, optimized_angles_1[-1], THETA_MIN, THETA_MAX))
+
+    print(f"maximum angle for optimizer 1: {np.rad2deg(max(optimized_angles_1)):.2f} degrees, minimum angle for optimizer 1: {np.rad2deg(min(optimized_angles_1)):.2f} degrees")
+
+    k = 14 * np.pi # IMU
+    optimized_angles_2.append(q)
+    for a in activation:
+        optimized_angles_2.append(optimize_2(k, a, t, optimized_angles_2[-1], THETA_MIN, THETA_MAX))
+    print(f"maximum angle for optimizer 2: {np.rad2deg(max(optimized_angles_2)):.2f} degrees, minimum angle for optimizer 2: {np.rad2deg(min(optimized_angles_2)):.2f} degrees")
+    
+    # k= 5.8 * np.pi
+    # optimized_angles_3.append(q)
+    # for a in activation:
+    #     optimized_angles_3.append(optimize_3(k, a, t, optimized_angles_3[-1], THETA_MIN, THETA_MAX, 0.1))
+    # print(f"maximum angle for optimizer 3: {np.rad2deg(max(optimized_angles_3)):.2f} degrees, minimum angle for optimizer 3: {np.rad2deg(min(optimized_angles_3)):.2f} degrees")
+
+    k = 4.8 * np.pi # IMU
+    optimized_angles_4.append(q)
+    delta_q_prev = 0
+    for a in activation:
+        optimized_angle, delta_q_prev = optimize_4(k, a, t, optimized_angles_4[-1], delta_q_prev, THETA_MIN, THETA_MAX)
+        optimized_angles_4.append(optimized_angle)
+    print(f"maximum angle for optimizer 4: {np.rad2deg(max(optimized_angles_4)):.2f} degrees, minimum angle for optimizer 4: {np.rad2deg(min(optimized_angles_4)):.2f} degrees")
+    
+    k = np.pi # IMU
+    optimized_angles_5.append(q)
+    for a in activation:
+        optimized_angles_5.append(optimize_5_pd(a, k, t, optimized_angles_5[-1], THETA_MIN, THETA_MAX, 15, 0.001))
+    print(f"maximum angle for optimizer 5: {np.rad2deg(max(optimized_angles_5)):.2f} degrees, minimum angle for optimizer 5: {np.rad2deg(min(optimized_angles_5)):.2f} degrees")
+    
+    # Remove the initial angle from the optimized angles lists
+    optimized_angles_1.remove(optimized_angles_1[0])
+    optimized_angles_2.remove(optimized_angles_2[0])
+    # optimized_angles_3.remove(optimized_angles_3[0])
+    optimized_angles_4.remove(optimized_angles_4[0])
+    optimized_angles_5.remove(optimized_angles_5[0])
+    
+
+    # Calculate the velocity, acceleration and jerk for each optimizer
+    velocities_1 = np.diff(optimized_angles_1) / t
+    accelerations_1 = np.diff(velocities_1) / t
+    jerks_1 = np.diff(accelerations_1) / t
+
+    velocities_2 = np.diff(optimized_angles_2) / t
+    accelerations_2 = np.diff(velocities_2) / t
+    jerks_2 = np.diff(accelerations_2) / t
+
+    # velocities_3 = np.diff(optimized_angles_3) / t
+    # accelerations_3 = np.diff(velocities_3) / t
+    # jerks_3 = np.diff(accelerations_3) / t
+
+    velocities_4 = np.diff(optimized_angles_4) / t
+    accelerations_4 = np.diff(velocities_4) / t
+    jerks_4 = np.diff(accelerations_4) / t
+
+    velocities_5 = np.diff(optimized_angles_5) / t
+    accelerations_5 = np.diff(velocities_5) / t
+    jerks_5 = np.diff(accelerations_5) / t
+
+    # Plot each optimized angle in different graphs comparing them to the input signal and with the position, velocity, acceleration and jerk.
+    plt.figure(figsize=(12, 10))
+    plt.title("Optimizer 1: IMU")
+    plt.subplot(5, 1, 1)
+    plt.plot(time, activation, label="Activation")
+    plt.xlabel("Time (s)")
+    plt.ylabel("Activation")
+
+    plt.subplot(5, 1, 2)
+    plt.plot(time, optimized_angles_1, label="Optimized Angle")
+    plt.xlabel("Time (s)")
+    plt.ylabel("Optimized Angle (rad)")
+
+    plt.subplot(5, 1, 3)
+    plt.plot(time[:-1], velocities_1, label="Velocity")
+    plt.xlabel("Time (s)")
+    plt.ylabel("Velocity (rad/s)")
+
+    plt.subplot(5, 1, 4)
+    plt.plot(time[:-2], accelerations_1, label="Acceleration")
+    plt.xlabel("Time (s)")
+    plt.ylabel("Acceleration (rad/s^2)")
+
+    plt.subplot(5, 1, 5)
+    plt.plot(time[:-3], jerks_1, label="Jerk")
+    plt.xlabel("Time (s)")
+    plt.ylabel("Jerk (rad/s^3)")
+    plt.tight_layout()
+    plt.show()
+
+    #-----------------------------------------------------------------
+
+    plt.figure(figsize=(12, 10))
+    plt.title("Optimizer 2: IMU")
+    plt.subplot(5, 1, 1)
+    plt.plot(time, activation, label="Activation")
+    plt.xlabel("Time (s)")
+    plt.ylabel("Activation")
+    
+    plt.subplot(5, 1, 2)
+    plt.plot(time, optimized_angles_2, label="Optimized Angle")
+    plt.xlabel("Time (s)")
+    plt.ylabel("Optimized Angle (rad)")
+    
+    plt.subplot(5, 1, 3)
+    plt.plot(time[:-1], velocities_2, label="Velocity")
+    plt.xlabel("Time (s)")
+    plt.ylabel("Velocity (rad/s)")
+
+    plt.subplot(5, 1, 4)
+    plt.plot(time[:-2], accelerations_2, label="Acceleration")
+    plt.xlabel("Time (s)")
+    plt.ylabel("Acceleration (rad/s^2)")
+
+    plt.subplot(5, 1, 5)
+    plt.plot(time[:-3], jerks_2, label="Jerk")
+    plt.xlabel("Time (s)")
+    plt.ylabel("Jerk (rad/s^3)")
+    plt.tight_layout()
+    plt.show()
+
+    #-----------------------------------------------------------------
+
+    # plt.figure(figsize=(12, 10))
+    # plt.title("Optimizer 3: IMU")
+    # plt.subplot(5, 1, 1)
+    # plt.plot(time, activation, label="Activation")
+    # plt.xlabel("Time (s)")
+    # plt.ylabel("Activation")
+
+    # plt.subplot(5, 1, 2)
+    # plt.plot(time, optimized_angles_3, label="Optimized Angle")
+    # plt.xlabel("Time (s)")
+    # plt.ylabel("Optimized Angle (rad)")
+    
+    # plt.subplot(5, 1, 3)
+    # plt.plot(time[:-1], velocities_3, label="Velocity")
+    # plt.xlabel("Time (s)")
+    # plt.ylabel("Velocity (rad/s)")
+
+    # plt.subplot(5, 1, 4)
+    # plt.plot(time[:-2], accelerations_3, label="Acceleration")
+    # plt.xlabel("Time (s)")
+    # plt.ylabel("Acceleration (rad/s^2)")
+
+    # plt.subplot(5, 1, 5)
+    # plt.plot(time[:-3], jerks_3, label="Jerk")
+    # plt.xlabel("Time (s)")
+    # plt.ylabel("Jerk (rad/s^3)")
+    # plt.tight_layout()
+    # plt.show()
+
+    #-----------------------------------------------------------------
+
+    plt.figure(figsize=(12, 10))
+    plt.title("Optimizer 4: IMU")
+    plt.subplot(5, 1, 1)
+    plt.plot(time, activation, label="Activation")
+    plt.xlabel("Time (s)")
+    plt.ylabel("Activation")
+    
+    plt.subplot(5, 1, 2)
+    plt.plot(time, optimized_angles_4, label="Optimized Angle")
+    plt.xlabel("Time (s)")
+    plt.ylabel("Optimized Angle (rad)")
+    
+    plt.subplot(5, 1, 3)
+    plt.plot(time[:-1], velocities_4, label="Velocity")
+    plt.xlabel("Time (s)")
+    plt.ylabel("Velocity (rad/s)")
+
+    plt.subplot(5, 1, 4)
+    plt.plot(time[:-2], accelerations_4, label="Acceleration")
+    plt.xlabel("Time (s)")
+    plt.ylabel("Acceleration (rad/s^2)")
+
+    plt.subplot(5, 1, 5)
+    plt.plot(time[:-3], jerks_4, label="Jerk")
+    plt.xlabel("Time (s)")
+    plt.ylabel("Jerk (rad/s^3)")
+    plt.tight_layout()
+    plt.show()
+
+    #-----------------------------------------------------------------
+
+    plt.figure(figsize=(12, 10))
+    plt.title("Optimizer 5: IMU")
     plt.subplot(5, 1, 1)
     plt.plot(time, activation, label="Activation")
     plt.xlabel("Time (s)")
