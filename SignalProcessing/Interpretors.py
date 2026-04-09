@@ -61,13 +61,13 @@ class ProportionalMyoelectricalControl:
         #return x - eps * (1 if x > 0 else -1)
         return (abs(x) - eps) * np.sign(x) / (1 - eps)
 
-    def compute_angle(self, Bicep_activation, Tricep_activation):
+    def compute_angle(self, activation):#Bicep_activation, Tricep_activation):
         theta = 0
         if self.Bicep_EMG and self.Tricep_EMG:
-            activation = (Bicep_activation - Tricep_activation)
+            # activation = (Bicep_activation - Tricep_activation)
             theta = (self.theta_min + self.theta_max)/2 + (self.theta_max - self.theta_min)/2 * self._deadband(activation, 0.1) #TODO: Tune eps (threshold value to avoid small activations from noise)
         elif self.Bicep_EMG:
-            activation = Bicep_activation
+            # activation = Bicep_activation
             theta = self.theta_min + self._deadband(activation, 0.1) * (self.theta_max - self.theta_min)
         else:
             raise ValueError("At least BicepEMG or BicepEMG and TricepEMG must be True")

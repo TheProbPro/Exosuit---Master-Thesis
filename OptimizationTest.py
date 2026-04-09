@@ -10,7 +10,7 @@ if __name__ == "__main__":
     print("Starting EMG optimization test at 2000 Hz...")
     print(f"Theta max: {THETA_MAX}, Theta min: {THETA_MIN}")
     # Generate test muscle activations (EMG signal) using sinewave between -1 and 1
-    time = np.linspace(0, 10, FS)  # Time vector from 0 to 10 seconds
+    time = np.linspace(0, 10, FS*10)  # Time vector from 0 to 10 seconds
     activation = np.sin(2 * np.pi * 0.2 * time)  # Sine wave with frequency of 0.2 Hz
 
     # Create empty lists to store optimized angles for each optimizer
@@ -21,7 +21,8 @@ if __name__ == "__main__":
     optimized_angles_5 = []
     
     # Initialize parameters for the optimizers along with the optimizers themselves
-    k = 4.8*np.pi # EMG
+    # k = 4.8*np.pi # EMG
+    k = (1.4*np.pi)/3
     t = 1/FS  # Time between updates (seconds)
     q = 0  # Initial angle (degrees)
     optimized_angles_1.append(q)
@@ -30,7 +31,8 @@ if __name__ == "__main__":
 
     print(f"maximum angle for optimizer 1: {np.rad2deg(max(optimized_angles_1)):.2f} degrees, minimum angle for optimizer 1: {np.rad2deg(min(optimized_angles_1)):.2f} degrees")
 
-    k= 18 * np.pi # EMG
+    # k= 18 * np.pi # EMG
+    k = 2 * np.pi
     optimized_angles_2.append(q)
     for a in activation:
         optimized_angles_2.append(optimize_2(k, a, t, optimized_angles_2[-1], THETA_MIN, THETA_MAX))
@@ -42,7 +44,8 @@ if __name__ == "__main__":
     #     optimized_angles_3.append(optimize_3(k, a, t, optimized_angles_3[-1], THETA_MIN, THETA_MAX, 0.1))
     # print(f"maximum angle for optimizer 3: {np.rad2deg(max(optimized_angles_3)):.2f} degrees, minimum angle for optimizer 3: {np.rad2deg(min(optimized_angles_3)):.2f} degrees")
 
-    k = 4.8 * np.pi # EMG
+    # k = 4.8 * np.pi # EMG
+    k = (1.4*np.pi)/3
     optimized_angles_4.append(q)
     delta_q_prev = 0
     for a in activation:
@@ -50,10 +53,13 @@ if __name__ == "__main__":
         optimized_angles_4.append(optimized_angle)
     print(f"maximum angle for optimizer 4: {np.rad2deg(max(optimized_angles_4)):.2f} degrees, minimum angle for optimizer 4: {np.rad2deg(min(optimized_angles_4)):.2f} degrees")
     
-    k = 2 * np.pi # EMG
+    # k = 2 * np.pi # EMG
+    k = np.pi / 4
+    n = 1.4
+    b = 0.01 # 0.001
     optimized_angles_5.append(q)
     for a in activation:
-        optimized_angles_5.append(optimize_5_pd(a, k, t, optimized_angles_5[-1], THETA_MIN, THETA_MAX, 15, 0.001))
+        optimized_angles_5.append(optimize_5_pd(a, k, t, optimized_angles_5[-1], THETA_MIN, THETA_MAX, n, b))
     print(f"maximum angle for optimizer 5: {np.rad2deg(max(optimized_angles_5)):.2f} degrees, minimum angle for optimizer 5: {np.rad2deg(min(optimized_angles_5)):.2f} degrees")
     
     # Remove the initial angle from the optimized angles lists
@@ -244,7 +250,7 @@ if __name__ == "__main__":
     print("Starting IMU optimization test at 148 Hz...")
     FS = 148 # IMU
     # Generate test muscle activations (EMG signal) using sinewave between -1 and 1
-    time = np.linspace(0, 10, FS)  # Time vector from 0 to 10 seconds
+    time = np.linspace(0, 10, FS*10)  # Time vector from 0 to 10 seconds
     activation = np.sin(2 * np.pi * 0.2 * time)  # Sine wave with frequency of 0.2 Hz
 
     # Create empty lists to store optimized angles for each optimizer
@@ -255,7 +261,8 @@ if __name__ == "__main__":
     optimized_angles_5 = []
     
     # Initialize parameters for the optimizers along with the optimizers themselves
-    k = 4.8 * np.pi # IMU
+    # k = 4.8 * np.pi # IMU
+    k = (1.4 * np.pi) / 3
     t = 1/FS  # Time between updates (seconds)
     q = 0  # Initial angle (degrees)
     optimized_angles_1.append(q)
@@ -264,7 +271,8 @@ if __name__ == "__main__":
 
     print(f"maximum angle for optimizer 1: {np.rad2deg(max(optimized_angles_1)):.2f} degrees, minimum angle for optimizer 1: {np.rad2deg(min(optimized_angles_1)):.2f} degrees")
 
-    k = 14 * np.pi # IMU
+    # k = 14 * np.pi # IMU
+    k = 2 * np.pi
     optimized_angles_2.append(q)
     for a in activation:
         optimized_angles_2.append(optimize_2(k, a, t, optimized_angles_2[-1], THETA_MIN, THETA_MAX))
@@ -273,10 +281,11 @@ if __name__ == "__main__":
     # k= 5.8 * np.pi
     # optimized_angles_3.append(q)
     # for a in activation:
-    #     optimized_angles_3.append(optimize_3(k, a, t, optimized_angles_3[-1], THETA_MIN, THETA_MAX, 0.1))
+    #     optimized_angles_3.append(optimize_3(k, a, t, optimized_angles_3[-1], THETA_MIN, THETA_MAX, 0.05))
     # print(f"maximum angle for optimizer 3: {np.rad2deg(max(optimized_angles_3)):.2f} degrees, minimum angle for optimizer 3: {np.rad2deg(min(optimized_angles_3)):.2f} degrees")
 
-    k = 4.8 * np.pi # IMU
+    # k = 4.8 * np.pi # IMU
+    k = (1.4 * np.pi) / 3
     optimized_angles_4.append(q)
     delta_q_prev = 0
     for a in activation:
@@ -285,9 +294,11 @@ if __name__ == "__main__":
     print(f"maximum angle for optimizer 4: {np.rad2deg(max(optimized_angles_4)):.2f} degrees, minimum angle for optimizer 4: {np.rad2deg(min(optimized_angles_4)):.2f} degrees")
     
     k = np.pi # IMU
+    n = 1.3
+    b = 0.005
     optimized_angles_5.append(q)
     for a in activation:
-        optimized_angles_5.append(optimize_5_pd(a, k, t, optimized_angles_5[-1], THETA_MIN, THETA_MAX, 15, 0.001))
+        optimized_angles_5.append(optimize_5_pd(a, k, t, optimized_angles_5[-1], THETA_MIN, THETA_MAX, n, b))
     print(f"maximum angle for optimizer 5: {np.rad2deg(max(optimized_angles_5)):.2f} degrees, minimum angle for optimizer 5: {np.rad2deg(min(optimized_angles_5)):.2f} degrees")
     
     # Remove the initial angle from the optimized angles lists
