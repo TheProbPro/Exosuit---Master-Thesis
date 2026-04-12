@@ -231,9 +231,9 @@ def optimize_5_pd(activation, velocity, t, q, theta_min, theta_max, v_max, k, b=
 
     return q_next, velocity
 
-def optimizer_6(activation, velocity, t, q, theta_min, theta_max, v_max=np.pi, b = 6.0):
+def optimizer_6(activation, velocity, t, q, theta_min, theta_max, v_max=np.pi, b = 6.0, k = None):
     # Smoothen acceleration
-    k = b * np.pi
+    k = b * np.pi if k is None else k
     scale = _boundary_scaling_1(q, activation, theta_min, theta_max, margin_ratio=0.1)
     acc = k * activation * scale - b * velocity
 

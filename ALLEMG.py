@@ -11,7 +11,7 @@ from EMGTests1 import MOTOR_FS
 from Sensors.EMGSensor import DelsysEMG
 from SignalProcessing.Filtering import rt_filtering, rt_desired_Angle_lowpass
 from SignalProcessing.Interpretors import ProportionalMyoelectricalControl as PMC
-from Optimizations import optimize_1, optimize_2, optimize_4, optimize_5_pd, optimizer_6
+from Optimizations import optimize_1, optimize_2, optimize_4, optimize_5_pd, optimizer_6, EMG_Optimizer
 # from AdaptiveEmbodiedControlSystems.ESN import ESN
 # from AdaptiveEmbodiedControlSystems.LSTM import LSTM
 from ProjectInRobotics.pDMP.pDMP_functions import pDMP, pDMPCoupling1, pDMPOmega
@@ -115,7 +115,7 @@ if __name__ == "__main__":
     test2_activations = []
     test2_t = []
     # k = 4.8 * np.pi
-    k = 2 * np.pi
+    k = 3 * np.pi
     q = 0  # Initial angle (rad)
     test2_desired_angles.append(q)
     print("Press Enter to start test 2: EMG to position with optimization 1")
@@ -313,8 +313,8 @@ if __name__ == "__main__":
         delta_t = 1/FS
         test5_t.append(delta_t)
 
-        optimized_angle_emg, v_emg = optimize_5_pd(filtered_net_a, v_emg, delta_t, desired_angle, THETA_MIN, THETA_MAX, k, b)
-        optimized_angle, v = optimize_5_pd(filtered_net_a, v, delta_t, test5_desired_angles[-1], THETA_MIN, THETA_MAX, k, b)
+        optimized_angle_emg, v_emg = optimize_5_pd(filtered_net_a, v_emg, delta_t, desired_angle, THETA_MIN, THETA_MAX, np.pi, k, b)
+        optimized_angle, v = optimize_5_pd(filtered_net_a, v, delta_t, test5_desired_angles[-1], THETA_MIN, THETA_MAX, np.pi, k, b)
         test5_desired_emg_angles.append(optimized_angle_emg)
         test5_desired_angles.append(optimized_angle)
         test5_activations.append(filtered_net_a)
@@ -326,7 +326,114 @@ if __name__ == "__main__":
 
     #----------------------------------------------------------------------------------------------------------------------------------
 
-    
+    test_9_desired_emg_angles = []
+    test_9_desired_angles = []
+    test_9_activations = []
+    test_9_t = []
+    v = 0
+    v_emg = 0
+    test_9_desired_angles.append(q)
+    print("Press Enter to start test 9: EMG to position with optimization 5")
+    input()
+    start_time = time.time()
+    last_t = start_time
+    while time.time() - start_time < 10:  # Run the test for 10 seconds
+        print(f"elapsed time: {time.time() - start_time:.2f} seconds", end='\r')
+        reading = emg.read()
+
+        filtered_bicep = filter_bicep.bandpass(reading[0])
+        filtered_tricep = filter_tricep.bandpass(reading[1])
+
+        if Bicep_RMS_queue.full():
+            Bicep_RMS_queue.get()
+        Bicep_RMS_queue.put(filtered_bicep)
+        if Tricep_RMS_queue.full():
+            Tricep_RMS_queue.get()
+        Tricep_RMS_queue.put(filtered_tricep)
+
+        Bicep_RMS = np.sqrt(np.mean(np.array(list(Bicep_RMS_queue.queue))**2))
+        Tricep_RMS = np.sqrt(np.mean(np.array(list(Tricep_RMS_queue.queue))**2))
+
+        filtered_bicep_rms = float(filter_bicep.lowpass(np.atleast_1d(Bicep_RMS))[0])
+        filtered_tricep_rms = float(filter_tricep.lowpass(np.atleast_1d(Tricep_RMS))[0])
+
+        activation = interpreter.compute_activation([filtered_bicep_rms, filtered_tricep_rms])
+        net_a = activation[0] - activation[1]  # Compute net activation (bicep - tricep)
+        filtered_net_a = float(net_a_lowpass.lowpass(np.atleast_1d(net_a))[0])
+        desired_angle = float(interpreter.compute_angle(filtered_net_a))
+
+        delta_t = 1/FS
+        test_9_t.append(delta_t)
+
+        optimized_angle_emg, v_emg, acc_emg = optimizer_6(filtered_net_a, v_emg, delta_t, desired_angle, THETA_MIN, THETA_MAX, b=10.0, k =np.pi*10.0*2)
+        optimized_angle, v, acc = optimizer_6(filtered_net_a, v, delta_t, test_9_desired_angles[-1], THETA_MIN, THETA_MAX, b=10.0, k =np.pi*10.0*2)
+        test_9_desired_emg_angles.append(optimized_angle_emg)
+        test_9_desired_angles.append(optimized_angle)
+        test_9_activations.append(filtered_net_a)
+
+    # remove the initial angle from the optimized angles lists
+    test_9_desired_angles.remove(test_9_desired_angles[0])
+
+    print(f"length of test_9_desired_angles: {len(test_9_desired_angles)}, frequency {(len(test_9_desired_angles)/10):.2f} Hz, average processing time {10/len(test_9_desired_angles)} ms")
+
+    #-----------------------------------------------------------------------------------------------------------------------------------
+
+    test_10_desired_angles_emg = []
+    test_10_desired_angles = []
+    test_10_activations = []
+    test_10_t = []
+    kn = 10.0
+    kd = 2.0
+    b = 2.0
+    v = 0
+    v_emg = 0
+    test_10_desired_angles.append(q)
+    a_prev = 0
+
+    print("Press Enter to start test 10: EMG to position with optimization 10")
+    input()
+    start_time = time.time()
+    last_t = start_time
+    while time.time() - start_time < 10:  # Run the test for 10 seconds
+        print(f"elapsed time: {time.time() - start_time:.2f} seconds", end='\r')
+        reading = emg.read()
+
+        filtered_bicep = filter_bicep.bandpass(reading[0])
+        filtered_tricep = filter_tricep.bandpass(reading[1])
+
+        if Bicep_RMS_queue.full():
+            Bicep_RMS_queue.get()
+        Bicep_RMS_queue.put(filtered_bicep)
+        if Tricep_RMS_queue.full():
+            Tricep_RMS_queue.get()
+        Tricep_RMS_queue.put(filtered_tricep)
+
+        Bicep_RMS = np.sqrt(np.mean(np.array(list(Bicep_RMS_queue.queue))**2))
+        Tricep_RMS = np.sqrt(np.mean(np.array(list(Tricep_RMS_queue.queue))**2))
+
+        filtered_bicep_rms = float(filter_bicep.lowpass(np.atleast_1d(Bicep_RMS))[0])
+        filtered_tricep_rms = float(filter_tricep.lowpass(np.atleast_1d(Tricep_RMS))[0])
+
+        activation = interpreter.compute_activation([filtered_bicep_rms, filtered_tricep_rms])
+        net_a = activation[0] - activation[1]  # Compute net activation (bicep - tricep)
+        filtered_net_a = float(net_a_lowpass.lowpass(np.atleast_1d(net_a))[0])
+        
+        delta_t = 1/FS
+        test_10_t.append(delta_t)
+        a_d = (filtered_net_a - a_prev) / delta_t
+        a_prev = filtered_net_a
+        desired_angle = float(interpreter.compute_angle(filtered_net_a))
+
+        optimized_angle_emg, v_emg, acc_emg = EMG_Optimizer(filtered_net_a, a_d, v_emg, kn, kd, b, desired_angle, THETA_MIN, THETA_MAX, np.pi, delta_t)
+        optimized_angle, v, acc = EMG_Optimizer(filtered_net_a, a_d, v, kn, kd, b, test_10_desired_angles[-1], THETA_MIN, THETA_MAX, np.pi, delta_t)
+        test_10_desired_angles_emg.append(optimized_angle_emg)
+        test_10_desired_angles.append(optimized_angle)
+        test_10_activations.append(filtered_net_a)
+
+    # remove the initial angle from the optimized angles lists
+    test_10_desired_angles.remove(test_10_desired_angles[0])
+
+    print(f"length of test_10_desired_angles: {len(test_10_desired_angles)}, frequency {(len(test_10_desired_angles)/10):.2f} Hz, average processing time {10/len(test_10_desired_angles)} ms")
 
     #-----------------------------------------------------------------------------------------------------------------------------------
 
@@ -620,16 +727,16 @@ if __name__ == "__main__":
     plt.tight_layout()
     plt.show()
 
-    # # save test 1 data to csv
-    # if not os.path.exists(SAVE_PATH):
-    #     os.makedirs(SAVE_PATH)
+    # save test 1 data to csv
+    if not os.path.exists(SAVE_PATH):
+        os.makedirs(SAVE_PATH)
 
-    # test1_results_df = pd.DataFrame({
-    #     "Time": time_vector,
-    #     "Net Activation": test1_activations,
-    #     "Desired Angle": test1_desired_angles,
-    # })
-    # test1_results_df.to_csv(SAVE_PATH + "/test1_results.csv", index=False)    
+    test1_results_df = pd.DataFrame({
+        "Time": time_vector,
+        "Net Activation": test1_activations,
+        "Desired Angle": test1_desired_angles,
+    })
+    test1_results_df.to_csv(SAVE_PATH + "/test1_results.csv", index=False)    
 
     # Calculate the velocity, acceleration and jerk for the test
     test2_velocities = np.gradient(test2_desired_angles, dt) # np.diff(test2_desired_angles) / dt
@@ -711,13 +818,13 @@ if __name__ == "__main__":
     plt.show()
 
     # Save test 2 data to CSV
-    # test2_results_df = pd.DataFrame({
-    #     "Time": time_vector,
-    #     "Net Activation": test2_activations,
-    #     "Optimized Desired Angle": test2_desired_angles,
-    #     "Optimized Desired Angle EMG": test2_desired_emg_angles,
-    # })
-    # test2_results_df.to_csv(SAVE_PATH + "/test2_results.csv", index=False)
+    test2_results_df = pd.DataFrame({
+        "Time": time_vector,
+        "Net Activation": test2_activations,
+        "Optimized Desired Angle": test2_desired_angles,
+        "Optimized Desired Angle EMG": test2_desired_emg_angles,
+    })
+    test2_results_df.to_csv(SAVE_PATH + "/test2_results.csv", index=False)
 
     # Calculate the velocity, acceleration and jerk for the test
     test3_velocities = np.gradient(test3_desired_angles, dt) # np.diff(test3_desired_angles) / dt
@@ -799,13 +906,13 @@ if __name__ == "__main__":
     plt.show()
 
     # Save test 3 data to CSV
-    # test3_results_df = pd.DataFrame({
-    #     "Time": time_vector,
-    #     "Net Activation": test3_activations,
-    #     "Optimized Desired Angle": test3_desired_angles,
-    #     "Optimized Desired Angle EMG": test3_desired_emg_angles,
-    #     })
-    # test3_results_df.to_csv(SAVE_PATH + "/test3_results.csv", index=False)
+    test3_results_df = pd.DataFrame({
+        "Time": time_vector,
+        "Net Activation": test3_activations,
+        "Optimized Desired Angle": test3_desired_angles,
+        "Optimized Desired Angle EMG": test3_desired_emg_angles,
+        })
+    test3_results_df.to_csv(SAVE_PATH + "/test3_results.csv", index=False)
 
 
     # Calculate the velocity, acceleration and jerk for the test
@@ -887,13 +994,13 @@ if __name__ == "__main__":
     plt.tight_layout()
     plt.show()
 
-    # test4_results_df = pd.DataFrame({
-    #     "Time": time_vector,
-    #     "Net Activation": test4_activations,
-    #     "Optimized Desired Angle": test4_desired_angles,
-    #     "Optimized Desired Angle EMG": test4_desired_emg_angles,
-    # })
-    # test4_results_df.to_csv(SAVE_PATH + "/test4_results.csv", index=False)
+    test4_results_df = pd.DataFrame({
+        "Time": time_vector,
+        "Net Activation": test4_activations,
+        "Optimized Desired Angle": test4_desired_angles,
+        "Optimized Desired Angle EMG": test4_desired_emg_angles,
+    })
+    test4_results_df.to_csv(SAVE_PATH + "/test4_results.csv", index=False)
 
     # Calculate the velocity, acceleration and jerk for the test
     test5_velocities = np.gradient(test5_desired_angles, dt) # np.diff(test5_desired_angles) / dt
@@ -974,13 +1081,169 @@ if __name__ == "__main__":
     plt.tight_layout()
     plt.show()
 
-    # test5_results_df = pd.DataFrame({
-    #     "Time": time_vector,
-    #     "Net Activation": test5_activations,
-    #     "Optimized Desired Angle": test5_desired_angles,
-    #     "Optimized Desired Angle EMG": test5_desired_emg_angles,
-    # })
-    # test5_results_df.to_csv(SAVE_PATH + "/test5_results.csv", index=False)
+    test5_results_df = pd.DataFrame({
+        "Time": time_vector,
+        "Net Activation": test5_activations,
+        "Optimized Desired Angle": test5_desired_angles,
+        "Optimized Desired Angle EMG": test5_desired_emg_angles,
+    })
+    test5_results_df.to_csv(SAVE_PATH + "/test5_results.csv", index=False)
+
+    # Calculate velocity acceleration and jerk
+    time_vector = np.arange(len(test_9_desired_angles)) * dt
+    test_9_emg_velocities = np.gradient(test_9_desired_emg_angles, dt) # np.diff(test_9_desired_emg_angles) / dt
+    test_9_emg_accelerations = np.gradient(test_9_emg_velocities, dt) # np.diff(test_9_emg_velocities) / dt
+    test_9_emg_jerks = np.gradient(test_9_emg_accelerations, dt) # np.diff(test_9_emg_accelerations) / dt
+
+    test_9_velocities = np.gradient(test_9_desired_angles, dt) # np.diff(test_9_desired_angles) / dt
+    test_9_accelerations = np.gradient(test_9_velocities, dt) # np.diff(test_9_velocities) / dt
+    test_9_jerks = np.gradient(test_9_accelerations, dt) # np.diff(test_9_accelerations) / dt
+
+    plt.figure(figsize=(15, 10))
+    plt.suptitle("Test 9: EMG to position with optimization 6")
+    plt.subplot(5, 1, 1)
+    plt.plot(time_vector, test_9_activations, label="Net Activation (Bicep - Tricep)")
+    plt.xlabel("Time (s)")
+    plt.ylabel("Net Activation")
+    plt.ylim(-1, 1)
+    plt.subplot(5, 1, 2)
+    plt.plot(time_vector, test_9_desired_emg_angles, label="Optimized Desired Angle (EMG)")
+    plt.xlabel("Time (s)")
+    plt.ylabel("Desired Angle (degrees)")
+    plt.legend()
+    plt.subplot(5, 1, 3)
+    plt.plot(time_vector, test_9_emg_velocities, label="Velocity (EMG)")
+    plt.xlabel("Time (s)")
+    plt.ylabel("Velocity (degrees/s)")
+    plt.legend()
+    plt.subplot(5, 1, 4)
+    plt.plot(time_vector, test_9_emg_accelerations, label="Acceleration (EMG)")
+    plt.xlabel("Time (s)")
+    plt.ylabel("Acceleration (degrees/s^2)")
+    plt.legend()
+    plt.subplot(5, 1, 5)
+    plt.plot(time_vector, test_9_emg_jerks, label="Jerk (EMG)")
+    plt.xlabel("Time (s)")
+    plt.ylabel("Jerk (degrees/s^3)")
+    plt.legend()
+    plt.tight_layout()
+    plt.show()
+
+    plt.figure(figsize=(15, 10))
+    plt.suptitle("Test 9: EMG to position with optimization 6")
+    plt.subplot(5, 1, 1)
+    plt.plot(time_vector, test_9_activations, label="Net Activation (Bicep - Tricep)")
+    plt.xlabel("Time (s)")
+    plt.ylabel("Net Activation")
+    plt.ylim(-1, 1)
+    plt.subplot(5, 1, 2)
+    plt.plot(time_vector, test_9_desired_angles, label="Optimized Desired Angle")
+    plt.xlabel("Time (s)")
+    plt.ylabel("Desired Angle (degrees)")
+    plt.legend()
+    plt.subplot(5, 1, 3)
+    plt.plot(time_vector, test_9_velocities, label="Velocity")
+    plt.xlabel("Time (s)")
+    plt.ylabel("Velocity (degrees/s)")
+    plt.legend()
+    plt.subplot(5, 1, 4)
+    plt.plot(time_vector, test_9_accelerations, label="Acceleration")
+    plt.xlabel("Time (s)")
+    plt.ylabel("Acceleration (degrees/s^2)")
+    plt.legend()
+    plt.subplot(5, 1, 5)
+    plt.plot(time_vector, test_9_jerks, label="Jerk")
+    plt.xlabel("Time (s)")
+    plt.ylabel("Jerk (degrees/s^3)")
+    plt.legend()
+    plt.tight_layout()
+    plt.show()
+
+    test9_results_df = pd.DataFrame({
+        "Time": time_vector,
+        "Net Activation": test_9_activations,
+        "Optimized Desired Angle": test_9_desired_angles,
+        "Optimized Desired Angle EMG": test_9_desired_emg_angles,
+    })
+    test9_results_df.to_csv(SAVE_PATH + "/test9_results.csv", index=False)
+
+    # calculate velocity acceleration and jerk
+    time_vector = np.arange(len(test_10_desired_angles)) * dt
+    test_10_emg_velocities = np.gradient(test_10_desired_angles_emg, dt) # np.diff(test_10_desired_emg_angles) / dt
+    test_10_emg_accelerations = np.gradient(test_10_emg_velocities, dt) # np.diff(test_10_emg_velocities) / dt
+    test_10_emg_jerks = np.gradient(test_10_emg_accelerations, dt) # np.diff(test_10_emg_accelerations) / dt
+
+    test_10_velocities = np.gradient(test_10_desired_angles, dt) # np.diff(test_10_desired_angles) / dt
+    test_10_accelerations = np.gradient(test_10_velocities, dt) # np.diff(test_10_velocities) / dt
+    test_10_jerks = np.gradient(test_10_accelerations, dt) # np.diff(test_10_accelerations) / dt
+
+    plt.figure(figsize=(15, 10))
+    plt.suptitle("Test 10: EMG to position with EMG Optimizer")
+    plt.subplot(5, 1, 1)
+    plt.plot(time_vector, test_10_activations, label="Net Activation (Bicep - Tricep)")
+    plt.xlabel("Time (s)")
+    plt.ylabel("Net Activation")
+    plt.ylim(-1, 1)
+    plt.subplot(5, 1, 2)
+    plt.plot(time_vector, test_10_desired_angles_emg, label="Optimized Desired Angle (EMG)")
+    plt.xlabel("Time (s)")
+    plt.ylabel("Desired Angle (degrees)")
+    plt.legend()
+    plt.subplot(5, 1, 3)
+    plt.plot(time_vector, test_10_emg_velocities, label="Velocity (EMG)")
+    plt.xlabel("Time (s)")
+    plt.ylabel("Velocity (degrees/s)")
+    plt.legend()
+    plt.subplot(5, 1, 4)
+    plt.plot(time_vector, test_10_emg_accelerations, label="Acceleration (EMG)")
+    plt.xlabel("Time (s)")
+    plt.ylabel("Acceleration (degrees/s^2)")
+    plt.legend()
+    plt.subplot(5, 1, 5)
+    plt.plot(time_vector, test_10_emg_jerks, label="Jerk (EMG)")
+    plt.xlabel("Time (s)")
+    plt.ylabel("Jerk (degrees/s^3)")
+    plt.legend()
+    plt.tight_layout()
+    plt.show()
+
+    plt.figure(figsize=(15, 10))
+    plt.suptitle("Test 10: EMG to position with EMG Optimizer")
+    plt.subplot(5, 1, 1)
+    plt.plot(time_vector, test_10_activations, label="Net Activation (Bicep - Tricep)")
+    plt.xlabel("Time (s)")
+    plt.ylabel("Net Activation")
+    plt.ylim(-1, 1)
+    plt.subplot(5, 1, 2)
+    plt.plot(time_vector, test_10_desired_angles, label="Optimized Desired Angle")
+    plt.xlabel("Time (s)")
+    plt.ylabel("Desired Angle (degrees)")
+    plt.legend()
+    plt.subplot(5, 1, 3)
+    plt.plot(time_vector, test_10_velocities, label="Velocity")
+    plt.xlabel("Time (s)")
+    plt.ylabel("Velocity (degrees/s)")
+    plt.legend()
+    plt.subplot(5, 1, 4)
+    plt.plot(time_vector, test_10_accelerations, label="Acceleration")
+    plt.xlabel("Time (s)")
+    plt.ylabel("Acceleration (degrees/s^2)")
+    plt.legend()
+    plt.subplot(5, 1, 5)
+    plt.plot(time_vector, test_10_jerks, label="Jerk")
+    plt.xlabel("Time (s)")
+    plt.ylabel("Jerk (degrees/s^3)")
+    plt.legend()
+    plt.tight_layout()
+    plt.show()
+
+    test10_results_df = pd.DataFrame({
+        "Time": time_vector,
+        "Net Activation": test_10_activations,
+        "Optimized Desired Angle": test_10_desired_angles,
+        "Optimized Desired Angle EMG": test_10_desired_angles_emg,
+    })
+    test10_results_df.to_csv(SAVE_PATH + "/test10_results.csv", index=False)
 
     # Calculate the velocity, acceleration and jerk for the test
     test6_velocities = np.gradient(test6_desired_angles, dt) # np.diff(test6_desired_angles) / dt
@@ -1023,12 +1286,12 @@ if __name__ == "__main__":
     plt.tight_layout()
     plt.show()
 
-    # test6_results_df = pd.DataFrame({
-    #     "Time": time_vector,
-    #     "Net Activation": test6_activations,
-    #     "Desired Angle": test6_desired_angles,
-    # })
-    # test6_results_df.to_csv(SAVE_PATH + "/test6_results.csv", index=False)
+    test6_results_df = pd.DataFrame({
+        "Time": time_vector,
+        "Net Activation": test6_activations,
+        "Desired Angle": test6_desired_angles,
+    })
+    test6_results_df.to_csv(SAVE_PATH + "/test6_results.csv", index=False)
 
     # Calculate the velocity, acceleration and jerk for the test
     test7_velocities = np.gradient(test7_desired_angles, dt) # np.diff(test7_desired_angles) / dt
@@ -1071,12 +1334,12 @@ if __name__ == "__main__":
     plt.tight_layout()
     plt.show()
 
-    # test7_results_df = pd.DataFrame({
-    #     "Time": time_vector,
-    #     "Net Activation": test7_activations,
-    #     "Desired Angle": test7_desired_angles,
-    # })
-    # test7_results_df.to_csv(SAVE_PATH + "/test7_results.csv", index=False)
+    test7_results_df = pd.DataFrame({
+        "Time": time_vector,
+        "Net Activation": test7_activations,
+        "Desired Angle": test7_desired_angles,
+    })
+    test7_results_df.to_csv(SAVE_PATH + "/test7_results.csv", index=False)
 
     # Calculate the velocity, acceleration and jerk for the test
     test8_velocities = np.gradient(test8_desired_angles, dt) # np.diff(test8_desired_angles) / dt
@@ -1119,12 +1382,12 @@ if __name__ == "__main__":
     plt.tight_layout()
     plt.show()
 
-    # test8_results_df = pd.DataFrame({
-    #     "Time": time_vector,
-    #     "Net Activation": test8_activations,
-    #     "Desired Angle": test8_desired_angles,
-    # })
-    # test8_results_df.to_csv(SAVE_PATH + "/test8_results.csv", index=False)
+    test8_results_df = pd.DataFrame({
+        "Time": time_vector,
+        "Net Activation": test8_activations,
+        "Desired Angle": test8_desired_angles,
+    })
+    test8_results_df.to_csv(SAVE_PATH + "/test8_results.csv", index=False)
 
     # ---------------------------------------------------------------------------------------------------------------------------------
     emg.stop()
