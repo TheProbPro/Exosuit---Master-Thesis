@@ -158,16 +158,21 @@ if __name__ == "__main__":
 
     # Test 1: Pure IMU processing
     test1_desired_angles = []
+    test1_activations = []
     print("Starting Test 1: IMU to position")
     ptime = []
     start_time = time.time()
     last_time = start_time
     while time.time() - start_time < 10:  # Run the test for 10 seconds
+        print(f"elapsed time: {time.time() - start_time:.2f} seconds", end='\r')
         try:
             imu_data = imu_queue.get_nowait()
+            a = emg_activation_queue.get_nowait()
         except queue.Empty:
             continue
-
+        
+        a = float(lowpass.lowpass(np.atleast_1d(a))[0])  # Lowpass filter activation and keep scalar type
+        test1_activations.append(a)
         imu_data = np.asarray(imu_data, dtype=float).reshape(-1)
 
         # Extract accelerometer and gyroscope data for upper and lower arm
@@ -197,13 +202,14 @@ if __name__ == "__main__":
     test2_desired_IMU_angles = []
     test2_desired_angles = []
     test2_activations = []
-    k = (1.4 * np.pi) / 3
+    k = 3 * np.pi
     q = 0  # Initial angle (degrees)
     test2_desired_angles.append(q)
     print("Starting Test 2: IMU processing + optimization 1")
     start_time = time.time()
     last_time = start_time
     while time.time() - start_time < 10:  # Run the test for 10 seconds
+        print(f"elapsed time: {time.time() - start_time:.2f} seconds", end='\r')
         try:
             imu_data = imu_queue.get_nowait()
             a = emg_activation_queue.get_nowait()
@@ -247,13 +253,14 @@ if __name__ == "__main__":
     test3_desired_IMU_angles = []
     test3_desired_angles = []
     test3_activations = []
-    k = 2 * np.pi
+    k = 4 * np.pi
     q = 0  # Initial angle (degrees)
     test3_desired_angles.append(q)
     print("Starting Test 3: IMU processing + optimization 2")
     start_time = time.time()
     last_time = start_time
     while time.time() - start_time < 10:  # Run the test for 10 seconds
+        print(f"elapsed time: {time.time() - start_time:.2f} seconds", end='\r')
         try:
             imu_data = imu_queue.get_nowait()
             a = emg_activation_queue.get_nowait()
@@ -297,7 +304,7 @@ if __name__ == "__main__":
     test4_desired_IMU_angles = []
     test4_desired_angles = []
     test4_activations = []
-    k = (1.4 * np.pi) / 3
+    k = 2 * np.pi
     q = 0  # Initial angle (degrees)
     test4_desired_angles.append(q)
     delta_q_prev_IMU = 0
@@ -306,6 +313,7 @@ if __name__ == "__main__":
     start_time = time.time()
     last_time = start_time
     while time.time() - start_time < 10:  # Run the test for 10 seconds
+        print(f"elapsed time: {time.time() - start_time:.2f} seconds", end='\r')
         try:
             imu_data = imu_queue.get_nowait()
             a = emg_activation_queue.get_nowait()
@@ -348,9 +356,9 @@ if __name__ == "__main__":
     test5_desired_IMU_angles = []
     test5_desired_angles = []
     test5_activations = []
-    k = 1.3
+    k = 4
     # b = 0.01
-    b = 0.005
+    b = 0.01
     v = 0
     v_imu = 0
     q = 0  # Initial angle (degrees)
@@ -359,6 +367,7 @@ if __name__ == "__main__":
     start_time = time.time()
     last_time = start_time
     while time.time() - start_time < 10:  # Run the test for 10 seconds
+        print(f"elapsed time: {time.time() - start_time:.2f} seconds", end='\r')
         try:
             imu_data = imu_queue.get_nowait()
             a = emg_activation_queue.get_nowait()
@@ -381,8 +390,8 @@ if __name__ == "__main__":
         dt = 1/IMU_FS
         ptime.append(dt)
         last_time = t
-        optimized_angle_IMU, v_imu = optimize_5_pd(a, v_imu, dt, elbow_angle, THETA_MIN, THETA_MAX, k, b)
-        optimized_angle, v = optimize_5_pd(a, v, dt, test5_desired_angles[-1], THETA_MIN, THETA_MAX, k, b)
+        optimized_angle_IMU, v_imu = optimize_5_pd(a, v_imu, dt, elbow_angle, THETA_MIN, THETA_MAX, np.pi, k, b)
+        optimized_angle, v = optimize_5_pd(a, v, dt, test5_desired_angles[-1], THETA_MIN, THETA_MAX, np.pi, k, b)
 
         test5_desired_IMU_angles.append(optimized_angle_IMU)
         test5_desired_angles.append(optimized_angle)
@@ -400,17 +409,22 @@ if __name__ == "__main__":
 
     # Test 6: IMU processing + optimization 5 with IMU optimization
     test6_desired_angles = []
+    test6_desired_IMU_angles = []
+    test6_activations = []
+    test6_diff_activations = []
+    test6_omega = []
     a_prev = 0
     q_next = 0
     v = 0
     elbow_angle_prev = 0
-    kn = 2
+    kn = 8
     kd = 2
-    kp = 2
+    kp = 5
     b = 2
     print("Starting Test 6: IMU processing + optimization 5 with IMU optimization")
     start_time = time.time()
     while time.time() - start_time < 10:  # Run the test for 10 seconds
+        print(f"elapsed time: {time.time() - start_time:.2f} seconds", end='\r')
         try:
             imu_data = imu_queue.get_nowait()
             a = emg_activation_queue.get_nowait()
@@ -420,6 +434,8 @@ if __name__ == "__main__":
         a = float(lowpass.lowpass(np.atleast_1d(a))[0])  # Lowpass filter activation and keep scalar type
         a_diff = (a - a_prev) # / dt
         a_prev = a
+        test6_diff_activations.append(a_diff)
+        test6_activations.append(a)
         imu_data = np.asarray(imu_data, dtype=float).reshape(-1)
 
         # Extract accelerometer and gyroscope data for upper and lower arm
@@ -431,6 +447,9 @@ if __name__ == "__main__":
         quat_upper, quat_lower = imuProcessor.calculate_quarternions(acc_upper, gyr_upper, acc_lower, gyr_lower)
         elbow_angle = imu_lowpass.lowpass(np.atleast_1d(np.deg2rad(imuProcessor.calculate_elbow_angle(quat_upper, quat_lower))))[0]
         omega = (elbow_angle - elbow_angle_prev) / dt
+        test6_omega.append(omega)
+        test6_desired_IMU_angles.append(elbow_angle)
+        elbow_angle_prev = elbow_angle
         
         dt = 1/IMU_FS
         ptime.append(dt)
@@ -444,9 +463,17 @@ if __name__ == "__main__":
 
     # Test 7 IMU processing + optimization 5 with IMU optimization 2
     test7_desired_angles = []
+    test7_desired_IMU_angles = []
+    test7_activations = []
+    test7_diff_activations = []
+    test7_omega = []
+    kn = 6
+    kd = 2
+    q_next = 0
     print("Starting Test 7: IMU processing + optimization 5 with IMU optimization 2")
     start_time = time.time()
     while time.time() - start_time < 10:  # Run the test for 10 seconds
+        print(f"elapsed time: {time.time() - start_time:.2f} seconds", end='\r')
         try:
             imu_data = imu_queue.get_nowait()
             a = emg_activation_queue.get_nowait()
@@ -456,6 +483,8 @@ if __name__ == "__main__":
         a = float(lowpass.lowpass(np.atleast_1d(a))[0])  # Lowpass filter activation and keep scalar type
         a_diff = (a - a_prev) # / dt
         a_prev = a
+        test7_diff_activations.append(a_diff)
+        test7_activations.append(a)
         imu_data = np.asarray(imu_data, dtype=float).reshape(-1)
 
         # Extract accelerometer and gyroscope data for upper and lower arm
@@ -467,11 +496,15 @@ if __name__ == "__main__":
         quat_upper, quat_lower = imuProcessor.calculate_quarternions(acc_upper, gyr_upper, acc_lower, gyr_lower)
         elbow_angle = imu_lowpass.lowpass(np.atleast_1d(np.deg2rad(imuProcessor.calculate_elbow_angle(quat_upper, quat_lower))))[0]
         omega = (elbow_angle - elbow_angle_prev) / dt
+        test7_omega.append(omega)
+        test7_desired_IMU_angles.append(elbow_angle)
+        elbow_angle_prev = elbow_angle
         
         dt = 1/IMU_FS
         ptime.append(dt)
 
-        q_next, v = EMG_IMU_optimizer_2(a, a_diff, omega, kn, kd, elbow_angle, THETA_MIN, THETA_MAX, np.pi, dt)
+        # q_next, v = EMG_IMU_optimizer_2(a, a_diff, omega, kn, kd, elbow_angle, THETA_MIN, THETA_MAX, np.pi, dt)
+        q_next, v = EMG_IMU_optimizer_2(a, a_diff, omega, kn, kd, q_next, THETA_MIN, THETA_MAX, np.pi, dt)
         test7_desired_angles.append(q_next)
 
     lowpass.reset()  # Reset the lowpass filter state after the test
@@ -554,19 +587,23 @@ if __name__ == "__main__":
     # Generate plots for all tests
     plt.figure(figsize=(15, 10))
     plt.title("Test 1: IMU to position")
-    plt.subplot(4, 1, 1)
+    plt.subplot(5, 1, 1)
     plt.plot(test1_desired_angles, label="Desired Angle")
     plt.xlabel("Time (s)")
     plt.ylabel("Desired Angle (degrees)")
-    plt.subplot(4, 1, 2)
+    plt.subplot(5,1,2)
+    plt.plot(test1_activations, label="Activation")
+    plt.xlabel("Time (s)")
+    plt.ylabel("Activation")
+    plt.subplot(5, 1, 3)
     plt.plot(test1_velocities, label="Velocity")
     plt.xlabel("Time (s)")
     plt.ylabel("Velocity (degrees/s)")
-    plt.subplot(4, 1, 3)
+    plt.subplot(5, 1, 4)
     plt.plot(test1_accelerations, label="Acceleration")
     plt.xlabel("Time (s)")
     plt.ylabel("Acceleration (degrees/s^2)")
-    plt.subplot(4, 1, 4)
+    plt.subplot(5, 1, 5)
     plt.plot(test1_jerks, label="Jerk")
     plt.xlabel("Time (s)")
     plt.ylabel("Jerk (degrees/s^3)")
@@ -578,6 +615,7 @@ if __name__ == "__main__":
     
     test1_results_df = pd.DataFrame({
         "Time": time_vector1,
+        "Net Activation": test1_activations,
         "Desired Angle": test1_desired_angles,
     })
     test1_results_df.to_csv(SAVE_PATH + "/test1_results.csv", index=False)
@@ -838,7 +876,11 @@ if __name__ == "__main__":
 
     test6_results_df = pd.DataFrame({
         "Time": time_vector6,
+        "Net Activation": test6_activations,
+        "IMU Angle": test6_desired_IMU_angles,
         "Desired Angle": test6_desired_angles,
+        "IMU Velocity": test6_omega,
+        "Net Activation (Differens)": test6_diff_activations
     })
     test6_results_df.to_csv(SAVE_PATH + "/test6_results.csv", index=False)
     
@@ -862,5 +904,9 @@ if __name__ == "__main__":
     test7_results_df = pd.DataFrame({
         "Time": time_vector7,
         "Desired Angle": test7_desired_angles,
+        "Net Activation": test7_activations,
+        "IMU Angle": test7_desired_IMU_angles,
+        "IMU Velocity": test7_omega,
+        "Net Activation (Differens)": test7_diff_activations
     })
     test7_results_df.to_csv(SAVE_PATH + "/test7_results.csv", index=False)
