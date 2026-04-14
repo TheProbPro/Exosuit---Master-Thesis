@@ -56,6 +56,7 @@ def compute_derivatives(traj, dt):
     return vel, acc, jerk
 
 show_trajectories = True
+# show_trajectories = False
 
 if __name__ == "__main__":
     dt_emg = 1/2000
@@ -106,6 +107,7 @@ if __name__ == "__main__":
 
             if show_trajectories:
                 plt.figure(figsize=(12, 8))
+                plt.suptitle("Raw EMG trajectory")
                 plt.subplot(4, 1, 1)
                 plt.plot(desired_angle, label="Desired Angle")
                 plt.title("Desired Angle")
@@ -136,6 +138,7 @@ if __name__ == "__main__":
 
             if show_trajectories:
                 plt.figure(figsize=(12, 8))
+                plt.suptitle("Optimzer 1")
                 plt.subplot(4, 1, 1)
                 plt.plot(desired_angle, label="Optimized Desired Angle")
                 # plt.plot(desired_angle_emg, label="Optimized Desired Angle EMG")
@@ -174,6 +177,7 @@ if __name__ == "__main__":
 
             if show_trajectories:
                 plt.figure(figsize=(12, 8))
+                plt.suptitle("Optimzer 2")
                 plt.subplot(4, 1, 1)
                 plt.plot(desired_angle, label="Optimized Desired Angle")
                 # plt.plot(desired_angle_emg, label="Optimized Desired Angle EMG")
@@ -213,6 +217,7 @@ if __name__ == "__main__":
 
             if show_trajectories:
                 plt.figure(figsize=(12, 8))
+                plt.suptitle("Optimzer 3")
                 plt.subplot(4, 1, 1)
                 plt.plot(desired_angle, label="Optimized Desired Angle")
                 # plt.plot(desired_angle_emg, label="Optimized Desired Angle EMG")
@@ -253,6 +258,7 @@ if __name__ == "__main__":
 
             if show_trajectories:
                 plt.figure(figsize=(12, 8))
+                plt.suptitle("Optimzer 4")
                 plt.subplot(4, 1, 1)
                 plt.plot(desired_angle, label="Optimized Desired Angle")
                 # plt.plot(desired_angle_emg, label="Optimized Desired Angle EMG")
@@ -289,6 +295,7 @@ if __name__ == "__main__":
 
             if show_trajectories:
                 plt.figure(figsize=(12, 8))
+                plt.suptitle("pDMP")
                 plt.subplot(4, 1, 1)
                 plt.plot(desired_angle, label="Desired Angle")
                 plt.title("Desired Angle")
@@ -317,6 +324,7 @@ if __name__ == "__main__":
 
             if show_trajectories:
                 plt.figure(figsize=(12, 8))
+                plt.suptitle("pDMP coupled")
                 plt.subplot(4, 1, 1)
                 plt.plot(desired_angle, label="Desired Angle")
                 plt.title("Desired Angle")
@@ -345,6 +353,7 @@ if __name__ == "__main__":
 
             if show_trajectories:
                 plt.figure(figsize=(12, 8))
+                plt.suptitle("pDMP Omega")
                 plt.subplot(4, 1, 1)
                 plt.plot(desired_angle, label="Desired Angle")
                 plt.title("Desired Angle")
@@ -375,6 +384,7 @@ if __name__ == "__main__":
 
             if show_trajectories:
                 plt.figure(figsize=(12, 8))
+                plt.suptitle("Optimzer 5")
                 plt.subplot(4, 1, 1)
                 plt.plot(desired_angle, label="Optimized Desired Angle")
                 # plt.plot(desired_angle_emg, label="Optimized Desired Angle EMG")
@@ -414,6 +424,7 @@ if __name__ == "__main__":
 
             if show_trajectories:
                 plt.figure(figsize=(12, 8))
+                plt.suptitle("Optimzer 6")
                 plt.subplot(4, 1, 1)
                 plt.plot(desired_angle, label="Optimized Desired Angle")
                 # plt.plot(desired_angle_emg, label="Optimized Desired Angle EMG")
@@ -450,6 +461,7 @@ if __name__ == "__main__":
 
             if show_trajectories:
                 plt.figure(figsize=(12, 8))
+                plt.suptitle("Raw IMU")
                 plt.subplot(4, 1, 1)
                 plt.plot(desired_angle, label="Desired Angle")
                 plt.title("Desired Angle")
@@ -481,6 +493,7 @@ if __name__ == "__main__":
 
             if show_trajectories:
                 plt.figure(figsize=(12, 8))
+                plt.suptitle("Optimzer 1 IMU")
                 plt.subplot(4, 1, 1)
                 plt.plot(desired_angle, label="Optimized Desired Angle")
                 # plt.plot(desired_angle_imu, label="Optimized Desired Angle IMU")
@@ -519,6 +532,7 @@ if __name__ == "__main__":
 
             if show_trajectories:
                 plt.figure(figsize=(12, 8))
+                plt.suptitle("Optimzer 2 IMU")
                 plt.subplot(4, 1, 1)
                 plt.plot(desired_angle, label="Optimized Desired Angle")
                 # plt.plot(desired_angle_imu, label="Optimized Desired Angle IMU")
@@ -558,6 +572,7 @@ if __name__ == "__main__":
 
             if show_trajectories:
                 plt.figure(figsize=(12, 8))
+                plt.suptitle("Optimzer 3 IMU")
                 plt.subplot(4, 1, 1)
                 plt.plot(desired_angle, label="Optimized Desired Angle")
                 # plt.plot(desired_angle_imu, label="Optimized Desired Angle IMU")
@@ -597,6 +612,7 @@ if __name__ == "__main__":
 
             if show_trajectories:
                 plt.figure(figsize=(12, 8))
+                plt.suptitle("Optimzer 4 IMU")
                 plt.subplot(4, 1, 1)
                 plt.plot(desired_angle, label="Optimized Desired Angle")
                 # plt.plot(desired_angle_imu, label="Optimized Desired Angle IMU")
@@ -637,6 +653,7 @@ if __name__ == "__main__":
 
             if show_trajectories:
                 plt.figure(figsize=(12, 8))
+                plt.suptitle("Optimizer 5 IMU")
                 plt.subplot(4, 1, 1)
                 plt.plot(desired_angle, label="Optimized Desired Angle")
                 # plt.plot(desired_angle_imu, label="Optimized Desired Angle IMU")
@@ -676,6 +693,7 @@ if __name__ == "__main__":
 
             if show_trajectories:
                 plt.figure(figsize=(12, 8))
+                plt.suptitle("Optimizer 6 IMU")
                 plt.subplot(4, 1, 1)
                 plt.plot(desired_angle, label="Optimized Desired Angle")
                 # plt.plot(desired_angle_imu, label="Optimized Desired Angle IMU")
@@ -705,146 +723,204 @@ if __name__ == "__main__":
     emg_1_median_jerk = np.median(np.abs(emg_1_jerks))
     emg_1_sigma = np.std(np.abs(emg_1_jerks))
     emg_1_max_jerk = np.max(np.abs(emg_1_jerks))
+    emg_1_q25 = np.percentile(np.abs(emg_1_jerks), 25)
+    emg_1_q75 = np.percentile(np.abs(emg_1_jerks), 75)
 
     emg_2_mean_jerk = np.mean(np.abs(emg_2_jerks))
     emg_2_median_jerk = np.median(np.abs(emg_2_jerks))
     emg_2_sigma = np.std(np.abs(emg_2_jerks))
     emg_2_max_jerk = np.max(np.abs(emg_2_jerks))
+    emg_2_q25 = np.percentile(np.abs(emg_2_jerks), 25)
+    emg_2_q75 = np.percentile(np.abs(emg_2_jerks), 75)
 
     emg_2_mean_jerk_emg = np.mean(np.abs(emg_2_jerks_emg))
     emg_2_median_jerk_emg = np.median(np.abs(emg_2_jerks_emg))
     emg_2_sigma_emg = np.std(np.abs(emg_2_jerks_emg))
     emg_2_max_jerk_emg = np.max(np.abs(emg_2_jerks_emg))
+    emg_2_q25_emg = np.percentile(np.abs(emg_2_jerks_emg), 25)
+    emg_2_q75_emg = np.percentile(np.abs(emg_2_jerks_emg), 75)
 
     emg_3_mean_jerk = np.mean(np.abs(emg_3_jerks))
     emg_3_median_jerk = np.median(np.abs(emg_3_jerks))
     emg_3_sigma = np.std(np.abs(emg_3_jerks))
     emg_3_max_jerk = np.max(np.abs(emg_3_jerks))
+    emg_3_q25 = np.percentile(np.abs(emg_3_jerks), 25)
+    emg_3_q75 = np.percentile(np.abs(emg_3_jerks), 75)
 
     emg_3_mean_jerk_emg = np.mean(np.abs(emg_3_jerks_emg))
     emg_3_median_jerk_emg = np.median(np.abs(emg_3_jerks_emg))
     emg_3_sigma_emg = np.std(np.abs(emg_3_jerks_emg))
     emg_3_max_jerk_emg = np.max(np.abs(emg_3_jerks_emg))
+    emg_3_q25_emg = np.percentile(np.abs(emg_3_jerks_emg), 25)
+    emg_3_q75_emg = np.percentile(np.abs(emg_3_jerks_emg), 75)
 
     emg_4_mean_jerk = np.mean(np.abs(emg_4_jerks))
     emg_4_median_jerk = np.median(np.abs(emg_4_jerks))
     emg_4_sigma = np.std(np.abs(emg_4_jerks))
     emg_4_max_jerk = np.max(np.abs(emg_4_jerks))
+    emg_4_q25 = np.percentile(np.abs(emg_4_jerks), 25)
+    emg_4_q75 = np.percentile(np.abs(emg_4_jerks), 75)
 
     emg_4_mean_jerk_emg = np.mean(np.abs(emg_4_jerks_emg))
     emg_4_median_jerk_emg = np.median(np.abs(emg_4_jerks_emg))
     emg_4_sigma_emg = np.std(np.abs(emg_4_jerks_emg))
     emg_4_max_jerk_emg = np.max(np.abs(emg_4_jerks_emg))
+    emg_4_q25_emg = np.percentile(np.abs(emg_4_jerks_emg), 25)
+    emg_4_q75_emg = np.percentile(np.abs(emg_4_jerks_emg), 75)
     
     emg_5_mean_jerk = np.mean(np.abs(emg_5_jerks))
     emg_5_median_jerk = np.median(np.abs(emg_5_jerks))
     emg_5_sigma = np.std(np.abs(emg_5_jerks))
     emg_5_max_jerk = np.max(np.abs(emg_5_jerks))
+    emg_5_q25 = np.percentile(np.abs(emg_5_jerks), 25)
+    emg_5_q75 = np.percentile(np.abs(emg_5_jerks), 75)
     
     emg_5_mean_jerk_emg = np.mean(np.abs(emg_5_jerks_emg))
     emg_5_median_jerk_emg = np.median(np.abs(emg_5_jerks_emg))
     emg_5_sigma_emg = np.std(np.abs(emg_5_jerks_emg))
     emg_5_max_jerk_emg = np.max(np.abs(emg_5_jerks_emg))
-    
+    emg_5_q25_emg = np.percentile(np.abs(emg_5_jerks_emg), 25)
+    emg_5_q75_emg = np.percentile(np.abs(emg_5_jerks_emg), 75)
+
     emg_6_mean_jerk = np.mean(np.abs(emg_6_jerks))
     emg_6_median_jerk = np.median(np.abs(emg_6_jerks))
     emg_6_sigma = np.std(np.abs(emg_6_jerks))
     emg_6_max_jerk = np.max(np.abs(emg_6_jerks))
+    emg_6_q25 = np.percentile(np.abs(emg_6_jerks), 25)
+    emg_6_q75 = np.percentile(np.abs(emg_6_jerks), 75)
 
     emg_7_mean_jerk = np.mean(np.abs(emg_7_jerks))
     emg_7_median_jerk = np.median(np.abs(emg_7_jerks))
     emg_7_sigma = np.std(np.abs(emg_7_jerks))
     emg_7_max_jerk = np.max(np.abs(emg_7_jerks))
+    emg_7_q25 = np.percentile(np.abs(emg_7_jerks), 25)
+    emg_7_q75 = np.percentile(np.abs(emg_7_jerks), 75)
     
     emg_8_mean_jerk = np.mean(np.abs(emg_8_jerks))
     emg_8_median_jerk = np.median(np.abs(emg_8_jerks))
     emg_8_sigma = np.std(np.abs(emg_8_jerks))
     emg_8_max_jerk = np.max(np.abs(emg_8_jerks))
+    emg_8_q25 = np.percentile(np.abs(emg_8_jerks), 25)
+    emg_8_q75 = np.percentile(np.abs(emg_8_jerks), 75)
     
     emg_9_mean_jerk = np.mean(np.abs(emg_9_jerks))
     emg_9_median_jerk = np.median(np.abs(emg_9_jerks))
     emg_9_sigma = np.std(np.abs(emg_9_jerks))
     emg_9_max_jerk = np.max(np.abs(emg_9_jerks))
+    emg_9_q25 = np.percentile(np.abs(emg_9_jerks), 25)
+    emg_9_q75 = np.percentile(np.abs(emg_9_jerks), 75)
     
     emg_9_mean_jerk_emg = np.mean(np.abs(emg_9_jerks_emg))
     emg_9_median_jerk_emg = np.median(np.abs(emg_9_jerks_emg))
     emg_9_sigma_emg = np.std(np.abs(emg_9_jerks_emg))
     emg_9_max_jerk_emg = np.max(np.abs(emg_9_jerks_emg))
+    emg_9_q25_emg = np.percentile(np.abs(emg_9_jerks_emg), 25)
+    emg_9_q75_emg = np.percentile(np.abs(emg_9_jerks_emg), 75)
     
     emg_10_mean_jerk = np.mean(np.abs(emg_10_jerks))
     emg_10_median_jerk = np.median(np.abs(emg_10_jerks))
     emg_10_sigma = np.std(np.abs(emg_10_jerks))
     emg_10_max_jerk = np.max(np.abs(emg_10_jerks))
+    emg_10_q25 = np.percentile(np.abs(emg_10_jerks), 25)
+    emg_10_q75 = np.percentile(np.abs(emg_10_jerks), 75)
     
     emg_10_mean_jerk_emg = np.mean(np.abs(emg_10_jerks_emg))
     emg_10_median_jerk_emg = np.median(np.abs(emg_10_jerks_emg))
     emg_10_sigma_emg = np.std(np.abs(emg_10_jerks_emg))
     emg_10_max_jerk_emg = np.max(np.abs(emg_10_jerks_emg))
+    emg_10_q25_emg = np.percentile(np.abs(emg_10_jerks_emg), 25)
+    emg_10_q75_emg = np.percentile(np.abs(emg_10_jerks_emg), 75)
     
     imu_1_mean_jerk = np.mean(np.abs(imu_1_jerks))
     imu_1_median_jerk = np.median(np.abs(imu_1_jerks))
     imu_1_sigma = np.std(np.abs(imu_1_jerks))
     imu_1_max_jerk = np.max(np.abs(imu_1_jerks))
+    imu_1_q25 = np.percentile(np.abs(imu_1_jerks), 25)
+    imu_1_q75 = np.percentile(np.abs(imu_1_jerks), 75)
     
     imu_2_mean_jerk = np.mean(np.abs(imu_2_jerks))
     imu_2_median_jerk = np.median(np.abs(imu_2_jerks))
     imu_2_sigma = np.std(np.abs(imu_2_jerks))
     imu_2_max_jerk = np.max(np.abs(imu_2_jerks))
-    
+    imu_2_q25 = np.percentile(np.abs(imu_2_jerks), 25)
+    imu_2_q75 = np.percentile(np.abs(imu_2_jerks), 75)
+
     imu_2_mean_jerk_emg = np.mean(np.abs(imu_2_jerks_emg))
     imu_2_median_jerk_emg = np.median(np.abs(imu_2_jerks_emg))
     imu_2_sigma_emg = np.std(np.abs(imu_2_jerks_emg))
     imu_2_max_jerk_emg = np.max(np.abs(imu_2_jerks_emg))
+    imu_2_q25_emg = np.percentile(np.abs(imu_2_jerks_emg), 25)
+    imu_2_q75_emg = np.percentile(np.abs(imu_2_jerks_emg), 75)
     
     imu_3_mean_jerk = np.mean(np.abs(imu_3_jerks))
     imu_3_median_jerk = np.median(np.abs(imu_3_jerks))
     imu_3_sigma = np.std(np.abs(imu_3_jerks))
     imu_3_max_jerk = np.max(np.abs(imu_3_jerks))
+    imu_3_q25 = np.percentile(np.abs(imu_3_jerks), 25)
+    imu_3_q75 = np.percentile(np.abs(imu_3_jerks), 75)
     
     imu_3_mean_jerk_emg = np.mean(np.abs(imu_3_jerks_emg))
     imu_3_median_jerk_emg = np.median(np.abs(imu_3_jerks_emg))
     imu_3_sigma_emg = np.std(np.abs(imu_3_jerks_emg))
     imu_3_max_jerk_emg = np.max(np.abs(imu_3_jerks_emg))
+    imu_3_q25_emg = np.percentile(np.abs(imu_3_jerks_emg), 25)
+    imu_3_q75_emg = np.percentile(np.abs(imu_3_jerks_emg), 75)
     
     imu_4_mean_jerk = np.mean(np.abs(imu_4_jerks))
     imu_4_median_jerk = np.median(np.abs(imu_4_jerks))
     imu_4_sigma = np.std(np.abs(imu_4_jerks))
     imu_4_max_jerk = np.max(np.abs(imu_4_jerks))
+    imu_4_q25 = np.percentile(np.abs(imu_4_jerks), 25)
+    imu_4_q75 = np.percentile(np.abs(imu_4_jerks), 75)
     
     imu_4_mean_jerk_emg = np.mean(np.abs(imu_4_jerks_emg))
     imu_4_median_jerk_emg = np.median(np.abs(imu_4_jerks_emg))
     imu_4_sigma_emg = np.std(np.abs(imu_4_jerks_emg))
     imu_4_max_jerk_emg = np.max(np.abs(imu_4_jerks_emg))
+    imu_4_q25_emg = np.percentile(np.abs(imu_4_jerks_emg), 25)
+    imu_4_q75_emg = np.percentile(np.abs(imu_4_jerks_emg), 75)
 
     imu_5_mean_jerk = np.mean(np.abs(imu_5_jerks))
     imu_5_median_jerk = np.median(np.abs(imu_5_jerks))
     imu_5_sigma = np.std(np.abs(imu_5_jerks))
     imu_5_max_jerk = np.max(np.abs(imu_5_jerks))
+    imu_5_q25 = np.percentile(np.abs(imu_5_jerks), 25)
+    imu_5_q75 = np.percentile(np.abs(imu_5_jerks), 75)
     
     imu_5_mean_jerk_emg = np.mean(np.abs(imu_5_jerks_emg))
     imu_5_median_jerk_emg = np.median(np.abs(imu_5_jerks_emg))
     imu_5_sigma_emg = np.std(np.abs(imu_5_jerks_emg))
     imu_5_max_jerk_emg = np.max(np.abs(imu_5_jerks_emg))
+    imu_5_q25_emg = np.percentile(np.abs(imu_5_jerks_emg), 25)
+    imu_5_q75_emg = np.percentile(np.abs(imu_5_jerks_emg), 75)
 
     imu_6_mean_jerk = np.mean(np.abs(imu_6_jerks))
     imu_6_median_jerk = np.median(np.abs(imu_6_jerks))
     imu_6_sigma = np.std(np.abs(imu_6_jerks))
     imu_6_max_jerk = np.max(np.abs(imu_6_jerks))
+    imu_6_q25 = np.percentile(np.abs(imu_6_jerks), 25)
+    imu_6_q75 = np.percentile(np.abs(imu_6_jerks), 75)
 
     imu_6_mean_jerk_emg = np.mean(np.abs(imu_6_jerks_emg))
     imu_6_median_jerk_emg = np.median(np.abs(imu_6_jerks_emg))
     imu_6_sigma_emg = np.std(np.abs(imu_6_jerks_emg))
     imu_6_max_jerk_emg = np.max(np.abs(imu_6_jerks_emg))
+    imu_6_q25_emg = np.percentile(np.abs(imu_6_jerks_emg), 25)
+    imu_6_q75_emg = np.percentile(np.abs(imu_6_jerks_emg), 75)
 
     imu_7_mean_jerk = np.mean(np.abs(imu_7_jerks))
     imu_7_median_jerk = np.median(np.abs(imu_7_jerks))
     imu_7_sigma = np.std(np.abs(imu_7_jerks))
     imu_7_max_jerk = np.max(np.abs(imu_7_jerks))
+    imu_7_q25 = np.percentile(np.abs(imu_7_jerks), 25)
+    imu_7_q75 = np.percentile(np.abs(imu_7_jerks), 75)
 
     imu_7_mean_jerk_emg = np.mean(np.abs(imu_7_jerks_emg))
     imu_7_median_jerk_emg = np.median(np.abs(imu_7_jerks_emg))
     imu_7_sigma_emg = np.std(np.abs(imu_7_jerks_emg))
     imu_7_max_jerk_emg = np.max(np.abs(imu_7_jerks_emg))
+    imu_7_q25_emg = np.percentile(np.abs(imu_7_jerks_emg), 25)
+    imu_7_q75_emg = np.percentile(np.abs(imu_7_jerks_emg), 75)
 
     mean_jerks = {
         "emg_1": emg_1_mean_jerk,
@@ -974,6 +1050,38 @@ if __name__ == "__main__":
         # "imu_7_emg": imu_7_max_jerk_emg
     }
 
+    quantiles = [
+        [emg_1_median_jerk - emg_1_q25, emg_1_q75 - emg_1_median_jerk],
+        [emg_2_median_jerk - emg_2_q25, emg_2_q75 - emg_2_median_jerk],
+        # [emg_2_median_jerk_emg - emg_2_q25_emg, emg_2_q75_emg - emg_2_median_jerk_emg],
+        [emg_3_median_jerk - emg_3_q25, emg_3_q75 - emg_3_median_jerk],
+        # [emg_3_median_jerk_emg - emg_3_q25_emg, emg_3_q75_emg - emg_3_median_jerk_emg],
+        [emg_4_median_jerk - emg_4_q25, emg_4_q75 - emg_4_median_jerk],
+        # [emg_4_median_jerk_emg - emg_4_q25_emg, emg_4_q75_emg - emg_4_median_jerk_emg],
+        [emg_5_median_jerk - emg_5_q25, emg_5_q75 - emg_5_median_jerk],
+        # [emg_5_median_jerk_emg - emg_5_q25_emg, emg_5_q75_emg - emg_5_median_jerk_emg],
+        # [emg_6_median_jerk - emg_6_q25, emg_6_q75 - emg_6_median_jerk],
+        # [emg_7_median_jerk - emg_7_q25, emg_7_q75 - emg_7_median_jerk],
+        [emg_8_median_jerk - emg_8_q25, emg_8_q75 - emg_8_median_jerk],
+        [emg_9_median_jerk - emg_9_q25, emg_9_q75 - emg_9_median_jerk],
+        # [emg_9_median_jerk_emg - emg_9_q25_emg, emg_9_q75_emg - emg_9_median_jerk_emg],
+        # [emg_10_median_jerk - emg_10_q25, emg_10_q75 - emg_10_median_jerk],
+        # [emg_10_median_jerk_emg - emg_10_q25_emg, emg_10_q75_emg - emg_10_median_jerk_emg],
+        [imu_1_median_jerk - imu_1_q25, imu_1_q75 - imu_1_median_jerk],
+        [imu_2_median_jerk - imu_2_q25, imu_2_q75 - imu_2_median_jerk],
+        # [imu_2_median_jerk_emg - imu_2_q25_emg, imu_2_q75_emg - imu_2_median_jerk_emg],
+        [imu_3_median_jerk - imu_3_q25, imu_3_q75 - imu_3_median_jerk],
+        # [imu_3_median_jerk_emg - imu_3_q25_emg, imu_3_q75_emg - imu_3_median_jerk_emg],
+        [imu_4_median_jerk - imu_4_q25, imu_4_q75 - imu_4_median_jerk],
+        # [imu_4_median_jerk_emg - imu_4_q25_emg, imu_4_q75_emg - imu_4_median_jerk_emg],
+        [imu_5_median_jerk - imu_5_q25, imu_5_q75 - imu_5_median_jerk],
+        # [imu_5_median_jerk_emg - imu_5_q25_emg, imu_5_q75_emg - imu_5_median_jerk_emg],
+        [imu_6_median_jerk - imu_6_q25, imu_6_q75 - imu_6_median_jerk],
+        # [imu_6_median_jerk_emg - imu_6_q25_emg, imu_6_q75_emg - imu_6_median_jerk_emg],
+        [imu_7_median_jerk - imu_7_q25, imu_7_q75 - imu_7_median_jerk],
+        # [imu_7_median_jerk_emg - imu_7_q25_emg, imu_7_q75_emg - imu_7_median_jerk_emg]
+    ]
+
     print("=====================================================================")
 
     smallest_name = min(mean_jerks, key=mean_jerks.get)
@@ -1045,9 +1153,12 @@ if __name__ == "__main__":
     ]
 
     x = np.arange(len(trajectory_names))
+    lower_errors = [q[0] for q in quantiles]
+    upper_errors = [q[1] for q in quantiles]
 
     plt.figure(figsize=(12, 8))
-    plt.bar(x, [mean_jerks[name] for name in mean_jerks], yerr=[sigmas[name] for name in sigmas], capsize=5)
+    plt.bar(x, [mean_jerks[name] for name in mean_jerks], yerr=[lower_errors, upper_errors], capsize=5, label='Mean Jerk')
+    # plt.bar(x, [mean_jerks[name] for name in mean_jerks], yerr=[sigmas[name] for name in sigmas], capsize=5)
     # plt.bar(x, [median_jerks[name] for name in median_jerks], yerr=[sigmas[name] for name in sigmas], capsize=5)
     plt.scatter(x, [max_jerks[name] for name in max_jerks], color='red', label='Max Jerk')
     plt.yscale("log")
@@ -1055,18 +1166,20 @@ if __name__ == "__main__":
     plt.ylabel("Jerk")
     plt.title("Trajectory smoothness comparison (mean jerk)")
     plt.legend()
+    plt.grid(True)
     plt.tight_layout()
     plt.show()
 
     plt.figure(figsize=(12, 8))
     # plt.bar(x, [mean_jerks[name] for name in mean_jerks], yerr=[sigmas[name] for name in sigmas], capsize=5)
-    plt.bar(x, [median_jerks[name] for name in median_jerks], yerr=[sigmas[name] for name in sigmas], capsize=5)
+    plt.bar(x, [median_jerks[name] for name in median_jerks], yerr=[lower_errors, upper_errors], capsize=5)
     plt.scatter(x, [max_jerks[name] for name in max_jerks], color='red', label='Max Jerk')
     plt.yscale("log")
     plt.xticks(x, trajectory_names, rotation=45)
     plt.ylabel("Jerk")
     plt.title("Trajectory smoothness comparison (median jerk)")
     plt.legend()
+    plt.grid(True)
     plt.tight_layout()
     plt.show()
 
@@ -1109,22 +1222,23 @@ if __name__ == "__main__":
     plt.ylabel("Absolute jerk")
     plt.title("Distribution of jerk across trajectories")
     plt.xticks(rotation=45)
+    plt.grid(True)
     plt.tight_layout()
     plt.show()
 
     # Save needed data to .CSV
     summary_data = []
 
-    for name in mean_jerks:
-        summary_data.append({
-            "trajectory": name,
-            "mean_jerk": mean_jerks[name],
-            "median_jerk": median_jerks[name],
-            "std_jerk": sigmas[name],
-            "max_jerk": max_jerks[name]
-        })
+    # for name in mean_jerks:
+    #     summary_data.append({
+    #         "trajectory": name,
+    #         "mean_jerk": mean_jerks[name],
+    #         "median_jerk": median_jerks[name],
+    #         "std_jerk": sigmas[name],
+    #         "max_jerk": max_jerks[name]
+    #     })
 
-    df_summary = pd.DataFrame(summary_data)
-    df_summary.to_csv("Outputs/OptimizerStatistics/jerk_summary.csv", index=False)
+    # df_summary = pd.DataFrame(summary_data)
+    # df_summary.to_csv("Outputs/OptimizerStatistics/jerk_summary.csv", index=False)
 
     # TODO: Potentially save all the jerk data into new processed .csv files that can then be used for plotting later
