@@ -36,6 +36,8 @@ Tests: firstly just EMG no IMU, then test the best performing ones with both EMG
 # mpl.rcParams['text.usetex'] = True
 # mpl.rcParams['font.family'] = 'serif'
 
+SAVE_CSV = False
+
 USERNAME = "VictorBNielsen"
 
 FS = 2000 #Hz
@@ -728,15 +730,16 @@ if __name__ == "__main__":
     plt.show()
 
     # save test 1 data to csv
-    if not os.path.exists(SAVE_PATH):
-        os.makedirs(SAVE_PATH)
+    if SAVE_CSV:
+        if not os.path.exists(SAVE_PATH):
+            os.makedirs(SAVE_PATH)
 
-    test1_results_df = pd.DataFrame({
-        "Time": time_vector,
-        "Net Activation": test1_activations,
-        "Desired Angle": test1_desired_angles,
-    })
-    test1_results_df.to_csv(SAVE_PATH + "/test1_results.csv", index=False)    
+        test1_results_df = pd.DataFrame({
+            "Time": time_vector,
+            "Net Activation": test1_activations,
+            "Desired Angle": test1_desired_angles,
+        })
+        test1_results_df.to_csv(SAVE_PATH + "/test1_results.csv", index=False)    
 
     # Calculate the velocity, acceleration and jerk for the test
     test2_velocities = np.gradient(test2_desired_angles, dt) # np.diff(test2_desired_angles) / dt
@@ -818,13 +821,14 @@ if __name__ == "__main__":
     plt.show()
 
     # Save test 2 data to CSV
-    test2_results_df = pd.DataFrame({
-        "Time": time_vector,
-        "Net Activation": test2_activations,
-        "Optimized Desired Angle": test2_desired_angles,
-        "Optimized Desired Angle EMG": test2_desired_emg_angles,
-    })
-    test2_results_df.to_csv(SAVE_PATH + "/test2_results.csv", index=False)
+    if SAVE_CSV:
+        test2_results_df = pd.DataFrame({
+            "Time": time_vector,
+            "Net Activation": test2_activations,
+            "Optimized Desired Angle": test2_desired_angles,
+            "Optimized Desired Angle EMG": test2_desired_emg_angles,
+        })
+        test2_results_df.to_csv(SAVE_PATH + "/test2_results.csv", index=False)
 
     # Calculate the velocity, acceleration and jerk for the test
     test3_velocities = np.gradient(test3_desired_angles, dt) # np.diff(test3_desired_angles) / dt
@@ -906,13 +910,14 @@ if __name__ == "__main__":
     plt.show()
 
     # Save test 3 data to CSV
-    test3_results_df = pd.DataFrame({
-        "Time": time_vector,
-        "Net Activation": test3_activations,
-        "Optimized Desired Angle": test3_desired_angles,
-        "Optimized Desired Angle EMG": test3_desired_emg_angles,
+    if SAVE_CSV:
+        test3_results_df = pd.DataFrame({
+            "Time": time_vector,
+            "Net Activation": test3_activations,
+            "Optimized Desired Angle": test3_desired_angles,
+            "Optimized Desired Angle EMG": test3_desired_emg_angles,
         })
-    test3_results_df.to_csv(SAVE_PATH + "/test3_results.csv", index=False)
+        test3_results_df.to_csv(SAVE_PATH + "/test3_results.csv", index=False)
 
 
     # Calculate the velocity, acceleration and jerk for the test
@@ -994,13 +999,14 @@ if __name__ == "__main__":
     plt.tight_layout()
     plt.show()
 
-    test4_results_df = pd.DataFrame({
-        "Time": time_vector,
-        "Net Activation": test4_activations,
-        "Optimized Desired Angle": test4_desired_angles,
-        "Optimized Desired Angle EMG": test4_desired_emg_angles,
-    })
-    test4_results_df.to_csv(SAVE_PATH + "/test4_results.csv", index=False)
+    if SAVE_CSV:
+        test4_results_df = pd.DataFrame({
+            "Time": time_vector,
+            "Net Activation": test4_activations,
+            "Optimized Desired Angle": test4_desired_angles,
+            "Optimized Desired Angle EMG": test4_desired_emg_angles,
+        })
+        test4_results_df.to_csv(SAVE_PATH + "/test4_results.csv", index=False)
 
     # Calculate the velocity, acceleration and jerk for the test
     test5_velocities = np.gradient(test5_desired_angles, dt) # np.diff(test5_desired_angles) / dt
@@ -1081,13 +1087,14 @@ if __name__ == "__main__":
     plt.tight_layout()
     plt.show()
 
-    test5_results_df = pd.DataFrame({
-        "Time": time_vector,
-        "Net Activation": test5_activations,
-        "Optimized Desired Angle": test5_desired_angles,
-        "Optimized Desired Angle EMG": test5_desired_emg_angles,
-    })
-    test5_results_df.to_csv(SAVE_PATH + "/test5_results.csv", index=False)
+    if SAVE_CSV:
+        test5_results_df = pd.DataFrame({
+            "Time": time_vector,
+            "Net Activation": test5_activations,
+            "Optimized Desired Angle": test5_desired_angles,
+            "Optimized Desired Angle EMG": test5_desired_emg_angles,
+        })
+        test5_results_df.to_csv(SAVE_PATH + "/test5_results.csv", index=False)
 
     # Calculate velocity acceleration and jerk
     time_vector = np.arange(len(test_9_desired_angles)) * dt
@@ -1159,13 +1166,14 @@ if __name__ == "__main__":
     plt.tight_layout()
     plt.show()
 
-    test9_results_df = pd.DataFrame({
-        "Time": time_vector,
-        "Net Activation": test_9_activations,
-        "Optimized Desired Angle": test_9_desired_angles,
-        "Optimized Desired Angle EMG": test_9_desired_emg_angles,
-    })
-    test9_results_df.to_csv(SAVE_PATH + "/test9_results.csv", index=False)
+    if SAVE_CSV:
+        test9_results_df = pd.DataFrame({
+            "Time": time_vector,
+            "Net Activation": test_9_activations,
+            "Optimized Desired Angle": test_9_desired_angles,
+            "Optimized Desired Angle EMG": test_9_desired_emg_angles,
+        })
+        test9_results_df.to_csv(SAVE_PATH + "/test9_results.csv", index=False)
 
     # calculate velocity acceleration and jerk
     time_vector = np.arange(len(test_10_desired_angles)) * dt
@@ -1237,13 +1245,14 @@ if __name__ == "__main__":
     plt.tight_layout()
     plt.show()
 
-    test10_results_df = pd.DataFrame({
-        "Time": time_vector,
-        "Net Activation": test_10_activations,
-        "Optimized Desired Angle": test_10_desired_angles,
-        "Optimized Desired Angle EMG": test_10_desired_angles_emg,
-    })
-    test10_results_df.to_csv(SAVE_PATH + "/test10_results.csv", index=False)
+    if SAVE_CSV:
+        test10_results_df = pd.DataFrame({
+            "Time": time_vector,
+            "Net Activation": test_10_activations,
+            "Optimized Desired Angle": test_10_desired_angles,
+            "Optimized Desired Angle EMG": test_10_desired_angles_emg,
+        })
+        test10_results_df.to_csv(SAVE_PATH + "/test10_results.csv", index=False)
 
     # Calculate the velocity, acceleration and jerk for the test
     test6_velocities = np.gradient(test6_desired_angles, dt) # np.diff(test6_desired_angles) / dt
@@ -1286,12 +1295,13 @@ if __name__ == "__main__":
     plt.tight_layout()
     plt.show()
 
-    test6_results_df = pd.DataFrame({
-        "Time": time_vector,
-        "Net Activation": test6_activations,
-        "Desired Angle": test6_desired_angles,
-    })
-    test6_results_df.to_csv(SAVE_PATH + "/test6_results.csv", index=False)
+    if SAVE_CSV:
+        test6_results_df = pd.DataFrame({
+            "Time": time_vector,
+            "Net Activation": test6_activations,
+            "Desired Angle": test6_desired_angles,
+        })
+        test6_results_df.to_csv(SAVE_PATH + "/test6_results.csv", index=False)
 
     # Calculate the velocity, acceleration and jerk for the test
     test7_velocities = np.gradient(test7_desired_angles, dt) # np.diff(test7_desired_angles) / dt
@@ -1334,12 +1344,13 @@ if __name__ == "__main__":
     plt.tight_layout()
     plt.show()
 
-    test7_results_df = pd.DataFrame({
-        "Time": time_vector,
-        "Net Activation": test7_activations,
-        "Desired Angle": test7_desired_angles,
-    })
-    test7_results_df.to_csv(SAVE_PATH + "/test7_results.csv", index=False)
+    if SAVE_CSV:
+        test7_results_df = pd.DataFrame({
+            "Time": time_vector,
+            "Net Activation": test7_activations,
+            "Desired Angle": test7_desired_angles,
+        })
+        test7_results_df.to_csv(SAVE_PATH + "/test7_results.csv", index=False)
 
     # Calculate the velocity, acceleration and jerk for the test
     test8_velocities = np.gradient(test8_desired_angles, dt) # np.diff(test8_desired_angles) / dt
@@ -1382,12 +1393,13 @@ if __name__ == "__main__":
     plt.tight_layout()
     plt.show()
 
-    test8_results_df = pd.DataFrame({
-        "Time": time_vector,
-        "Net Activation": test8_activations,
-        "Desired Angle": test8_desired_angles,
-    })
-    test8_results_df.to_csv(SAVE_PATH + "/test8_results.csv", index=False)
+    if SAVE_CSV:
+        test8_results_df = pd.DataFrame({
+            "Time": time_vector,
+            "Net Activation": test8_activations,
+            "Desired Angle": test8_desired_angles,
+        })
+        test8_results_df.to_csv(SAVE_PATH + "/test8_results.csv", index=False)
 
     # ---------------------------------------------------------------------------------------------------------------------------------
     emg.stop()

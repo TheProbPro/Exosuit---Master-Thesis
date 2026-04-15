@@ -19,62 +19,28 @@ import math
 
 # General configuration parameters
 FS = 2000  # Hz
-# FILE_NAME = "Outputs/RecordedEMG/TrainLSTM.csv"
-FILE_NAME = "Outputs/RecordedEMG/TestLSTM.csv"
+FILE_NAME = "Outputs/RecordedEMG/Processing.csv"
 USER_NAME = 'VictorBNielsen'
 
 THETA_MIN = np.deg2rad(0)
 THETA_MAX = np.deg2rad(140)
 
-# RECORDING_DURATION = 90  # seconds
-RECORDING_DURATION = 60  # seconds
+RECORDING_DURATION = 10  # seconds
 
 stop_event = threading.Event()
 
-# def read_EMG(raw_queue):
-#     # Initialize filters
-#     filter_bicep = rt_filtering(SAMPLE_RATE, 450, 20, 2)
-#     filter_tricep = rt_filtering(SAMPLE_RATE, 450, 20, 2)
-#     interpreter = PMC(theta_min=ANGLE_MIN, theta_max=ANGLE_MAX, user_name=USER_NAME, BicepEMG=True, TricepEMG=True)
-#     Bicep_RMS_queue = queue.Queue(maxsize=50)
-#     Tricep_RMS_queue = queue.Queue(maxsize=50)
-
-#     emg = DelsysEMG(channel_range=(0,1))
-#     emg.start()
-
-#     time.sleep(1.0)
-    
-#     while not stop_event.is_set():
-#         reading = emg.read()
-
-#         filtered_bicep = filter_bicep.bandpass(reading[0])
-#         filtered_tricep = filter_tricep.bandpass(reading[1])
-
-#         if Bicep_RMS_queue.full():
-#             Bicep_RMS_queue.get()
-#         Bicep_RMS_queue.put(filtered_bicep)
-#         if Tricep_RMS_queue.full():
-#             Tricep_RMS_queue.get()
-#         Tricep_RMS_queue.put(filtered_tricep)
-
-#         Bicep_RMS = np.sqrt(np.mean(np.array(list(Bicep_RMS_queue.queue))**2))
-#         Tricep_RMS = np.sqrt(np.mean(np.array(list(Tricep_RMS_queue.queue))**2))
-
-#         filtered_bicep_rms = float(filter_bicep.lowpass(np.atleast_1d(Bicep_RMS))[0])
-#         filtered_tricep_rms = float(filter_tricep.lowpass(np.atleast_1d(Tricep_RMS))[0])
-
-#         activation = interpreter.compute_activation([filtered_bicep_rms, filtered_tricep_rms])
-#         desired_angle_deg = interpreter.compute_angle(activation[0], activation[1])
-
-#         try:
-#             raw_queue.put_nowait(desired_angle_deg)
-#         except queue.Full:
-#             raw_queue.get_nowait()
-#             raw_queue.put_nowait(desired_angle_deg)
-        
-#     emg.stop()
-#     Bicep_RMS_queue.queue.clear()
-#     Tricep_RMS_queue.queue.clear()
+Raw_Bicep_emg = []
+Raw_Tricep_emg = []
+Bandpassed_Bicep_emg = []
+Bandpassed_Tricep_emg = []
+RMS_Bicep_EMG = []
+RMS_Tricep_EMG = []
+Lowpassed_RMS_Bicep_EMG = []
+Lowpassed_RMS_Tricep_EMG = []
+Raw_Bicep_Activation = []
+Raw_Tricep_Activation = []
+Net_Activation = []
+Filtered_Net_Activation = []
 
 if __name__ == "__main__":
     write_array = []
@@ -114,8 +80,14 @@ if __name__ == "__main__":
         # Read EMG data
         reading = emg.read()
 
+        Raw_Bicep_emg.append(reading[0])
+        Raw_Tricep_emg.append(reading[1])
+
         filtered_bicep = filter_bicep.bandpass(reading[0])
         filtered_tricep = filter_tricep.bandpass(reading[1])
+
+        Bandpassed_Bicep_emg.append(filtered_bicep)
+        Bandpassed_Tricep_emg.append(filtered_tricep)
 
         if Bicep_RMS_queue.full():
             Bicep_RMS_queue.get()
@@ -127,18 +99,23 @@ if __name__ == "__main__":
         Bicep_RMS = np.sqrt(np.mean(np.array(list(Bicep_RMS_queue.queue))**2))
         Tricep_RMS = np.sqrt(np.mean(np.array(list(Tricep_RMS_queue.queue))**2))
 
+        RMS_Bicep_EMG.append(Bicep_RMS)
+        RMS_Tricep_EMG.append(Tricep_RMS)
+
         filtered_bicep_rms = float(filter_bicep.lowpass(np.atleast_1d(Bicep_RMS))[0])
         filtered_tricep_rms = float(filter_tricep.lowpass(np.atleast_1d(Tricep_RMS))[0])
+
+        Lowpassed_RMS_Bicep_EMG.append(filtered_bicep_rms)
+        Lowpassed_RMS_Tricep_EMG.append(filtered_tricep_rms)
 
         activation = interpreter.compute_activation([filtered_bicep_rms, filtered_tricep_rms])
         net_a = activation[0] - activation[1]  # Compute net activation (bicep - tricep)
         filtered_net_a = float(net_a_lowpass.lowpass(np.atleast_1d(net_a))[0])
 
-        # TODO: Maybe do other optimizers
-        optimized_angle, v, acc = optimizer_6(filtered_net_a, v, dt, desired_angles[-1], THETA_MIN, THETA_MAX, b=10.0, k=np.pi*10.0*2)
-        
-        desired_angles.append(optimized_angle)
-        write_array.append(optimized_angle)
+        Raw_Bicep_Activation.append(activation[0])
+        Raw_Tricep_Activation.append(activation[1])
+        Net_Activation.append(net_a)
+        Filtered_Net_Activation.append(filtered_net_a)
 
         recorded_Samples += 1
 
@@ -150,10 +127,26 @@ if __name__ == "__main__":
 
     # Write the array to the .csv file
     # Create CSV file and write
-    header = ['emg_pos']
-    with open(FILE_NAME, mode='w', newline='', buffering=1) as file:
-        csv.writer(file).writerow(header)
-        csv.writer(file).writerows([[x] for x in write_array])
+    header = [
+        'raw_bicep_emg', 'raw_tricep_emg',
+        'bandpassed_bicep', 'bandpassed_tricep',
+        'rms_bicep', 'rms_tricep',
+        'lowpassed_rms_bicep', 'lowpassed_rms_tricep',
+        'bicep_activation', 'tricep_activation',
+        'net_activation', 'filtered_net_activation'
+    ]
+
+    with open(FILE_NAME, mode='w', newline='') as file:
+        writer = csv.writer(file)
+        writer.writerow(header)
+        writer.writerows(zip(
+            Raw_Bicep_emg, Raw_Tricep_emg,
+            Bandpassed_Bicep_emg, Bandpassed_Tricep_emg,
+            RMS_Bicep_EMG, RMS_Tricep_EMG,
+            Lowpassed_RMS_Bicep_EMG, Lowpassed_RMS_Tricep_EMG,
+            Raw_Bicep_Activation, Raw_Tricep_Activation,
+            Net_Activation, Filtered_Net_Activation
+        ))
 
     print(f"len of write_array: {len(write_array)}, frequency {(len(write_array)/RECORDING_DURATION):.2f} Hz")
     print(f"Recording finished! Recorded {recorded_Samples} samples over {RECORDING_DURATION} seconds.")

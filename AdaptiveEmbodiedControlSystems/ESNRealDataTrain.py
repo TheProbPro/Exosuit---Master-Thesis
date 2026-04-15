@@ -110,7 +110,7 @@ def train_windowed_esn():
     connectivity = 0.1
     batch_size = 32
     learning_rate = 0.01
-    num_epochs = 100
+    num_epochs = 25
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     average_loss_array = np.array([])
     total_loss_array = np.array([])
@@ -162,7 +162,7 @@ def train_continuous_esn():
     leaking_rate = 0.7
     connectivity = 0.1
     learning_rate = 0.01
-    num_epochs = 50
+    num_epochs = 25
     seq_length = 25  # 用于连续训练的序列长度
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     average_loss_array = np.array([])
@@ -333,24 +333,24 @@ if __name__ == "__main__":
     plt.tight_layout()
     plt.show()
 
-    # print("Training Continuous ESN...")
-    # ContinuousESN, Continuous_avg_loss, Continuous_total_loss = train_continuous_esn()
+    print("Training Continuous ESN...")
+    ContinuousESN, Continuous_avg_loss, Continuous_total_loss = train_continuous_esn()
     
-    # plt.figure(figsize=(12, 5))
-    # plt.subplot(1, 2, 1)
-    # plt.plot(Continuous_avg_loss, label='Average Loss per Epoch')
-    # plt.xlabel('Epoch')
-    # plt.ylabel('Average Loss')
-    # plt.title('Average Loss over Epochs (Continuous ESN)')
-    # plt.legend()
-    # plt.subplot(1, 2, 2)
-    # plt.plot(Continuous_total_loss, label='Total Loss per Epoch', color='orange')
-    # plt.xlabel('Epoch')
-    # plt.ylabel('Total Loss')
-    # plt.title('Total Loss over Epochs (Continuous ESN)')
-    # plt.legend()
-    # plt.tight_layout()
-    # plt.show()
+    plt.figure(figsize=(12, 5))
+    plt.subplot(1, 2, 1)
+    plt.plot(Continuous_avg_loss, label='Average Loss per Epoch')
+    plt.xlabel('Epoch')
+    plt.ylabel('Average Loss')
+    plt.title('Average Loss over Epochs (Continuous ESN)')
+    plt.legend()
+    plt.subplot(1, 2, 2)
+    plt.plot(Continuous_total_loss, label='Total Loss per Epoch', color='orange')
+    plt.xlabel('Epoch')
+    plt.ylabel('Total Loss')
+    plt.title('Total Loss over Epochs (Continuous ESN)')
+    plt.legend()
+    plt.tight_layout()
+    plt.show()
 
     # 评估和绘图
     seq_length_for_eval = 25
@@ -374,16 +374,16 @@ if __name__ == "__main__":
         os.makedirs(save_dir)
     torch.save(WindowedESN.state_dict(), Model_Save_Path)
 
-    # print("Evaluating Continuous ESN...")
-    # t_pred_c, y_true_c, y_pred_c = evaluate_continuous_esn(
-    #     model=ContinuousESN,
-    #     seq_len=seq_length_for_eval,
-    #     device="cpu",
-    #     total_points=1000
-    # )
-    # plot_predictions(
-    #     t_pred_c,
-    #     y_true_c,
-    #     y_pred_c,
-    #     title="Continuous ESN Prediction vs True Signal"
-    # )
+    print("Evaluating Continuous ESN...")
+    t_pred_c, y_true_c, y_pred_c = evaluate_continuous_esn(
+        model=ContinuousESN,
+        seq_len=seq_length_for_eval,
+        device="cpu",
+        total_points=1000
+    )
+    plot_predictions(
+        t_pred_c,
+        y_true_c,
+        y_pred_c,
+        title="Continuous ESN Prediction vs True Signal"
+    )
