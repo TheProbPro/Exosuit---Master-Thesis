@@ -1,116 +1,106 @@
 import pandas as pd
+import numpy as np
 import matplotlib.pyplot as plt
 from datetime import datetime
 
 # ----------------------------
 # CONFIG
 # ----------------------------
-file1 = "Outputs/IMU_EMG_MoCap_Test/imu_angles.csv"   # has unix timestamps from time.time()
-file2 = "Outputs/IMU_EMG_MoCap_Test/emg_desired_angles.csv"   # has unix timestamps from time.time()
-file3 = "Outputs/IMU_EMG_MoCap_Test/MoCap.csv"   # has start time + relative timestamps
+file_emg = "Outputs/IMU_EMG_MoCap_Test/desired_angles.csv"   # has unix timestamps from time.time()
+# file_emg = "Outputs/IMU_EMG_MoCap_Test/WithMotor.csv"   # has unix timestamps from time.time()
+# file_emg = "Outputs/IMU_EMG_MoCap_Test/imu_angles.csv"   # has unix timestamps from time.time()
+
+file_mocap = "Outputs/MoCap/EMGMocapTest.csv"   # has unix timestamps from time.time()
+# file_mocap = "Outputs/MoCap/WithMotor.csv"   # has unix timestamps from time.time()
+# file_mocap = "Outputs/MoCap/IMUEMGTest.csv"   # has unix timestamps from time.time()
+
 
 # Change these column names to match your CSVs
-file1_time_col = "Timestamp"
-file1_data_col = "Elbow_Angle"
+file_emg_time_col = "Timestamp"
+# file_emg_time_col = "Time"
+# file_emg_time_col = "IMU_Timestamp"
+file_emg_data_col = "Desired_Angle"
+# file_emg_data_col = "Actual_Angle"
+# file_emg_data_col = "Elbow_Angle"
 
-file2_time_col = "Timestamp"
-file2_data_col = "Desired_Angle"
+file_mocap_time_col = "Timestamp"
+file_mocap_data_col = "Elbow_Angle_Rad"
+# file_mocap_data_col = "Elbow_Flexion_Rad"
 
-# For file3:
-# Example columns:
-# start_time, rel_time, value
-file3_start_col = "start_time"
-file3_rel_col = "rel_time"
-file3_data_col = "value"
+CLOCK_OFFSET = 0.1753559112548828
 
+if __name__ == "__main__":
+    # Load EMG and MoCap data
+    df_emg = pd.read_csv(file_emg)
+    df_mocap = pd.read_csv(file_mocap)
 
-# ----------------------------
-# HELPER: parse relative time
-# ----------------------------
-def parse_relative_time(rel_str):
-    """
-    Convert strings like:
-      '0:005' -> 0.005 seconds
-      '0:01'  -> 0.01 seconds
-      '0:015' -> 0.015 seconds
-      '1:250' -> 1.250 seconds
-    into float seconds.
-    """
-    rel_str = str(rel_str).strip()
-    sec_part, frac_part = rel_str.split(":")
-    return float(sec_part) + float("0." + frac_part)
+    emg_timestamps = df_emg[file_emg_time_col].to_numpy()
+    emg_timestamps = emg_timestamps - CLOCK_OFFSET  # Adjust for clock offset
+    emg_angles = df_emg[file_emg_data_col].to_numpy()
 
+    # plt.plot(emg_timestamps, emg_angles, label="EMG")
+    # plt.show()
 
-# ----------------------------
-# HELPER: parse start time
-# ----------------------------
-def parse_start_time(start_str):
-    """
-    Convert '2026.03.12 12:23:00:00' into unix timestamp.
+    print(f"Range of motion: {emg_angles.min():.2f} to {emg_angles.max():.2f} radians")
 
-    Adjust the format string if your actual timestamp format differs.
-    This assumes:
-      year.month.day hour:minute:second:centisecond
-    """
-    start_str = str(start_str).strip()
-    dt = datetime.strptime(start_str, "%Y.%m.%d %H:%M:%S:%f")
-    return dt.timestamp()
+    mocap_timestamps = df_mocap[file_mocap_time_col].to_numpy()
+    mocap_angles = df_mocap[file_mocap_data_col].to_numpy()
 
+    print(f"Range of motion: {mocap_angles.min():.2f} to {mocap_angles.max():.2f} radians")
 
-# ----------------------------
-# LOAD FILES
-# ----------------------------
-df1 = pd.read_csv(file1)
-df2 = pd.read_csv(file2)
-df3 = pd.read_csv(file3)
+    print("EMG time range:", emg_timestamps[0], "→", emg_timestamps[-1])
+    print("MoCap time range:", mocap_timestamps[0], "→", mocap_timestamps[-1])
 
-# Make sure numeric timestamps are floats
-df1[file1_time_col] = pd.to_numeric(df1[file1_time_col], errors="coerce")
-df2[file2_time_col] = pd.to_numeric(df2[file2_time_col], errors="coerce")
+    start_overlap = max(mocap_timestamps[0], emg_timestamps[0])
+    end_overlap   = min(mocap_timestamps[-1], emg_timestamps[-1])
 
-# ----------------------------
-# CONVERT FILE 3 TO UNIX TIME
-# ----------------------------
-# If the start time is repeated on every row, just use the first one
-start_unix = parse_start_time(df3[file3_start_col].iloc[0])
+    print("Overlap:", start_overlap, "to", end_overlap)
 
-df3["rel_seconds"] = df3[file3_rel_col].apply(parse_relative_time)
-df3["timestamp_unix"] = start_unix + df3["rel_seconds"]
+    emg_mask = (emg_timestamps >= start_overlap) & (emg_timestamps <= end_overlap)
+    mocap_mask = (mocap_timestamps >= start_overlap) & (mocap_timestamps <= end_overlap)
 
-# ----------------------------
-# OPTIONAL: convert to relative time for plotting
-# ----------------------------
-# Use the earliest timestamp across all files as t=0
-global_start = min(
-    df1[file1_time_col].min(),
-    df2[file2_time_col].min(),
-    df3["timestamp_unix"].min()
-)
+    emg_t = emg_timestamps[emg_mask]
+    emg_y = emg_angles[emg_mask]
 
-df1["t_sync"] = df1[file1_time_col] - global_start
-df2["t_sync"] = df2[file2_time_col] - global_start
-df3["t_sync"] = df3["timestamp_unix"] - global_start
+    mocap_t = mocap_timestamps[mocap_mask]
+    mocap_y = mocap_angles[mocap_mask]
 
-# ----------------------------
-# PLOT
-# ----------------------------
-fig, axes = plt.subplots(3, 1, figsize=(12, 8), sharex=True)
+    for i in range(10):
+        print(f"{emg_t[i]:.6f} | {mocap_t[i]:.6f}")
 
-axes[0].plot(df1["t_sync"], df1[file1_data_col], label="Sensor 1")
-axes[0].set_ylabel("Value")
-axes[0].set_title("Sensor 1")
-axes[0].grid(True)
+    print(f"EMG and MoCap timestamps: {emg_t[:10]}, {mocap_t[:10]}")
 
-axes[1].plot(df2["t_sync"], df2[file2_data_col], label="Sensor 2")
-axes[1].set_ylabel("Value")
-axes[1].set_title("Sensor 2")
-axes[1].grid(True)
+    emg_on_mocap = np.interp(mocap_t, emg_t, emg_y)
 
-axes[2].plot(df3["t_sync"], df3[file3_data_col], label="Sensor 3")
-axes[2].set_xlabel("Time since first sample [s]")
-axes[2].set_ylabel("Value")
-axes[2].set_title("Sensor 3")
-axes[2].grid(True)
+    for i in range(10):
+        t = mocap_t[i]
 
-plt.tight_layout()
-plt.show()
+        # find closest EMG samples used for interpolation
+        idx = np.searchsorted(emg_t, t)
+
+        t1 = emg_t[idx - 1]
+        t2 = emg_t[idx]
+
+        print(f"\nMoCap t: {t:.6f}")
+        print(f"EMG neighbors: {t1:.6f}, {t2:.6f}")
+        print(f"Interpolated EMG value: {emg_on_mocap[i]:.4f}")
+
+    plt.figure(figsize=(12, 6))
+    plt.title("Elbow Angle Comparison: EMG + IMU vs MoCap")
+    plt.plot(mocap_t, mocap_y, label="MoCap")
+    plt.plot(mocap_t, emg_on_mocap, label="EMG (aligned)")
+    plt.xlabel("Time (s)")
+    plt.ylabel("Elbow Angle (rad)")
+    plt.legend()
+    plt.show()
+
+    a = mocap_y - np.mean(mocap_y)
+    b = emg_on_mocap - np.mean(emg_on_mocap)
+
+    corr = np.correlate(b, a, mode='full')
+    lags = np.arange(-len(b)+1, len(a))
+
+    lag = lags[np.argmax(corr)]
+    lag_time = lag * (mocap_t[1] - mocap_t[0])
+
+    print("Lag (seconds):", lag_time)
