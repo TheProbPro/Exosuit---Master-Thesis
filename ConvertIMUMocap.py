@@ -392,6 +392,7 @@ if __name__ == "__main__":
             print(len(mocap_t))
             print(len(optimized_angle_values))
             emg_on_mocap = np.interp(mocap_t, imu_t, optimized_angle_values)
+            a_on_mocap = np.interp(mocap_t, imu_t, emg_a_aligned)
 
             # create relative time vector
             t0 = mocap_t[0]
@@ -514,7 +515,8 @@ if __name__ == "__main__":
             mocap_imu_df = pd.DataFrame({
                 "Time_sec": mocap_t_rel,
                 "MoCap_Angle_rad": mocap_y,
-                "Optimized_Angle_rad": emg_on_mocap
+                "Optimized_Angle_rad": emg_on_mocap,
+                "Filtered_Net_A": a_on_mocap
             })
             mocap_imu_file = SAVEPATH + f"IMU_MoCap_results_{optimizer}_{extension}.csv"
             mocap_imu_df.to_csv(mocap_imu_file, index=False)

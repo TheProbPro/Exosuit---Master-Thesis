@@ -5,11 +5,13 @@ from datetime import datetime, timedelta, timezone
 import os
 import matplotlib.pyplot as plt
 from pathlib import Path
+import time
 
 # EMG processing imports
 from SignalProcessing.Filtering import rt_filtering, rt_desired_Angle_lowpass
 from SignalProcessing.Interpretors import ProportionalMyoelectricalControl as PMC
 from Optimizations import optimize_1, optimize_2, optimize_4, optimize_5_pd, optimizer_6, EMG_Optimizer
+from ProjectInRobotics.pDMP.pDMP_functions import pDMP, pDMPCoupling1, pDMPOmega
 
 SAVEPATH = "Outputs/Results/"
 
@@ -21,9 +23,9 @@ EMG_OPTIMIZERS = [
     "optimizer_5_pd",
     "optimizer_6",
     "EMG_Optimizer",
-    # "pDMP",
-    # "pDMP coupled",
-    # "pDMP omega",
+    "pDMP",
+    "pDMP coupled",
+    "pDMP omega"
 ]
 
 INPUT_MOCAP_DATA = [
@@ -125,6 +127,92 @@ def process_mocap(file):
 def process_emg(file, optimizer):
     EMG_FS = 2000  # Hz
     dt = 1 / EMG_FS
+
+    phi = 0
+    tau = 0.5
+    if optimizer == "pDMP omega":
+        tau = 5
+    omega0 = 2*np.pi/tau
+    DMP = None
+
+    if optimizer == "pDMP":
+        # Teach DMPS
+        DMP = pDMP(DOF=1, N=25, alpha=8, beta=2, lambd=0.9, dt=dt)
+        # Teach DMP 0 trajectory for 2s
+        y_old = 0
+        dy_old = 0
+        print("Teaching DMP 0 trajectory for 3s")
+        start_time = time.time()
+        while time.time() - start_time < 3:  # Teach for 3 seconds
+            print(f"elapsed time: {time.time() - start_time:.2f} seconds", end='\r')
+            phi += 16*np.pi * dt/tau
+            y = np.array([0])
+            dy = (y - y_old) / dt 
+            ddy = (dy - dy_old) / dt
+            DMP.set_phase(np.array([phi]))
+            DMP.set_period(np.array([tau]))
+            DMP.learn(y, dy, ddy)
+            DMP.integration()
+
+            # old values	
+            y_old = y
+            dy_old = dy
+            
+            # store data for plotting
+            x, dx, ph, ta = DMP.get_state()
+        print("DMP teaching completed")
+
+    elif optimizer == "pDMP coupled":
+        DMP = pDMPCoupling1(DOF=1, N=25, alpha=8, beta=2, lambd=0.9, dt=dt)
+        # Teach DMP 0 trajectory for 3s
+        y_old = 0
+        dy_old = 0
+        print("Teaching pDMP coupling 1 with 0 trajectory for 2s")
+        start_time = time.time()
+        while time.time() - start_time < 3:  # Teach for 3 seconds
+            print(f"elapsed time: {time.time() - start_time:.2f} seconds", end='\r')
+            phi += 2*np.pi * dt/tau
+            y = np.array([0])
+            dy = (y - y_old) / dt 
+            ddy = (dy - dy_old) / dt
+            DMP.set_phase(np.array([phi]))
+            DMP.set_period(np.array([tau]))
+            DMP.learn(y, dy, ddy)
+
+            # old values	
+            y_old = y
+            dy_old = dy
+            
+            # store data for plotting
+            x, dx, ph, ta = DMP.get_state()
+
+    elif optimizer == "pDMP omega":
+        mid = np.deg2rad(70)
+        DMP = pDMPOmega(DOF=1, N=25, alpha=8, beta=2, lambd=0.999, dt=dt)
+        DMP.set_frequency([omega0])
+        # Teach DMP 0 trajectory for 3s
+        y_old = 0
+        dy_old = 0
+        print("Teaching pDMP omega with 0 trajectory for 5s")
+        start_time = time.time()
+        samples = (1/dt) * 5
+        for i in range(int(samples)):
+            t = i * dt
+            y = np.array([mid * np.sin(omega0*t) + mid])
+            dy = (y - y_old) / dt 
+            ddy = (dy - dy_old) / dt
+
+            DMP.set_frequency(np.array([omega0]))
+
+            DMP.learn(y, dy, ddy)
+            DMP.integration()
+
+            # old values	
+            y_old = y
+            dy_old = dy
+            
+            # store data for plotting
+            x, dx, ph, ta = DMP.get_state()
 
     # Extract start time
     with open(file, "r") as f:
@@ -238,14 +326,36 @@ def process_emg(file, optimizer):
             optimized_angle, v, acc = EMG_Optimizer(filtered_net_a, a_d, v, 10.0, 2.0, 2.0, optimized_angle_values[-1], THETA_MIN, THETA_MAX, np.pi, dt)
             optimized_angle_values.append(optimized_angle)
         elif optimizer == "pDMP":
-            print("pDMP optimization not implemented yet")
-            pass
+            v = np.pi/10 #np.pi/22
+            DMP.set_phase(np.array([phi]))
+            DMP.set_period(np.array([tau]))
+
+            U = np.asarray([filtered_net_a*v])  # EMG activation as input
+            DMP.update(U)
+            DMP.integration()
+            x, dx, ph, ta = DMP.get_state()
+            optimized_angle_values.append(x[0])
+
         elif optimizer == "pDMP coupled":
-            print("pDMP coupled optimization not implemented yet")
-            pass
+            DMP.set_phase(np.array([phi]))
+            DMP.set_period(np.array([tau]))
+
+            DMP.repeat()
+
+            DMP.integration(np.array([filtered_net_a]))
+
+            x, dx, ph, ta = DMP.get_state()
+            optimized_angle_values.append(x[0])
+                
         elif optimizer == "pDMP omega":
-            print("pDMP omega optimization not implemented yet")
-            pass
+            k = 1.0
+            omega = omega0 * (1 + k * filtered_net_a)
+            DMP.set_frequency([omega])
+            DMP.repeat()
+            DMP.integration()
+            x, dx, ph, ta = DMP.get_state()
+            optimized_angle_values.append(x[0])
+
         else:
             print(f"Unknown optimizer: {optimizer}")
 
@@ -394,7 +504,8 @@ if __name__ == "__main__":
             results_df = pd.DataFrame({
                 "Time_sec": time_sec,
                 "MoCap_Elbow_Angle": mocap_interp,
-                "Optimized_Angle": optimized_angle_values
+                "Optimized_Angle": optimized_angle_values,
+                "Filtered_Net_A": filtered_net_a_values
             })
             results_file = SAVEPATH + f"EMG_MoCap_results_{optimizer}_{extension}.csv"
             results_df.to_csv(results_file, index=False)
