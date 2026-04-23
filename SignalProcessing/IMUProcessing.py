@@ -174,6 +174,24 @@ class IMUProcessing:
         
         return elbow_angle
     
+    def set_zero(self, zero_angle):
+        """
+        Sets the zeroing baseline for the elbow angle in degrees. This can be used to manually adjust the zeroing if needed.
+        
+        :param zero_angle: the zeroing baseline for the elbow angle in degrees as a float
+        """
+        self.zero = zero_angle
+
+    def set_gyro_bias(self, gyr_bias_upper, gyr_bias_lower):
+        """
+        Sets the gyroscope bias for the upper and lower arm. This can be used to manually adjust the bias if needed.
+        
+        :param gyr_bias_upper: the gyroscope bias for the upper arm as a numpy array of shape (3,) containing the x, y, z biases in radians/s
+        :param gyr_bias_lower: the gyroscope bias for the lower arm as a numpy array of shape (3,) containing the x, y, z biases in radians/s
+        """
+        self.gyr_bias_upper = gyr_bias_upper
+        self.gyr_bias_lower = gyr_bias_lower
+        
     @staticmethod
     def _quat_conj(q):
         return np.array([q[0], -q[1], -q[2], -q[3]], dtype=float)

@@ -124,6 +124,8 @@ def _boundary_scaling_1(q, activation, theta_min, theta_max, margin_ratio=0.1):
 
 # ==============================================================================================================================
 
+MARGIN_RATIO = 0.2
+
 def optimize_1(k, activation, t, q, theta_min, theta_max):
     """
     Optimizes movement based on EMG signal
@@ -137,7 +139,7 @@ def optimize_1(k, activation, t, q, theta_min, theta_max):
     Returns:
     optimized_angle: the optimized angle for the movement
     """
-    scale = _boundary_scaling_1(q, activation, theta_min, theta_max, margin_ratio=0.1)
+    scale = _boundary_scaling_1(q, activation, theta_min, theta_max, margin_ratio=MARGIN_RATIO)
 
     delta_q = k * activation * t * scale
     optimized_angle = q + delta_q
@@ -201,7 +203,7 @@ def optimize_3(k, activation, t, q, theta_min, theta_max, deadband=0.1):
     return q_next
 
 def optimize_4(k, activation, t, q, delta_q_prev, theta_min, theta_max, alpha=0.5):
-    scale = _boundary_scaling_1(q, activation, theta_min, theta_max, margin_ratio=0.1)
+    scale = _boundary_scaling_1(q, activation, theta_min, theta_max, margin_ratio=MARGIN_RATIO)
     
     delta_q_raw = k * activation * t * scale
     delta_q = alpha * delta_q_raw + (1-alpha) * delta_q_prev
@@ -217,7 +219,7 @@ def optimize_4(k, activation, t, q, delta_q_prev, theta_min, theta_max, alpha=0.
     return optimized_angle, delta_q
 
 def optimize_5_pd(activation, velocity, t, q, theta_min, theta_max, v_max, k, b=0.5,):
-    scale = _boundary_scaling_1(q, activation, theta_min, theta_max, margin_ratio=0.1)
+    scale = _boundary_scaling_1(q, activation, theta_min, theta_max, margin_ratio=MARGIN_RATIO)
     velocity = b * velocity + k * activation * scale
     velocity = np.clip(velocity, -v_max, v_max)
     
@@ -234,7 +236,7 @@ def optimize_5_pd(activation, velocity, t, q, theta_min, theta_max, v_max, k, b=
 def optimizer_6(activation, velocity, t, q, theta_min, theta_max, v_max=np.pi, b = 6.0, k = None):
     # Smoothen acceleration
     k = b * np.pi if k is None else k
-    scale = _boundary_scaling_1(q, activation, theta_min, theta_max, margin_ratio=0.1)
+    scale = _boundary_scaling_1(q, activation, theta_min, theta_max, margin_ratio=MARGIN_RATIO)
     acc = k * activation * scale - b * velocity
 
     # Update velocity and position
@@ -273,7 +275,7 @@ def optimizer_6(activation, velocity, t, q, theta_min, theta_max, v_max=np.pi, b
     return q_next, velocity, acc
 
 def EMG_Optimizer(a, d_a, v, kn, kd, b, q, THETA_MIN, THETA_MAX, v_max, t):
-   scale = _boundary_scaling_1(q, a, THETA_MIN, THETA_MAX, margin_ratio=0.1)
+   scale = _boundary_scaling_1(q, a, THETA_MIN, THETA_MAX, margin_ratio=MARGIN_RATIO)
    
    # Calculate desired acceleration
    acc = (kn * a + kd * d_a - b * v) * scale
@@ -286,7 +288,7 @@ def EMG_Optimizer(a, d_a, v, kn, kd, b, q, THETA_MIN, THETA_MAX, v_max, t):
    return q_next, v, acc
 
 def EMG_IMU_optimizer(a, d_a, v, omega, kn, kd, kp, b, q, imu_q, theta_min, theta_max, v_max, t):
-    scale = _boundary_scaling_1(q, a, theta_min, theta_max, margin_ratio=0.1)
+    scale = _boundary_scaling_1(q, a, theta_min, theta_max, margin_ratio=MARGIN_RATIO)
 
     # Calculate desired acceleration
     acc = (kn * a + kd * d_a - b * (v - omega) - kp * (q - imu_q)) * scale
@@ -304,7 +306,7 @@ def EMG_IMU_optimizer_2(a, d_a, omega, kn, kd, imu_q, theta_min, theta_max, v_ma
     v = np.clip(v, -v_max, v_max)
 
     # Update position
-    scale = _boundary_scaling_1(imu_q, a, theta_min, theta_max, margin_ratio=0.1)
+    scale = _boundary_scaling_1(imu_q, a, theta_min, theta_max, margin_ratio=MARGIN_RATIO)
     q_next = imu_q + t * v * scale
 
     return q_next, v

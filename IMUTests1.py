@@ -11,7 +11,7 @@ from Sensors.EMGSensor import DelsysEMGIMU
 from SignalProcessing.IMUProcessing import IMUProcessing
 from SignalProcessing.Filtering import rt_filtering, rt_desired_Angle_lowpass
 from SignalProcessing.Interpretors import ProportionalMyoelectricalControl as PMC
-from Optimizations import optimize_1, optimize_2, optimize_4, optimize_5_pd, EMG_IMU_optimizer, EMG_IMU_optimizer_2
+from Optimizations import optimize_1, optimize_2, optimize_4, optimize_5_pd, optimizer_6, EMG_IMU_optimizer, EMG_IMU_optimizer_2
 # from AdaptiveEmbodiedControlSystems.ESN import ESN
 # from AdaptiveEmbodiedControlSystems.LSTM import LSTM
 from ProjectInRobotics.pDMP.pDMP_functions import pDMP, pDMPCoupling1, pDMPOmega
