@@ -32,9 +32,9 @@ class CSVWindowedDataset(Dataset):
         X_list = []
         y_list = []
         
-        for i in range(len(data) - seq_len - 1):
+        for i in range(len(data) - seq_len - 40):
             window = data[i : i + seq_len]        # (seq_len,)
-            target = data[i + seq_len]            # scalar
+            target = data[i + seq_len + 40]            # scalar
             X_list.append(window[:, None])  # (seq_len, 1)
             y_list.append([target])          # (1,)
         self.X = torch.from_numpy(np.stack(X_list, axis=0))  # (N, seq_len, 1), float32
@@ -103,7 +103,8 @@ class WindowedESNWithActivation(nn.Module):
 
 def train_windowed_esn():
     # hyperparameters
-    seq_length = 25
+    # seq_length = 25
+    seq_length = 100
     reservoir_size = 100
     spectral_radius = 0.9
     leaking_rate = 0.7
@@ -254,7 +255,17 @@ def evaluate_windowed_esn(model, seq_len, device="cpu", total_points=1000):
         raise ValueError("total_points too small vs seq_len during evaluation")
 
     X_batch = torch.cat(X_list, dim=0)
-    preds = model(X_batch)
+    # preds = model(X_batch)
+    batch_size = 512  # or 256 if needed
+
+    preds_list = []
+
+    for i in range(0, X_batch.shape[0], batch_size):
+        xb = X_batch[i:i+batch_size]
+        preds = model(xb)
+        preds_list.append(preds.cpu())
+
+    preds = torch.cat(preds_list, dim=0)
     y_pred = preds.squeeze(-1).cpu().numpy()
 
     target_indices = torch.arange(seq_len, seq_len + len(y_pred))
@@ -333,32 +344,35 @@ if __name__ == "__main__":
     plt.tight_layout()
     plt.show()
 
-    print("Training Continuous ESN...")
-    ContinuousESN, Continuous_avg_loss, Continuous_total_loss = train_continuous_esn()
+    # print("Training Continuous ESN...")
+    # ContinuousESN, Continuous_avg_loss, Continuous_total_loss = train_continuous_esn()
     
-    plt.figure(figsize=(12, 5))
-    plt.subplot(1, 2, 1)
-    plt.plot(Continuous_avg_loss, label='Average Loss per Epoch')
-    plt.xlabel('Epoch')
-    plt.ylabel('Average Loss')
-    plt.title('Average Loss over Epochs (Continuous ESN)')
-    plt.legend()
-    plt.subplot(1, 2, 2)
-    plt.plot(Continuous_total_loss, label='Total Loss per Epoch', color='orange')
-    plt.xlabel('Epoch')
-    plt.ylabel('Total Loss')
-    plt.title('Total Loss over Epochs (Continuous ESN)')
-    plt.legend()
-    plt.tight_layout()
-    plt.show()
+    # plt.figure(figsize=(12, 5))
+    # plt.subplot(1, 2, 1)
+    # plt.plot(Continuous_avg_loss, label='Average Loss per Epoch')
+    # plt.xlabel('Epoch')
+    # plt.ylabel('Average Loss')
+    # plt.title('Average Loss over Epochs (Continuous ESN)')
+    # plt.legend()
+    # plt.subplot(1, 2, 2)
+    # plt.plot(Continuous_total_loss, label='Total Loss per Epoch', color='orange')
+    # plt.xlabel('Epoch')
+    # plt.ylabel('Total Loss')
+    # plt.title('Total Loss over Epochs (Continuous ESN)')
+    # plt.legend()
+    # plt.tight_layout()
+    # plt.show()
 
     # 评估和绘图
-    seq_length_for_eval = 25
+    # seq_length_for_eval = 25
+    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    seq_length_for_eval = 100
     print("Evaluating Windowed ESN...")
     t_pred_w, y_true_w, y_pred_w = evaluate_windowed_esn(
         model=WindowedESN,
         seq_len=seq_length_for_eval,
-        device="cpu",
+        # device="cpu",
+        device=device,
         total_points=1000
     )
     plot_predictions(
@@ -374,16 +388,16 @@ if __name__ == "__main__":
         os.makedirs(save_dir)
     torch.save(WindowedESN.state_dict(), Model_Save_Path)
 
-    print("Evaluating Continuous ESN...")
-    t_pred_c, y_true_c, y_pred_c = evaluate_continuous_esn(
-        model=ContinuousESN,
-        seq_len=seq_length_for_eval,
-        device="cpu",
-        total_points=1000
-    )
-    plot_predictions(
-        t_pred_c,
-        y_true_c,
-        y_pred_c,
-        title="Continuous ESN Prediction vs True Signal"
-    )
+    # print("Evaluating Continuous ESN...")
+    # t_pred_c, y_true_c, y_pred_c = evaluate_continuous_esn(
+    #     model=ContinuousESN,
+    #     seq_len=seq_length_for_eval,
+    #     device="cpu",
+    #     total_points=1000
+    # )
+    # plot_predictions(
+    #     t_pred_c,
+    #     y_true_c,
+    #     y_pred_c,
+    #     title="Continuous ESN Prediction vs True Signal"
+    # )

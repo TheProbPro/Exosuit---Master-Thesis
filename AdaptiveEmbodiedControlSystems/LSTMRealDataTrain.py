@@ -28,9 +28,9 @@ class CSVWindowedDataset(Dataset):
         X_list = []
         y_list = []
         
-        for i in range(len(data) - seq_len - 1):
+        for i in range(len(data) - seq_len - 40):
             window = data[i : i + seq_len]        # (seq_len,)
-            target = data[i + seq_len]            # scalar
+            target = data[i + seq_len + 40]            # scalar
             X_list.append(window[:, None])  # (seq_len, 1)
             y_list.append([target])          # (1,)
         self.X = torch.from_numpy(np.stack(X_list, axis=0))  # (N, seq_len, 1), float32
@@ -59,7 +59,8 @@ class CSVContinuousDataset(Dataset):
 
 def train_moving_window_lstm():
     # hyperparameters
-    seq_length = 25
+    # seq_length = 25
+    seq_length = 100
     hiddenstate = 64
     num_layers = 1
     batch_size = 32
@@ -229,7 +230,17 @@ def evaluate_windowed_lstm(model, seq_len, device="cpu", total_points=1000):
     X_batch = torch.cat(X_list, dim=0)            # (N, seq_len, 1)
 
     # 2) run model in batch
-    preds = model(X_batch)                        # (N,1) because your model outputs only last step
+    # preds = model(X_batch)                        # (N,1) because your model outputs only last step
+    batch_size = 512  # or 256 if needed
+
+    preds_list = []
+
+    for i in range(0, X_batch.shape[0], batch_size):
+        xb = X_batch[i:i+batch_size]
+        preds = model(xb)
+        preds_list.append(preds.cpu())
+
+    preds = torch.cat(preds_list, dim=0)
     # reshape to (N,)
     y_pred = preds.squeeze(-1).squeeze(-1).cpu().numpy()
 
@@ -327,33 +338,36 @@ if __name__ == "__main__":
     plt.tight_layout()
     plt.show()
 
-    print("Training Continuous LSTM...")
-    ContinuousLSTM, Continuous_avg_loss, Continuous_total_loss = train_continuous_lstm()
-    # Plotting the avg loss and the windowed total loss arrays in two subplots
-    plt.figure(figsize=(12, 5))
-    plt.subplot(1, 2, 1)
-    plt.plot(Continuous_avg_loss, label='Average Loss per Epoch')
-    plt.xlabel('Epoch')
-    plt.ylabel('Average Loss')
-    plt.title('Average Loss over Epochs (Continuous LSTM)')
-    plt.legend()
-    plt.subplot(1, 2, 2)
-    plt.plot(Continuous_total_loss, label='Total Loss per Epoch', color='orange')
-    plt.xlabel('Epoch')
-    plt.ylabel('Total Loss')
-    plt.title('Total Loss over Epochs (Continuous LSTM)')
-    plt.legend()
-    plt.tight_layout()
-    plt.show()
+    # print("Training Continuous LSTM...")
+    # ContinuousLSTM, Continuous_avg_loss, Continuous_total_loss = train_continuous_lstm()
+    # # Plotting the avg loss and the windowed total loss arrays in two subplots
+    # plt.figure(figsize=(12, 5))
+    # plt.subplot(1, 2, 1)
+    # plt.plot(Continuous_avg_loss, label='Average Loss per Epoch')
+    # plt.xlabel('Epoch')
+    # plt.ylabel('Average Loss')
+    # plt.title('Average Loss over Epochs (Continuous LSTM)')
+    # plt.legend()
+    # plt.subplot(1, 2, 2)
+    # plt.plot(Continuous_total_loss, label='Total Loss per Epoch', color='orange')
+    # plt.xlabel('Epoch')
+    # plt.ylabel('Total Loss')
+    # plt.title('Total Loss over Epochs (Continuous LSTM)')
+    # plt.legend()
+    # plt.tight_layout()
+    # plt.show()
 
     # ---- Evaluate and plot predictions for both models ----
 
     # 1. Windowed model evaluation
-    seq_length_for_eval = 25  # must match seq_length used to train your windowed model
+    # seq_length_for_eval = 25  # must match seq_length used to train your windowed model
+    seq_length_for_eval = 100  # must match seq_length used to train your windowed model
+    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     t_pred_w, y_true_w, y_pred_w = evaluate_windowed_lstm(
         model=WindowedLSTM,
         seq_len=seq_length_for_eval,
-        device="cpu",
+        # device="cpu",
+        device=device,
         total_points=1000
     )
 
@@ -370,15 +384,15 @@ if __name__ == "__main__":
         os.makedirs(save_dir)
     torch.save(WindowedLSTM.state_dict(), Model_Save_Path)
 
-    # 2. Streaming model evaluation
-    t_pred_s, y_true_s, y_pred_s = evaluate_streaming_lstm(
-        model=ContinuousLSTM,
-        device="cpu",
-        total_points=1000
-    )
-    plot_predictions(
-        t_pred_s,
-        y_true_s,
-        y_pred_s,
-        title="Streaming LSTM Prediction vs True Sine"
-    )
+    # # 2. Streaming model evaluation
+    # t_pred_s, y_true_s, y_pred_s = evaluate_streaming_lstm(
+    #     model=ContinuousLSTM,
+    #     device="cpu",
+    #     total_points=1000
+    # )
+    # plot_predictions(
+    #     t_pred_s,
+    #     y_true_s,
+    #     y_pred_s,
+    #     title="Streaming LSTM Prediction vs True Sine"
+    # )

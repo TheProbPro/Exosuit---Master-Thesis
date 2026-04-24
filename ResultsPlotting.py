@@ -340,9 +340,13 @@ if __name__ == "__main__":
 
         # ---------- Radar plot (ALL metrics) ----------
 
+        # metrics = [
+        #     "MAE","RMSE","Bias","Correlation","R_squared",
+        #     "Lag","Lag_time_sec","ROM_error","Shifted_MAE","Shifted_RMSE", "median_jerk"
+        # ]
         metrics = [
             "MAE","RMSE","Bias","Correlation","R_squared",
-            "Lag","Lag_time_sec","ROM_error","Shifted_MAE","Shifted_RMSE", "median_jerk"
+            "ROM_error","Shifted_MAE","Shifted_RMSE", "median_jerk"
         ]
 
         df_norm = df_stats.copy()
@@ -353,17 +357,17 @@ if __name__ == "__main__":
         # df_norm["Lag_time_sec"] = df_norm["Lag_time_sec"].abs()
         df_norm["ROM_error"] = df_norm["ROM_error"].abs()
 
-        vals = df_stats["Lag"].astype(float)
-        max_abs = np.max(np.abs(vals)) + 1e-8
-        # Normalize to [-1, 1]
-        norm = vals / max_abs
-        # Shift to [0, 1] (so radar works)
-        df_norm["Lag"] = (norm + 1) / 2
+        # vals = df_stats["Lag"].astype(float)
+        # max_abs = np.max(np.abs(vals)) + 1e-8
+        # # Normalize to [-1, 1]
+        # norm = vals / max_abs
+        # # Shift to [0, 1] (so radar works)
+        # df_norm["Lag"] = (norm + 1) / 2
 
-        vals = df_stats["Lag_time_sec"].astype(float)
-        max_abs = np.max(np.abs(vals)) + 1e-8
-        norm = vals / max_abs
-        df_norm["Lag_time_sec"] = (norm + 1) / 2
+        # vals = df_stats["Lag_time_sec"].astype(float)
+        # max_abs = np.max(np.abs(vals)) + 1e-8
+        # norm = vals / max_abs
+        # df_norm["Lag_time_sec"] = (norm + 1) / 2
 
         # Normalize all metrics to [0,1]
         for col in metrics:

@@ -161,7 +161,7 @@ def process_emg(file, optimizer):
     EMG_FS = 2000  # Hz
     dt = 1 / EMG_FS
 
-    window = queue.Queue(maxsize=25)  # 50 samples at 2000Hz = 25ms window
+    window = queue.Queue(maxsize=100)  # 50 samples at 2000Hz = 25ms window
 
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     if optimizer == "ESN":
@@ -281,12 +281,16 @@ def process_emg(file, optimizer):
         if optimizer == "ESN":
             with torch.no_grad():
                 input_tensor = torch.tensor(list(window.queue), dtype=torch.float32).unsqueeze(0).unsqueeze(-1).to(device)
+                # t = time.time()
                 esn_output = model(input_tensor)
+                # print(f"processing time for ESN input tensor creation: {time.time() - t:.4f} seconds")
                 optimized_angle = esn_output.item()
         elif optimizer == "LSTM":
             with torch.no_grad():
                 input_tensor = torch.tensor(list(window.queue), dtype=torch.float32).unsqueeze(0).unsqueeze(-1).to(device)
+                # t = time.time()
                 lstm_output = model(input_tensor)
+                # print(f"processing time for LSTM input tensor creation: {time.time() - t:.4f} seconds")
                 optimized_angle = lstm_output.item()
         
         optimized_angle_values.append(optimized_angle)

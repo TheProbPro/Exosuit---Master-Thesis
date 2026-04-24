@@ -412,8 +412,8 @@ if __name__ == "__main__":
             valid_mask = (np.isfinite(emg_on_mocap) & np.isfinite(mocap_y))
 
             # Perform statistics
-            np_optimized_angle_values = np.array(emg_on_mocap)[valid_mask]
-            mocap_y_valid = mocap_y[valid_mask]
+            np_optimized_angle_values = np.interp(mocap_t_rel, mocap_t_rel[valid_mask], np.array(emg_on_mocap)[valid_mask])
+            mocap_y_valid = np.interp(mocap_t_rel, mocap_t_rel[valid_mask], mocap_y[valid_mask])
 
             # Calculate MAE
             mae = np.mean(np.abs(np_optimized_angle_values - mocap_y_valid))
@@ -439,12 +439,13 @@ if __name__ == "__main__":
 
             # Calculate lag (cross-correlation)
             cross_corr = np.correlate(np_optimized_angle_values - np.mean(np_optimized_angle_values), mocap_y_valid - np.mean(mocap_y_valid), mode='full')
-            lag = np.argmax(cross_corr) - (len(mocap_y_valid) - 1)
-            lag_time = lag * (mocap_t[1] - mocap_t[0])  # convert lag from samples to seconds
+            lag = np.argmax(cross_corr) - (len(np_optimized_angle_values) - 1)
+            lag_dt = np.mean(np.diff(mocap_t_rel))  # average time difference between samples
+            lag_time = lag * lag_dt  # convert lag from samples to seconds
             if lag_time > 0:
                 print(f"Optimized signal lags behind MoCap by {lag_time:.4f} seconds")
             elif lag_time < 0:
-                print(f"Optimized signal leads MoCap by {-lag_time:.4f} seconds")
+                print(f"Optimized signal leads MoCap by {lag_time:.4f} seconds")
             else:
                 print("No lag between optimized signal and MoCap")
 

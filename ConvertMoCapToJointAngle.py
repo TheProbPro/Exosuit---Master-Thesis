@@ -270,6 +270,7 @@ def process_emg(file, optimizer):
     optimized_angle = 0
     delta_q_prev = 0
     a_prev = 0
+    dif_a_prev = 0
 
     # Containers
     filtered_net_a_values = []
@@ -299,6 +300,10 @@ def process_emg(file, optimizer):
         activation = interpreter.compute_activation([filtered_bicep_rms, filtered_tricep_rms])
         net_a = activation[0] - activation[1]
         filtered_net_a = float(net_a_lowpass.lowpass(np.atleast_1d(net_a))[0])
+        # TODO: Try with differentiated net a as input to optimizers instead of lowpassed net a
+        # dif_a = (filtered_net_a - dif_a_prev) / dt
+        # dif_a_prev = filtered_net_a
+        # filtered_net_a = dif_a
         filtered_net_a_values.append(filtered_net_a)
 
         if optimizer == "None":
@@ -401,9 +406,14 @@ if __name__ == "__main__":
 
             ################# Statistics #################
             valid_mask = (np.isfinite(optimized_angle_values)) & (np.isfinite(mocap_interp))
+            # valid_emg = np.isfinite(optimized_angle_values)
+            # valid_mocap = np.isfinite(mocap_interp)
 
-            np_optimized_angle_values = np.array(optimized_angle_values)[valid_mask]
-            mocap_interp_valid = mocap_interp[valid_mask]
+            np_optimized_angle_values = np.interp(time_sec, time_sec[valid_mask], np.array(optimized_angle_values)[valid_mask])
+            mocap_interp_valid = np.interp(time_sec, time_sec[valid_mask], mocap_interp[valid_mask])
+            # np_optimized_angle_values = np.interp(time_sec, time_sec[valid_emg], np.array(optimized_angle_values)[valid_emg])
+            # mocap_interp_valid = np.interp(time_sec, time_sec[valid_mocap], mocap_interp[valid_mocap])
+
 
             # Calculate MAE
             mae = np.mean(np.abs(np_optimized_angle_values - mocap_interp_valid))
@@ -429,11 +439,12 @@ if __name__ == "__main__":
 
             # Calculate lag (cross-correlation)
             cross_corr = np.correlate(np_optimized_angle_values - np.mean(np_optimized_angle_values), mocap_interp_valid - np.mean(mocap_interp_valid), mode='full')
-            lag = np.argmax(cross_corr) - (len(mocap_interp) - 1)
-            lag_time = lag * (time_sec[1] - time_sec[0])
-            if lag > 0:
+            lag = np.argmax(cross_corr) - (len(np_optimized_angle_values) - 1)
+            lag_dt = np.mean(np.diff(time_sec))
+            lag_time = lag * lag_dt
+            if lag < 0:
                 print(f"EMG leads MoCap by {lag_time:.2f} seconds")
-            elif lag < 0:
+            elif lag > 0:
                 print(f"EMG lags behind MoCap by {abs(lag_time):.2f} seconds")
             else:
                 print("No lag detected")
