@@ -271,6 +271,17 @@ def synchronize_data(mocap_timestamps, imu_timestamps, emg_timestamps):
 
     return emg_mask, imu_mask, mocap_mask
 
+def upward_crossings(t, y, threshold):
+    idx = np.where((y[:-1] < threshold) & (y[1:] >= threshold))[0]
+    crossings = []
+
+    for i in idx:
+        # linear interpolation for sub-sample crossing time
+        t_cross = t[i] + (threshold - y[i]) * (t[i+1] - t[i]) / (y[i+1] - y[i])
+        crossings.append(t_cross)
+
+    return np.array(crossings)
+
 if __name__ == "__main__":
     IMU_dt = 1/148
     EMG_dt = 1/2000
@@ -281,8 +292,8 @@ if __name__ == "__main__":
 
     USER_NAME = "VictorBNielsen"
 
-    # CLOCK_OFFSET = 0.1753559112548828
-    CLOCK_OFFSET = 1.3 # Set to 0 for now since we are using absolute timestamps
+    # CLOCK_OFFSET = 1.3   
+    CLOCK_OFFSET = 1.4#1.4 # Set to 0 for now since we are using absolute timestamps
 
     interpreter = PMC(theta_min=THETA_MIN, theta_max=THETA_MAX, user_name=USER_NAME, BicepEMG=True, TricepEMG=True)
 
@@ -352,21 +363,44 @@ if __name__ == "__main__":
                     optimized_angle_values.append(imu)
                     # optimized_angle_values.append(interpreter.compute_angle(filtered_net_a))
                 elif optimizer == "optimizer_1":
-                    optimized_angle = optimize_1((3*np.pi), filtered_net_a, IMU_dt, optimized_angle_values[-1], THETA_MIN, THETA_MAX)
+                    if emg_file == "Outputs/IMUMocap2/emg_data.csv":
+                        k = 1.8 * np.pi
+                    elif emg_file == "Outputs/IMUMocap3/emg_data.csv":
+                        k = 1.8 * np.pi
+                    optimized_angle = optimize_1(k, filtered_net_a, IMU_dt, optimized_angle_values[-1], THETA_MIN, THETA_MAX)
                     # optimized_angle = optimize_1((2*np.pi), filtered_net_a, dt, optimized_angle_values[-1], THETA_MIN, THETA_MAX)
                     optimized_angle_values.append(optimized_angle)
                 elif optimizer == "optimizer_2":
-                    optimized_angle = optimize_2((4*np.pi), filtered_net_a, IMU_dt, optimized_angle_values[-1], THETA_MIN, THETA_MAX)
+                    if emg_file == "Outputs/IMUMocap2/emg_data.csv":
+                        k = 4 * np.pi
+                    elif emg_file == "Outputs/IMUMocap3/emg_data.csv":
+                        k = 4 * np.pi
+                    optimized_angle = optimize_2(k, filtered_net_a, IMU_dt, optimized_angle_values[-1], THETA_MIN, THETA_MAX)
                     optimized_angle_values.append(optimized_angle)
                 elif optimizer == "optimizer_4":
-                    optimized_angle, delta_q_prev = optimize_4((2*np.pi), filtered_net_a, IMU_dt, optimized_angle_values[-1], delta_q_prev, THETA_MIN, THETA_MAX)
+                    if emg_file == "Outputs/IMUMocap2/emg_data.csv":
+                        k = 1.8 * np.pi
+                    elif emg_file == "Outputs/IMUMocap3/emg_data.csv":
+                        k = 1.8 * np.pi
+                    optimized_angle, delta_q_prev = optimize_4(k, filtered_net_a, IMU_dt, optimized_angle_values[-1], delta_q_prev, THETA_MIN, THETA_MAX)
                     optimized_angle_values.append(optimized_angle)
                 elif optimizer == "optimizer_5_pd":
-                    # optimized_angle, v = optimize_5_pd(filtered_net_a, v, dt, optimized_angle_values[-1], THETA_MIN, THETA_MAX, np.pi, 4, 0.1)
-                    optimized_angle, v = optimize_5_pd(filtered_net_a, v, IMU_dt, optimized_angle_values[-1], THETA_MIN, THETA_MAX, np.pi, 4, 0.01)
+                    if emg_file == "Outputs/IMUMocap2/emg_data.csv":
+                        k = 18
+                        b = 0.02
+                    elif emg_file == "Outputs/IMUMocap3/emg_data.csv":
+                        k = 18
+                        b = 0.02
+                    optimized_angle, v = optimize_5_pd(filtered_net_a, v, IMU_dt, optimized_angle_values[-1], THETA_MIN, THETA_MAX, np.pi, k, b)#4, 0.01)
                     optimized_angle_values.append(optimized_angle)
                 elif optimizer == "optimizer_6":
-                    optimized_angle, v, acc = optimizer_6(filtered_net_a, v, IMU_dt, optimized_angle_values[-1], THETA_MIN, THETA_MAX, np.pi, b=10.0, k=np.pi*10.0*2)
+                    if emg_file == "Outputs/IMUMocap2/emg_data.csv":
+                        k = 2 * 10 * np.pi
+                        b = 5.0
+                    elif emg_file == "Outputs/IMUMocap3/emg_data.csv":
+                        k = 2 * 10 * np.pi
+                        b = 8.0
+                    optimized_angle, v, acc = optimizer_6(filtered_net_a, v, IMU_dt, optimized_angle_values[-1], THETA_MIN, THETA_MAX, np.pi, b, k)
                     optimized_angle_values.append(optimized_angle)
                 elif optimizer == "EMG_IMU_optimizer":
                     d_a = filtered_net_a - a_prev
@@ -380,7 +414,7 @@ if __name__ == "__main__":
                     a_prev = filtered_net_a
                     omega = (imu - imu_prev)
                     imu_prev = imu
-                    q_next, v = EMG_IMU_optimizer_2(filtered_net_a, d_a, omega, 6, 2, q_next, THETA_MIN, THETA_MAX, np.pi, IMU_dt)
+                    q_next, v = EMG_IMU_optimizer_2(filtered_net_a, d_a, omega, 8, 2, q_next, THETA_MIN, THETA_MAX, np.pi, IMU_dt)
                     optimized_angle_values.append(q_next)
                 else:
                     print(f"Unknown optimizer: {optimizer}")
@@ -440,14 +474,58 @@ if __name__ == "__main__":
             # Calculate lag (cross-correlation)
             cross_corr = np.correlate(np_optimized_angle_values - np.mean(np_optimized_angle_values), mocap_y_valid - np.mean(mocap_y_valid), mode='full')
             lag = np.argmax(cross_corr) - (len(np_optimized_angle_values) - 1)
-            lag_dt = np.mean(np.diff(mocap_t_rel))  # average time difference between samples
-            lag_time = lag * lag_dt  # convert lag from samples to seconds
-            if lag_time > 0:
-                print(f"Optimized signal lags behind MoCap by {lag_time:.4f} seconds")
-            elif lag_time < 0:
-                print(f"Optimized signal leads MoCap by {lag_time:.4f} seconds")
+            lag_dt = np.mean(np.diff(mocap_t_rel))
+            lag_time = lag * lag_dt
+            if lag < 0:
+                print(f"EMG leads MoCap by {lag_time:.2f} seconds")
+            elif lag > 0:
+                print(f"EMG lags behind MoCap by {abs(lag_time):.2f} seconds")
             else:
-                print("No lag between optimized signal and MoCap")
+                print("No lag detected")
+
+            # Calculate rising edge / onset lag
+            # Use normalized threshold so amplitude differences matter less
+            emg_norm = (np_optimized_angle_values - np.min(np_optimized_angle_values)) / (np.max(np_optimized_angle_values) - np.min(np_optimized_angle_values))
+            mocap_norm = (mocap_y_valid - np.min(mocap_y_valid)) / (np.max(mocap_y_valid) - np.min(mocap_y_valid))
+
+            emg_onsets = upward_crossings(mocap_t_rel, emg_norm, threshold=0.2)
+            mocap_onsets = upward_crossings(mocap_t_rel, mocap_norm, threshold=0.2)
+
+            # n = min(len(emg_onsets), len(mocap_onsets))
+            # lags = emg_onsets[:n] - mocap_onsets[:n]
+
+            lags = []
+            for t_emg in emg_onsets:
+                closest_idx = np.argmin(np.abs(mocap_onsets - t_emg))
+                lags.append(t_emg - mocap_onsets[closest_idx])
+
+            lags = np.array(lags)
+
+            print("Mean onset lag:", np.mean(lags), "s")
+            print("Median onset lag:", np.median(lags), "s")
+            print("Std onset lag:", np.std(lags), "s")
+
+            if np.median(lags) > 0:
+                print(f"EMG lags MoCap by {np.median(lags):.3f} s")
+            elif np.median(lags) < 0:
+                print(f"EMG leads MoCap by {abs(np.median(lags)):.3f} s")
+
+            # Calcualte peak to peak lag
+            from scipy.signal import find_peaks
+            emg_peaks, _ = find_peaks(emg_norm, distance=int(1.5/np.mean(np.diff(mocap_t_rel))))
+            mocap_peaks, _ = find_peaks(mocap_norm, distance=int(1.5/np.mean(np.diff(mocap_t_rel))))
+
+            # n = min(len(emg_peaks), len(mocap_peaks))
+            # peak_lags = mocap_t_rel[emg_peaks[:n]] - mocap_t_rel[mocap_peaks[:n]]
+            peak_lags = []
+            for t_emg in mocap_t_rel[emg_peaks]:
+                closest_idx = np.argmin(np.abs(mocap_t_rel[mocap_peaks] - t_emg))
+                peak_lags.append(t_emg - mocap_t_rel[mocap_peaks][closest_idx])
+
+            peak_lags = np.array(peak_lags)
+
+            print("Median peak lag:", np.median(peak_lags), "s")
+
 
             # calculate ROM error (difference in range of motion)
             rom_error = (np.max(np_optimized_angle_values) - np.min(np_optimized_angle_values)) - (np.max(mocap_y_valid) - np.min(mocap_y_valid))
@@ -503,6 +581,11 @@ if __name__ == "__main__":
                 "R_squared": [r_squared],
                 "Lag": [lag],
                 "Lag_seconds": [lag_time],
+                "Mean_Onset_Lag_sec": [np.mean(lags)],
+                "Median_Onset_Lag_sec": [np.median(lags)],
+                "Std_Onset_Lag_sec": [np.std(lags)],
+                "Median_Peak_Lag_sec": [np.median(peak_lags)],
+                "Mean_Peak_Lag_sec": [np.mean(peak_lags)],
                 "ROM_Error": [rom_error],
                 "Shifted_MAE": [shifted_mae],
                 "Shifted_RMSE": [shifted_rmse]

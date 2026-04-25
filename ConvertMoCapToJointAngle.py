@@ -29,7 +29,7 @@ EMG_OPTIMIZERS = [
 ]
 
 INPUT_MOCAP_DATA = [
-    "Outputs/MoCap/ExoTestReal1.csv",
+    # "Outputs/MoCap/ExoTestReal1.csv",
     "Outputs/MoCap/ExoTestReal1_002.csv"
     # "Outputs/MoCapEMGData/ExoTest1.csv",
     # "Outputs/MoCapEMGData/ExoTest2.csv",
@@ -37,7 +37,7 @@ INPUT_MOCAP_DATA = [
 ]
 
 INPUT_EMG_DATA = [
-    "Outputs/MoCap/ExoTestReal1_Trigno_2801.csv",
+    # "Outputs/MoCap/ExoTestReal1_Trigno_2801.csv",
     "Outputs/MoCap/ExoTestReal1_002_Trigno_2801.csv",
     # "Outputs/MoCapEMGData/ExoTest1_Trigno_2801.csv",
     # "Outputs/MoCapEMGData/ExoTest2_Trigno_2801.csv",
@@ -67,7 +67,7 @@ def process_mocap(file):
     )
 
     # load data into numpy arrays
-    print(f"Columns in the CSV: {df.columns.tolist()}")
+    # print(f"Columns in the CSV: {df.columns.tolist()}")
 
     # arrange data into relevant numpy arrays
     timestamps = df[("Name", "Time (Seconds)")].to_numpy()
@@ -226,8 +226,8 @@ def process_emg(file, optimizer):
     # load csv
     df = pd.read_csv(file, skiprows=14)  # skip metadata
 
-    print(df.head())
-    print([repr(col) for col in df.columns])
+    # print(df.head())
+    # print([repr(col) for col in df.columns])
 
     # Load data into numpy arrays
     timestamps = df[" MocapTime"].to_numpy()
@@ -309,26 +309,51 @@ def process_emg(file, optimizer):
         if optimizer == "None":
             optimized_angle_values.append(interpreter.compute_angle(filtered_net_a))
         elif optimizer == "optimizer_1":
-            optimized_angle = optimize_1((3*np.pi), filtered_net_a, dt, optimized_angle_values[-1], THETA_MIN, THETA_MAX)
+            # k=3*np.pi
+            if file == "Outputs/MoCapEMGData/ExoTest1_Trigno_2801.csv":
+                k = 2.4 * np.pi
+            elif file == "Outputs/MoCap/ExoTestReal1_002_Trigno_2801.csv":
+                k = 2 * np.pi # File 2
+            optimized_angle = optimize_1(k, filtered_net_a, dt, optimized_angle_values[-1], THETA_MIN, THETA_MAX)
             # optimized_angle = optimize_1((2*np.pi), filtered_net_a, dt, optimized_angle_values[-1], THETA_MIN, THETA_MAX)
             optimized_angle_values.append(optimized_angle)
         elif optimizer == "optimizer_2":
-            optimized_angle = optimize_2((4*np.pi), filtered_net_a, dt, optimized_angle_values[-1], THETA_MIN, THETA_MAX)
+            # k = 4 * np.pi
+            if file == "Outputs/MoCapEMGData/ExoTest1_Trigno_2801.csv":
+                k = 4.5 * np.pi
+            elif file == "Outputs/MoCap/ExoTestReal1_002_Trigno_2801.csv":
+                k = 4.4 * np.pi # File 2
+            optimized_angle = optimize_2(k, filtered_net_a, dt, optimized_angle_values[-1], THETA_MIN, THETA_MAX)
             optimized_angle_values.append(optimized_angle)
         elif optimizer == "optimizer_4":
-            optimized_angle, delta_q_prev = optimize_4((2*np.pi), filtered_net_a, dt, optimized_angle_values[-1], delta_q_prev, THETA_MIN, THETA_MAX)
+            if file == "Outputs/MoCapEMGData/ExoTest1_Trigno_2801.csv":
+                k = 2.4 * np.pi # File 1
+            elif file == "Outputs/MoCap/ExoTestReal1_002_Trigno_2801.csv":
+                k = 2 * np.pi # File 2
+            optimized_angle, delta_q_prev = optimize_4(k, filtered_net_a, dt, optimized_angle_values[-1], delta_q_prev, THETA_MIN, THETA_MAX)
             optimized_angle_values.append(optimized_angle)
         elif optimizer == "optimizer_5_pd":
             # optimized_angle, v = optimize_5_pd(filtered_net_a, v, dt, optimized_angle_values[-1], THETA_MIN, THETA_MAX, np.pi, 4, 0.1)
-            optimized_angle, v = optimize_5_pd(filtered_net_a, v, dt, optimized_angle_values[-1], THETA_MIN, THETA_MAX, np.pi, 4, 0.01)
+            # k = 4
+            k = 20 # File 1
+            if file == "Outputs/MoCapEMGData/ExoTest1_Trigno_2801.csv":
+                b = 0.01 # file 1
+            elif file == "Outputs/MoCap/ExoTestReal1_002_Trigno_2801.csv":
+                b = 0.02 # file 2
+            optimized_angle, v = optimize_5_pd(filtered_net_a, v, dt, optimized_angle_values[-1], THETA_MIN, THETA_MAX, np.pi, k, b)
             optimized_angle_values.append(optimized_angle)
         elif optimizer == "optimizer_6":
-            optimized_angle, v, acc = optimizer_6(filtered_net_a, v, dt, optimized_angle_values[-1], THETA_MIN, THETA_MAX, np.pi, b=10.0, k=np.pi*10.0*2)
+            if file == "Outputs/MoCapEMGData/ExoTest1_Trigno_2801.csv":
+                b = 3.0 # File 1
+            elif file == "Outputs/MoCap/ExoTestReal1_002_Trigno_2801.csv":
+                b = 4.0 # File 2
+            k=np.pi*10.0*2 # File 1
+            optimized_angle, v, acc = optimizer_6(filtered_net_a, v, dt, optimized_angle_values[-1], THETA_MIN, THETA_MAX, np.pi, b, k)
             optimized_angle_values.append(optimized_angle)
         elif optimizer == "EMG_Optimizer":
             a_d = (filtered_net_a - a_prev) / dt
             a_prev = filtered_net_a
-            optimized_angle, v, acc = EMG_Optimizer(filtered_net_a, a_d, v, 10.0, 2.0, 2.0, optimized_angle_values[-1], THETA_MIN, THETA_MAX, np.pi, dt)
+            optimized_angle, v, acc = EMG_Optimizer(filtered_net_a, a_d, v, 4.0, 8.0, 2.0, optimized_angle_values[-1], THETA_MIN, THETA_MAX, np.pi, dt)
             optimized_angle_values.append(optimized_angle)
         elif optimizer == "pDMP":
             v = np.pi/10 #np.pi/22
@@ -368,6 +393,17 @@ def process_emg(file, optimizer):
         optimized_angle_values.remove(optimized_angle_values[0])  # remove initial value to align with timestamps
 
     return filtered_net_a_values, optimized_angle_values, absolute_timestamps, timestamps, start_time, emg_absolute_timestamps
+
+def upward_crossings(t, y, threshold):
+    idx = np.where((y[:-1] < threshold) & (y[1:] >= threshold))[0]
+    crossings = []
+
+    for i in idx:
+        # linear interpolation for sub-sample crossing time
+        t_cross = t[i] + (threshold - y[i]) * (t[i+1] - t[i]) / (y[i+1] - y[i])
+        crossings.append(t_cross)
+
+    return np.array(crossings)
 
 if __name__ == "__main__":
     for mocap_file, emg_file in zip(INPUT_MOCAP_DATA, INPUT_EMG_DATA):
@@ -449,6 +485,49 @@ if __name__ == "__main__":
             else:
                 print("No lag detected")
 
+            # Calculate rising edge / onset lag
+            # Use normalized threshold so amplitude differences matter less
+            emg_norm = (np_optimized_angle_values - np.min(np_optimized_angle_values)) / (np.max(np_optimized_angle_values) - np.min(np_optimized_angle_values))
+            mocap_norm = (mocap_interp_valid - np.min(mocap_interp_valid)) / (np.max(mocap_interp_valid) - np.min(mocap_interp_valid))
+
+            emg_onsets = upward_crossings(time_sec, emg_norm, threshold=0.2)
+            mocap_onsets = upward_crossings(time_sec, mocap_norm, threshold=0.2)
+
+            # n = min(len(emg_onsets), len(mocap_onsets))
+            # lags = emg_onsets[:n] - mocap_onsets[:n]
+
+            lags = []
+            for t_emg in emg_onsets:
+                closest_idx = np.argmin(np.abs(mocap_onsets - t_emg))
+                lags.append(t_emg - mocap_onsets[closest_idx])
+
+            lags = np.array(lags)
+
+            print("Mean onset lag:", np.mean(lags), "s")
+            print("Median onset lag:", np.median(lags), "s")
+            print("Std onset lag:", np.std(lags), "s")
+
+            if np.median(lags) > 0:
+                print(f"EMG lags MoCap by {np.median(lags):.3f} s")
+            elif np.median(lags) < 0:
+                print(f"EMG leads MoCap by {abs(np.median(lags)):.3f} s")
+
+            # Calcualte peak to peak lag
+            from scipy.signal import find_peaks
+            emg_peaks, _ = find_peaks(emg_norm, distance=int(1.5/np.mean(np.diff(time_sec))))
+            mocap_peaks, _ = find_peaks(mocap_norm, distance=int(1.5/np.mean(np.diff(time_sec))))
+
+            # n = min(len(emg_peaks), len(mocap_peaks))
+            # peak_lags = time_sec[emg_peaks[:n]] - time_sec[mocap_peaks[:n]]
+            peak_lags = []
+            for t_emg in time_sec[emg_peaks]:
+                closest_idx = np.argmin(np.abs(time_sec[mocap_peaks] - t_emg))
+                peak_lags.append(t_emg - time_sec[mocap_peaks][closest_idx])
+
+            peak_lags = np.array(peak_lags)
+
+            print("Median peak lag:", np.median(peak_lags), "s")
+
             # calculate ROM error (difference in range of motion)
             rom_error = (np.max(np_optimized_angle_values) - np.min(np_optimized_angle_values)) - (np.max(mocap_interp_valid) - np.min(mocap_interp_valid))
             print(f"Range of Motion Error for {optimizer}: {rom_error:.2f} radians")
@@ -479,6 +558,9 @@ if __name__ == "__main__":
             upper_mean_quantile = q75_jerk - mean_jerk
             abs_jerk = np.abs(jerk)
 
+            print(f"Mean Jerk for {optimizer}: {mean_jerk:.2f} rad/s^3")
+            print(f"Median Jerk for {optimizer}: {median_jerk:.2f} rad/s^3")
+
             # # Plot the jerk profile
             # plt.figure(figsize=(12, 6))
             # plt.plot(time_sec, jerk, label=f"Jerk of Optimized Angle ({optimizer})")
@@ -502,6 +584,11 @@ if __name__ == "__main__":
                 "R_squared": [r_squared],
                 "Lag": [lag],
                 "Lag_time_sec": [lag_time],
+                "Mean_Onset_Lag_sec": [np.mean(lags)],
+                "Median_Onset_Lag_sec": [np.median(lags)],
+                "Std_Onset_Lag_sec": [np.std(lags)],
+                "Median_Peak_Lag_sec": [np.median(peak_lags)],
+                "Mean_Peak_Lag_sec": [np.mean(peak_lags)],
                 "ROM_error": [rom_error],
                 "Shifted_MAE": [shifted_mae],
                 "Shifted_RMSE": [shifted_rmse]
