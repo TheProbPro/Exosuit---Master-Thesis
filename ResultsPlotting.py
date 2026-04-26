@@ -1,3 +1,4 @@
+import matplotlib as mpl
 import matplotlib.pyplot as plt
 import pandas as pd
 import numpy as np
@@ -5,8 +6,23 @@ import os
 import glob
 from pathlib import Path
 
+# mpl.rcParams['text.usetex'] = True
+# mpl.rcParams['font.family'] = 'serif'
+mpl.rcParams.update({
+    'text.usetex': True,
+    'font.family': 'serif',
+    
+    'font.size': 10,          # default text size
+    'axes.titlesize': 14,     # title
+    'axes.labelsize': 12,     # x and y labels
+    'xtick.labelsize': 10,    # x tick labels
+    'ytick.labelsize': 10,    # y tick labels
+    'legend.fontsize': 10,    
+    'figure.titlesize': 16
+})
+
 RESULTS_PATH = "Outputs/Results/"
-VEUSZ_CSV_PATH = "Outputs/Results/Veusz_csv/"
+VEUSZ_CSV_PATH = "Outputs/Results/VeuszPlotting/"
 GRAPH_SAVE_PATH = "Outputs/Results/Graphs/"
 
 OPTIMIZERS = [
@@ -27,6 +43,22 @@ OPTIMIZERS = [
 SCRIPTS = [
     "EMG_MoCap",
     "IMU_MoCap"
+]
+
+ORDER = [
+    "EMG to $q_d$",
+    "IMU to $q_d$",
+    "Optimizer 1",
+    "Optimizer 2",
+    "Optimizer 3",
+    "Optimizer 4",
+    "Optimizer 5",
+    "Optimizer 6",
+    "Optimizer 7",
+    "Optimizer 8",
+    "pDMP",
+    "pDMP coupled",
+    "pDMP omega"
 ]
 
 # Optimizer,Mean_Jerk,Median_Jerk,Sigma_Jerk,Max_Jerk,Q25_Jerk,Q75_Jerk,Lower_Median_Quantile,Upper_Median_Quantile,Lower_Mean_Quantile,Upper_Mean_Quantile
@@ -130,9 +162,47 @@ if __name__ == "__main__":
             lower_mean_quantile.append(df["Lower_Mean_Quantile"][0])
             upper_mean_quantile.append(df["Upper_Mean_Quantile"][0])
 
+        # Create optimizer labels
+        labels = []
+        for optimizer in optimizer_name:
+            print("test", optimizer)
+            # if optimizer contains "None"
+            if "None" in optimizer:
+                if "ExoTestReal1" in file_name:
+                    labels.append("EMG to $q_d$")
+                else:
+                    labels.append("IMU to $q_d$")
+            elif "EMG_IMU_optimizer_2" in optimizer:
+                labels.append("Optimizer 8")
+            elif "EMG_IMU_optimizer" in optimizer:
+                labels.append("Optimizer 7")
+            elif "optimizer_1" in optimizer:
+                labels.append("Optimizer 1")
+            elif "optimizer_2" in optimizer:
+                labels.append("Optimizer 2")
+            elif "optimizer_4" in optimizer:
+                labels.append("Optimizer 3")
+            elif "optimizer_5" in optimizer:
+                labels.append("Optimizer 4")
+            elif "optimizer_6" in optimizer:
+                labels.append("Optimizer 5")
+            elif "EMG_Optimizer" in optimizer:
+                labels.append("Optimizer 6")
+            elif "pDMP coupled" in optimizer:
+                labels.append("pDMP coupled")
+            elif "pDMP omega" in optimizer:
+                labels.append("pDMP omega")
+            elif "pDMP" in optimizer:
+                labels.append("pDMP")
+            else:
+                print("Ups ", optimizer)
+                labels.append(optimizer)
+            print(labels[-1])
+
         df_all = pd.DataFrame({
             "file": filenames,
             "optimizer": optimizer_name,
+            "labels": labels,
             "mean": mean_jerk,
             "median": median_jerk,
             "sigma": sigma_jerk,
@@ -144,7 +214,13 @@ if __name__ == "__main__":
             "lower_mean_q": lower_mean_quantile,
             "upper_mean_q": upper_mean_quantile
         })
+        # Save to CSV for Veusz
+        df_all.to_csv(os.path.join(VEUSZ_CSV_PATH, f"{file_name}_jerk_summary.csv"), index=False)
 
+        df_all["labels"] = pd.Categorical(df_all["labels"], categories=ORDER, ordered=True)
+        df_all = df_all.sort_values("labels")
+
+        print(df_all[["labels", "optimizer"]])
 
         # statistics
         print_best("mean", df_all)
@@ -154,29 +230,30 @@ if __name__ == "__main__":
 
         # print(df_all["optimizer"])
         # print(df_all["optimizer"].apply(type))  
-
         # Generate bar plot for mean jerk
-        plt.figure(figsize=(12, 6))
-        plt.bar(df_all["optimizer"], df_all["mean"], yerr=[df_all["lower_median_q"], df_all["upper_median_q"]], color='skyblue')
-        plt.scatter(df_all["optimizer"], df_all["max"], color='red', label='Max Jerk')
+        plt.figure(figsize=(7, 4))
+        plt.bar(df_all["labels"], df_all["mean"], yerr=[df_all["lower_median_q"], df_all["upper_median_q"]], color='skyblue')
+        plt.scatter(df_all["labels"], df_all["max"], color='red', label='Max Jerk')
         plt.yscale('log')
         plt.xticks(rotation=45)
         plt.xlabel("Optimizer")
         plt.ylabel("Mean Jerk (log scale)")
-        plt.title("Mean Jerk for Different Optimizers")
+        # plt.title("Mean Jerk")
         plt.legend()
         plt.tight_layout()
         plt.show()
 
+        df_bar_mean = df_all[["labels", "mean", "lower_median_q", "upper_mean_q"]].copy()
+
         # Generate bar plot for median jerk
-        plt.figure(figsize=(12, 6))
-        plt.bar(df_all["optimizer"], df_all["median"], yerr=[df_all["lower_median_q"], df_all["upper_median_q"]], color='lightgreen')
-        plt.scatter(df_all["optimizer"], df_all["max"], color='red', label='Max Jerk')
+        plt.figure(figsize=(7, 4))
+        plt.bar(df_all["labels"], df_all["median"], yerr=[df_all["lower_median_q"], df_all["upper_median_q"]], color='lightgreen')
+        plt.scatter(df_all["labels"], df_all["max"], color='red', label='Max Jerk')
         plt.yscale('log')
         plt.xticks(rotation=45)
         plt.xlabel("Optimizer")
         plt.ylabel("Median Jerk (log scale)")
-        plt.title("Median Jerk for Different Optimizers")
+        # plt.title("Median Jerk for Different Optimizers")
         plt.legend()
         plt.tight_layout()
         plt.show()
@@ -207,19 +284,63 @@ if __name__ == "__main__":
 
             optimizer_name.append(optimizer)
         
+        # Create optimizer labels
+        labels = []
+        for optimizer in optimizer_name:
+            # if optimizer contains "None"
+            if "None" in optimizer:
+                if "ExoTestReal1" in file_name:
+                    labels.append("EMG to $q_d$")
+                else:
+                    labels.append("IMU to $q_d$")
+            elif "EMG_IMU_optimizer_2" in optimizer:
+                labels.append("Optimizer 8")
+            elif "EMG_IMU_optimizer" in optimizer:
+                labels.append("Optimizer 7")
+            elif "optimizer_1" in optimizer:
+                labels.append("Optimizer 1")
+            elif "optimizer_2" in optimizer:
+                labels.append("Optimizer 2")
+            elif "optimizer_4" in optimizer:
+                labels.append("Optimizer 3")
+            elif "optimizer_5" in optimizer:
+                labels.append("Optimizer 4")
+            elif "optimizer_6" in optimizer:
+                labels.append("Optimizer 5")
+            elif "EMG_Optimizer" in optimizer:
+                labels.append("Optimizer 6")
+            elif "pDMP coupled" in optimizer:
+                labels.append("pDMP coupled")
+            elif "pDMP omega" in optimizer:
+                labels.append("pDMP omega")
+            elif "pDMP" in optimizer:
+                labels.append("pDMP")
+            else:
+                print(optimizer)
+                labels.append(optimizer)
+            print(labels[-1])
+
         df_jerk = pd.DataFrame({
             "filenames": filenames,
             "optimizer": optimizer_name,
+            "labels": labels,
             "jerk_data": abs_jerk_data
         })
+        # Save to CSV for Veusz
+        df_jerk.to_csv(os.path.join(VEUSZ_CSV_PATH, f"{file_name}_jerk_data.csv"), index=False)
 
-        plt.figure(figsize=(12, 6))
-        plt.boxplot(df_jerk["jerk_data"], labels=df_jerk["optimizer"])
+        df_jerk["labels"] = pd.Categorical(df_jerk["labels"], categories=ORDER, ordered=True)
+        df_jerk = df_jerk.sort_values("labels")
+
+        print(df_jerk[["labels", "optimizer"]])
+
+        plt.figure(figsize=(7, 4))
+        plt.boxplot(df_jerk["jerk_data"], labels=df_jerk["labels"], showfliers=False)#, whis=[5, 95])
         plt.yscale('log')
         plt.xticks(rotation=45)
         plt.xlabel("Optimizer")
         plt.ylabel("Absolute Jerk (log scale)")
-        plt.title("Distribution of Absolute Jerk for Different Optimizers")
+        # plt.title("Distribution of Absolute Jerk for Different Optimizers")
         plt.tight_layout()
         plt.show()
 
@@ -243,6 +364,11 @@ if __name__ == "__main__":
         r_squared_array = []
         lag_array = []
         lag_time_sec_array = []
+        mean_onset_lag_sec_array = []
+        median_onset_lag_sec_array = []
+        std_onset_lag_sec_array = []
+        median_peak_lag_sec_array = []
+        mean_peak_lag_sec_array = []
         rom_error_array = []
         shifted_mae_array = []
         shifted_rmse_array = []
@@ -261,6 +387,11 @@ if __name__ == "__main__":
                 lag_time_sec = df["Lag_time_sec"][0]
             except:
                 lag_time_sec = df["Lag_seconds"][0]
+            mean_onset_lag = df["Mean_Onset_Lag_sec"][0]
+            median_onset_lag = df["Median_Onset_Lag_sec"][0]
+            std_onset_lag = df["Std_Onset_Lag_sec"][0]
+            median_peak_lag = df["Median_Peak_Lag_sec"][0]
+            mean_peak_lag = df["Mean_Peak_Lag_sec"][0]
             try:
                 rom_error = df["ROM_error"][0]
             except:
@@ -276,13 +407,55 @@ if __name__ == "__main__":
             r_squared_array.append(r_squared)
             lag_array.append(lag)
             lag_time_sec_array.append(lag_time_sec)
+            mean_onset_lag_sec_array.append(mean_onset_lag)
+            median_onset_lag_sec_array.append(median_onset_lag)
+            std_onset_lag_sec_array.append(std_onset_lag)
+            median_peak_lag_sec_array.append(median_peak_lag)
+            mean_peak_lag_sec_array.append(mean_peak_lag)
             rom_error_array.append(rom_error)
             shifted_mae_array.append(shifted_mae)
             shifted_rmse_array.append(shifted_rmse)
+        
+        # Create optimizer labels
+        labels = []
+        for optimizer in optimizer_name:
+            # if optimizer contains "None"
+            if "None" in optimizer:
+                if "ExoTestReal1" in file_name:
+                    labels.append("EMG to $q_d$")
+                else:
+                    labels.append("IMU to $q_d$")
+            elif "EMG_IMU_optimizer_2" in optimizer:
+                labels.append("Optimizer 8")
+            elif "EMG_IMU_optimizer" in optimizer:
+                labels.append("Optimizer 7")
+            elif "optimizer_1" in optimizer:
+                labels.append("Optimizer 1")
+            elif "optimizer_2" in optimizer:
+                labels.append("Optimizer 2")
+            elif "optimizer_4" in optimizer:
+                labels.append("Optimizer 3")
+            elif "optimizer_5" in optimizer:
+                labels.append("Optimizer 4")
+            elif "optimizer_6" in optimizer:
+                labels.append("Optimizer 5")
+            elif "EMG_Optimizer" in optimizer:
+                labels.append("Optimizer 6")
+            elif "pDMP coupled" in optimizer:
+                labels.append("pDMP coupled")
+            elif "pDMP omega" in optimizer:
+                labels.append("pDMP omega")
+            elif "pDMP" in optimizer:
+                labels.append("pDMP")
+            else:
+                print(optimizer)
+                labels.append(optimizer)
+            print(labels[-1])
 
         df_stats = pd.DataFrame({
             "file": filenames,
             "optimizer": optimizer_name,
+            "labels": labels,
             "MAE": mae_array,
             "RMSE": rmse_array,
             "Bias": bias_array,
@@ -290,10 +463,18 @@ if __name__ == "__main__":
             "R_squared": r_squared_array,
             "Lag": lag_array,
             "Lag_time_sec": lag_time_sec_array,
+            "Mean_Onset_Lag_sec": mean_onset_lag_sec_array,
+            "Median_Onset_Lag_sec": median_onset_lag_sec_array,
+            "Std_Onset_Lag_sec": std_onset_lag_sec_array,
+            "Median_Peak_Lag_sec": median_peak_lag_sec_array,
+            "Mean_Peak_Lag_sec": mean_peak_lag_sec_array,
             "ROM_error": rom_error_array,
             "Shifted_MAE": shifted_mae_array,
             "Shifted_RMSE": shifted_rmse_array
         })
+
+        df_stats["labels"] = pd.Categorical(df_stats["labels"], categories=ORDER, ordered=True)
+        df_stats = df_stats.sort_values("labels")
 
         ####################################
         # Find corresponding jerk stats for this file_name
@@ -348,8 +529,15 @@ if __name__ == "__main__":
             "MAE","RMSE","Bias","Correlation","R_squared",
             "ROM_error","Shifted_MAE","Shifted_RMSE", "median_jerk"
         ]
+        metrics_labels = [
+            "MAE","RMSE","Bias","Correlation","$R^2$",
+            "ROM error","Shifted MAE","Shifted RMSE", "$\eta$ Jerk"
+        ]
 
         df_norm = df_stats.copy()
+
+        # Exclude the pDMP optimizers
+        df_norm = df_norm[~df_norm["optimizer"].str.contains("pDMP")]
 
         # Handle special cases first
         df_norm["Bias"] = df_norm["Bias"].abs()
@@ -385,13 +573,13 @@ if __name__ == "__main__":
             df_norm[col] = norm
 
         # Radar setup
-        labels = metrics
+        labels = metrics_labels
         num_vars = len(labels)
 
         angles = np.linspace(0, 2*np.pi, num_vars, endpoint=False)
         angles = np.concatenate([angles, [angles[0]]])
 
-        plt.figure(figsize=(8,8))
+        plt.figure(figsize=(7,7))
         ax = plt.subplot(111, polar=True)
 
         # Plot each optimizer
@@ -399,7 +587,7 @@ if __name__ == "__main__":
             values = [row[m] for m in metrics]
             values += values[:1]
             
-            ax.plot(angles, values, label=row["optimizer"])
+            ax.plot(angles, values, label=row["labels"])
             ax.fill(angles, values, alpha=0.05)
 
         # Axis labels
@@ -407,11 +595,29 @@ if __name__ == "__main__":
         ax.set_xticklabels(labels, fontsize=9)
 
         ax.set_ylim(0, 1)
-        ax.set_title(f"Radar Comparison – {file_name}", pad=20)
+        # ax.set_title(f"Radar Comparison – {file_name}", pad=20)
 
         plt.legend(loc='upper right', bbox_to_anchor=(1.3, 1.1))
         plt.tight_layout()
         plt.show()
+
+        # score the optimizers
+        weights = {
+            "MAE": 1.0,
+            "RMSE": 1.0,
+            "Bias": 0.8,
+            "Correlation": 1.5,
+            "R_squared": 1.2,
+            "ROM_error": 1.0,
+            "Shifted_MAE": 1.0,
+            "Shifted_RMSE": 1.0,
+            "median_jerk": 1.5
+        }
+
+        df_norm["score"] = sum(df_norm[m] * weights[m] for m in metrics) / sum(weights.values())
+        df_norm = df_norm.sort_values("score", ascending=False)
+        for i, row in df_norm.iterrows():
+            print(f"{row['optimizer']:<20} | Score: {row['score']:.3f}")
     
     # # Load stats
     # # Optimizer,MAE,RMSE,Bias,Correlation,R_squared,Lag,Lag_time_sec,ROM_error,Shifted_MAE,Shifted_RMSE

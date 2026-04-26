@@ -1,0 +1,16 @@
+filenames,optimizer,labels,jerk_data
+IMU_MoCap_jerk_EMG_IMU_optimizer_2_ExoIMUTest1_002.csv,EMG_IMU_optimizer_2_ExoIMUTest1,Optimizer 8,"[   0.            0.            0.         ...  549.35256967 1297.18403054
+ 1303.28132778]"
+IMU_MoCap_jerk_EMG_IMU_optimizer_ExoIMUTest1_002.csv,EMG_IMU_optimizer_ExoIMUTest1,Optimizer 7,"[  0.           0.           0.         ... 201.17396425 382.07461337
+ 378.00559827]"
+IMU_MoCap_jerk_None_ExoIMUTest1_002.csv,None_ExoIMUTest1,IMU to $q_d$,"[  0.           0.           0.         ... 454.82553223  98.39698065
+ 113.0463807 ]"
+IMU_MoCap_jerk_optimizer_1_ExoIMUTest1_002.csv,optimizer_1_ExoIMUTest1,Optimizer 1,"[  0.           0.           0.         ... 291.8422976  723.39916798
+ 737.42016202]"
+IMU_MoCap_jerk_optimizer_2_ExoIMUTest1_002.csv,optimizer_2_ExoIMUTest1,Optimizer 2,"[   0.            0.            0.         ...  473.91294697 1114.06649464
+ 1126.67230697]"
+IMU_MoCap_jerk_optimizer_4_ExoIMUTest1_002.csv,optimizer_4_ExoIMUTest1,Optimizer 3,"[  0.           0.           0.         ... 180.28425366 458.85220784
+ 476.89873478]"
+IMU_MoCap_jerk_optimizer_5_pd_ExoIMUTest1_002.csv,optimizer_5_pd_ExoIMUTest1,Optimizer 4,[0. 0. 0. ... 0. 0. 0.]
+IMU_MoCap_jerk_optimizer_6_ExoIMUTest1_002.csv,optimizer_6_ExoIMUTest1,Optimizer 5,"[  0.           0.           0.         ... 288.46816638 616.47162064
+ 624.69937762]"
