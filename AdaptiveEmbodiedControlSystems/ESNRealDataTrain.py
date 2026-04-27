@@ -1,4 +1,5 @@
 import os
+import time
 os.environ['KMP_DUPLICATE_LIB_OK'] = 'True'
 
 import torch
@@ -247,7 +248,7 @@ def evaluate_windowed_esn(model, seq_len, device="cpu", total_points=1000):
     T = signal.shape[0]
 
     X_list = []
-    for i in range(T - seq_len - 1):
+    for i in range(T - seq_len - 40):
         window = signal[i : i+seq_len]
         X_list.append(window.unsqueeze(0))
 
@@ -259,16 +260,20 @@ def evaluate_windowed_esn(model, seq_len, device="cpu", total_points=1000):
     batch_size = 512  # or 256 if needed
 
     preds_list = []
-
+    timing = []
     for i in range(0, X_batch.shape[0], batch_size):
+        t = time.time()
         xb = X_batch[i:i+batch_size]
         preds = model(xb)
         preds_list.append(preds.cpu())
+        timing.append(time.time() - t)
 
+    print(f"Avg batch inference time: {np.mean(timing):.4f} seconds per batch of size {batch_size}")
     preds = torch.cat(preds_list, dim=0)
     y_pred = preds.squeeze(-1).cpu().numpy()
 
-    target_indices = torch.arange(seq_len, seq_len + len(y_pred))
+    horizon = 40
+    target_indices = torch.arange(seq_len + horizon, seq_len + horizon + len(y_pred))
     y_true = signal[target_indices, 0].cpu().numpy()
     t_pred = t_axis[target_indices].cpu().numpy()
 
@@ -321,28 +326,59 @@ def plot_predictions(t_pred, y_true, y_pred, title):
     plt.tight_layout()
     plt.show()
 
+def compute_metrics(y_true, y_pred):
+    y_true = np.asarray(y_true)
+    y_pred = np.asarray(y_pred)
+
+    mae = np.mean(np.abs(y_true - y_pred))
+
+    mse = np.mean((y_true - y_pred) ** 2)
+
+    rmse = np.sqrt(np.mean((y_true - y_pred) ** 2))
+
+    # avoid division by zero
+    denom = np.sum((y_true - np.mean(y_true)) ** 2)
+    r2 = 1 - np.sum((y_true - y_pred) ** 2) / denom if denom != 0 else np.nan
+
+    return mae, mse, rmse, r2
+
+TRAIN = False
+
 Model_Save_Path = "Outputs/models/ESN/Windowed_ESN.pth"
 
 if __name__ == "__main__":
-    print("Training Windowed ESN...")
-    WindowedESN, Windowed_avg_loss, Windowed_total_loss = train_windowed_esn()
-    
-    # 绘制损失曲线
-    plt.figure(figsize=(12, 5))
-    plt.subplot(1, 2, 1)
-    plt.plot(Windowed_avg_loss, label='Average Loss per Epoch')
-    plt.xlabel('Epoch')
-    plt.ylabel('Average Loss')
-    plt.title('Average Loss over Epochs (Windowed ESN)')
-    plt.legend()
-    plt.subplot(1, 2, 2)
-    plt.plot(Windowed_total_loss, label='Total Loss per Epoch', color='orange')
-    plt.xlabel('Epoch')
-    plt.ylabel('Total Loss')
-    plt.title('Total Loss over Epochs (Windowed ESN)')
-    plt.legend()
-    plt.tight_layout()
-    plt.show()
+    if TRAIN:
+        print("Training Windowed ESN...")
+        WindowedESN, Windowed_avg_loss, Windowed_total_loss = train_windowed_esn()
+        
+        # 绘制损失曲线
+        plt.figure(figsize=(12, 5))
+        plt.subplot(1, 2, 1)
+        plt.plot(Windowed_avg_loss, label='Average Loss per Epoch')
+        plt.xlabel('Epoch')
+        plt.ylabel('Average Loss')
+        plt.title('Average Loss over Epochs (Windowed ESN)')
+        plt.legend()
+        plt.subplot(1, 2, 2)
+        plt.plot(Windowed_total_loss, label='Total Loss per Epoch', color='orange')
+        plt.xlabel('Epoch')
+        plt.ylabel('Total Loss')
+        plt.title('Total Loss over Epochs (Windowed ESN)')
+        plt.legend()
+        plt.tight_layout()
+        plt.show()
+    else:
+        # 加载预训练的Windowed ESN模型
+        basemodel = ESN.WindowedESN(
+            input_size=1, 
+            reservoir_size=100,
+            output_size=1,
+            spectral_radius=0.9,
+            leaking_rate=0.7,
+            connectivity=0.1
+        )
+        WindowedESN = WindowedESNWithActivation(basemodel, activation='softplus')
+        WindowedESN.load_state_dict(torch.load(Model_Save_Path, map_location=torch.device('cpu')))
 
     # print("Training Continuous ESN...")
     # ContinuousESN, Continuous_avg_loss, Continuous_total_loss = train_continuous_esn()
@@ -381,12 +417,57 @@ if __name__ == "__main__":
         y_pred_w,
         title="Windowed ESN Prediction vs True Signal"
     )
+    # metrics
+    mae_w, mse_w, rmse_w, r2_w = compute_metrics(y_true_w, y_pred_w)
+    print("\n--- Windowed ESN Metrics ---")
+    print(f"MAE  : {mae_w:.6f}")
+    print(f"MSE  : {mse_w:.6f}")
+    print(f"RMSE : {rmse_w:.6f}")
+    print(f"R^2  : {r2_w:.6f}")
+
+    error = y_true_w - y_pred_w
+
+    plt.figure(figsize=(10,4))
+    plt.plot(t_pred_w, error)
+    plt.axhline(0, linestyle='--')
+    plt.xlabel("Time")
+    plt.ylabel("Error")
+    plt.title("Prediction Error Over Time")
+    plt.grid()
+    plt.show()
+
+    abs_error = np.abs(y_true_w - y_pred_w)
+
+    plt.figure(figsize=(10,4))
+    plt.plot(t_pred_w, abs_error)
+    plt.xlabel("Time")
+    plt.ylabel("Absolute Error")
+    plt.title("Absolute Error Over Time")
+    plt.grid()
+    plt.show()
+
+    plt.figure()
+    plt.hist(y_true_w - y_pred_w, bins=50)
+    plt.xlabel("Error")
+    plt.ylabel("Frequency")
+    plt.title("Error Distribution")
+    plt.show()
+
+    cum_mae = np.cumsum(np.abs(y_true_w - y_pred_w)) / np.arange(1, len(y_true_w)+1)
+
+    plt.figure()
+    plt.plot(cum_mae)
+    plt.xlabel("Samples")
+    plt.ylabel("MAE")
+    plt.title("Cumulative MAE")
+    plt.show()
 
     # Save the windowed ESN model and make sure the save path exists
-    save_dir = os.path.dirname(Model_Save_Path)
-    if not os.path.exists(save_dir):
-        os.makedirs(save_dir)
-    torch.save(WindowedESN.state_dict(), Model_Save_Path)
+    if TRAIN:
+        save_dir = os.path.dirname(Model_Save_Path)
+        if not os.path.exists(save_dir):
+            os.makedirs(save_dir)
+        torch.save(WindowedESN.state_dict(), Model_Save_Path)
 
     # print("Evaluating Continuous ESN...")
     # t_pred_c, y_true_c, y_pred_c = evaluate_continuous_esn(

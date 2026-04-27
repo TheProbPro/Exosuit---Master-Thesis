@@ -57,7 +57,7 @@ class WindowedESNWithActivation(nn.Module):
             output = self.activation(output)
         return output
 
-SAVEPATH = "Outputs/Results/"
+SAVEPATH = "Outputs/PredictionResults/"
 
 ESN_SAVEPATH = "Outputs/models/ESN/Windowed_ESN.pth"
 LSTM_SAVEPATH = "Outputs/models/LSTM/Windowed_LSTM.pth"
@@ -346,49 +346,49 @@ if __name__ == "__main__":
 
             # Calculate MAE
             mae = np.mean(np.abs(np_optimized_angle_values - mocap_interp_valid))
-            print(f"Mean Absolute Error for {optimizer}: {mae:.2f} radians")
+            print(f"Mean Absolute Error for {optimizer}: {mae:.4f} radians")
             mae_before = np.mean(np.abs(np_optimized_angle_before - mocap_interp_valid))
-            print(f"Mean Absolute Error Before Prediction for {optimizer}: {mae_before:.2f} radians")
+            print(f"Mean Absolute Error Before Prediction for {optimizer}: {mae_before:.4f} radians")
             improvement = mae_before - mae
             improvement_percent = (mae_before - mae) / mae_before
             print(f"Improvement for {optimizer}: {improvement}, {improvement_percent:.2%}")
 
             # Caclulate RMSE
             rmse = np.sqrt(np.mean((np_optimized_angle_values - mocap_interp_valid)**2))
-            print(f"Root Mean Square Error for {optimizer}: {rmse:.2f} radians")
+            print(f"Root Mean Square Error for {optimizer}: {rmse:.4f} radians")
             rmse_before = np.sqrt(np.mean((np_optimized_angle_before - mocap_interp_valid)**2))
-            print(f"Root Mean Square Error Before Prediction for {optimizer}: {rmse_before:.2f} radians")
+            print(f"Root Mean Square Error Before Prediction for {optimizer}: {rmse_before:.4f} radians")
             rmse_improvement = rmse_before - rmse
             rmse_improvement_percent = (rmse_before - rmse) / rmse_before
             print(f"RMSE Improvement for {optimizer}: {rmse_improvement}, {rmse_improvement_percent:.2%}")
 
             # Calculate Bias (mean error)
             bias = np.mean(np_optimized_angle_values - mocap_interp_valid)
-            print(f"Bias for {optimizer}: {bias:.2f} radians")
+            print(f"Bias for {optimizer}: {bias:.4f} radians")
 
             # Calculate pearson correlation coefficient
             correlation = np.corrcoef(np_optimized_angle_values, mocap_interp_valid)[0, 1]
-            print(f"Pearson Correlation Coefficient for {optimizer}: {correlation:.2f}")
+            print(f"Pearson Correlation Coefficient for {optimizer}: {correlation:.4f}")
 
             correlation_before = np.corrcoef(np_optimized_angle_before, mocap_interp_valid)[0, 1]
             print(f"Pearson Correlation Coefficient Before Prediction for {optimizer}: {correlation_before:.2f}")
             correlation_improvement = correlation - correlation_before
-            print(f"Correlation Improvement for {optimizer}: {correlation_improvement:.2f}")
+            print(f"Correlation Improvement for {optimizer}: {correlation_improvement:.4f}")
 
             # Calculate R-squared
             ss_res = np.sum((np_optimized_angle_values - mocap_interp_valid) ** 2)
             ss_tot = np.sum((mocap_interp_valid - np.mean(mocap_interp_valid)) ** 2)
             r_squared = 1 - (ss_res / ss_tot)
-            print(f"R-squared for {optimizer}: {r_squared:.2f}")
+            print(f"R-squared for {optimizer}: {r_squared:.4f}")
 
             # Calculate lag (cross-correlation)
             cross_corr = np.correlate(np_optimized_angle_values - np.mean(np_optimized_angle_values), mocap_interp_valid - np.mean(mocap_interp_valid), mode='full')
             lag = np.argmax(cross_corr) - (len(mocap_interp) - 1)
             lag_time = lag * (time_sec[1] - time_sec[0])
             if lag > 0:
-                print(f"EMG leads MoCap by {lag_time:.2f} seconds")
+                print(f"EMG leads MoCap by {lag_time:.4f} seconds")
             elif lag < 0:
-                print(f"EMG lags behind MoCap by {abs(lag_time):.2f} seconds")
+                print(f"EMG lags behind MoCap by {abs(lag_time):.4f} seconds")
             else:
                 print("No lag detected")
 
@@ -396,18 +396,20 @@ if __name__ == "__main__":
             lag_before = np.argmax(cross_corr_before) - (len(mocap_interp) - 1)
             lag_time_before = lag_before * (time_sec[1] - time_sec[0])
             if lag_before > 0:
-                print(f"Before Prediction: EMG leads MoCap by {lag_time_before:.2f} seconds")
+                print(f"Before Prediction: EMG leads MoCap by {lag_time_before:.4f} seconds")
             elif lag_before < 0:
-                print(f"Before Prediction: EMG lags behind MoCap by {abs(lag_time_before):.2f} seconds")
+                print(f"Before Prediction: EMG lags behind MoCap by {abs(lag_time_before):.4f} seconds")
             else:
                 print("Before Prediction: No lag detected")
             
             lag_improvement = lag_before - lag
+            lag_improvement_time = lag_improvement * (time_sec[1] - time_sec[0])
             print(f"Lag Improvement for {optimizer}: {lag_improvement}")
+            print(f"Lag Improvement Time for {optimizer}: {lag_improvement_time:.4f} seconds")
 
             # calculate ROM error (difference in range of motion)
             rom_error = (np.max(np_optimized_angle_values) - np.min(np_optimized_angle_values)) - (np.max(mocap_interp_valid) - np.min(mocap_interp_valid))
-            print(f"Range of Motion Error for {optimizer}: {rom_error:.2f} radians")
+            print(f"Range of Motion Error for {optimizer}: {rom_error:.4f} radians")
 
             # # Shift EMG by lag
             # shifted_optimized_angle_values = np.roll(np_optimized_angle_values, -lag)
@@ -477,15 +479,16 @@ if __name__ == "__main__":
             #     os.makedirs(SAVEPATH)
             # stats_df.to_csv(stats_file, index=False)
 
-            # # Save moCap and EMG data to a csv file for further analysis
-            # results_df = pd.DataFrame({
-            #     "Time_sec": time_sec,
-            #     "MoCap_Elbow_Angle": mocap_interp,
-            #     "Optimized_Angle": optimized_angle_values,
-            #     "Filtered_Net_A": filtered_net_a_values
-            # })
-            # results_file = SAVEPATH + f"EMG_MoCap_results_{optimizer}_{extension}.csv"
-            # results_df.to_csv(results_file, index=False)
+            # Save moCap and EMG data to a csv file for further analysis
+            results_df = pd.DataFrame({
+                "Time_sec": time_sec,
+                "MoCap_Elbow_Angle": mocap_interp,
+                "Optimized_Angle": optimized_angle_values,
+                "Optimized_Angle_Before": optimized_angle_before,
+                "Filtered_Net_A": filtered_net_a_values
+            })
+            results_file = SAVEPATH + f"EMG_MoCap_results_{optimizer}_{extension}.csv"
+            results_df.to_csv(results_file, index=False)
 
             # # Save jerk stats to a csv file
             # jerk_stats_df = pd.DataFrame({

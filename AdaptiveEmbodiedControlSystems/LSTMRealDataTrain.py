@@ -1,3 +1,5 @@
+import time
+
 import LSTM
 import torch
 import torch.nn as nn
@@ -220,7 +222,7 @@ def evaluate_windowed_lstm(model, seq_len, device="cpu", total_points=1000):
 
     # we'll build all windows in one big batch for fast eval
     X_list = []
-    for i in range(T - seq_len - 1):
+    for i in range(T - seq_len - 40):
         window = signal[i : i+seq_len]            # (seq_len,1)
         X_list.append(window.unsqueeze(0))        # (1,seq_len,1)
 
@@ -234,19 +236,23 @@ def evaluate_windowed_lstm(model, seq_len, device="cpu", total_points=1000):
     batch_size = 512  # or 256 if needed
 
     preds_list = []
-
+    timing = []
     for i in range(0, X_batch.shape[0], batch_size):
+        t = time.time()
         xb = X_batch[i:i+batch_size]
         preds = model(xb)
         preds_list.append(preds.cpu())
-
+        timing.append(time.time() - t)
+    print(f"Avg batch inference time: {np.mean(timing):.4f} seconds per batch of size {batch_size}")
+    
     preds = torch.cat(preds_list, dim=0)
     # reshape to (N,)
     y_pred = preds.squeeze(-1).squeeze(-1).cpu().numpy()
 
     # 3) build ground truth targets aligned with predictions
     # each window i predicts point at index (i+seq_len)
-    target_indices = torch.arange(seq_len, seq_len + len(y_pred))
+    horizon = 40
+    target_indices = torch.arange(seq_len + horizon, seq_len + horizon + len(y_pred))
     y_true = signal[target_indices, 0].cpu().numpy()
     t_pred = t_axis[target_indices].cpu().numpy()
 
@@ -316,27 +322,49 @@ def plot_predictions(t_pred, y_true, y_pred, title):
     plt.show()
 
 
+def compute_metrics(y_true, y_pred):
+    y_true = np.asarray(y_true)
+    y_pred = np.asarray(y_pred)
+
+    mae = np.mean(np.abs(y_true - y_pred))
+
+    mse = np.mean((y_true - y_pred) ** 2)
+
+    rmse = np.sqrt(np.mean((y_true - y_pred) ** 2))
+
+    # avoid division by zero
+    denom = np.sum((y_true - np.mean(y_true)) ** 2)
+    r2 = 1 - np.sum((y_true - y_pred) ** 2) / denom if denom != 0 else np.nan
+
+    return mae, mse, rmse, r2
+
 Model_Save_Path = "Outputs/models/LSTM/Windowed_LSTM.pth"
+TRAIN = False
 
 if __name__ == "__main__":
-    print("Training Windowed LSTM...")
-    WindowedLSTM, Windowed_avg_loss, Windowed_total_loss = train_moving_window_lstm()
-    # Plotting the avg loss and the windowed total loss arrays in two subplots
-    plt.figure(figsize=(12, 5))
-    plt.subplot(1, 2, 1)
-    plt.plot(Windowed_avg_loss, label='Average Loss per Epoch')
-    plt.xlabel('Epoch')
-    plt.ylabel('Average Loss')
-    plt.title('Average Loss over Epochs (Windowed LSTM)')
-    plt.legend()
-    plt.subplot(1, 2, 2)
-    plt.plot(Windowed_total_loss, label='Total Loss per Epoch', color='orange')
-    plt.xlabel('Epoch')
-    plt.ylabel('Total Loss')
-    plt.title('Total Loss over Epochs (Windowed LSTM)')
-    plt.legend()
-    plt.tight_layout()
-    plt.show()
+    if TRAIN:
+        print("Training Windowed LSTM...")
+        WindowedLSTM, Windowed_avg_loss, Windowed_total_loss = train_moving_window_lstm()
+        # Plotting the avg loss and the windowed total loss arrays in two subplots
+        plt.figure(figsize=(12, 5))
+        plt.subplot(1, 2, 1)
+        plt.plot(Windowed_avg_loss, label='Average Loss per Epoch')
+        plt.xlabel('Epoch')
+        plt.ylabel('Average Loss')
+        plt.title('Average Loss over Epochs (Windowed LSTM)')
+        plt.legend()
+        plt.subplot(1, 2, 2)
+        plt.plot(Windowed_total_loss, label='Total Loss per Epoch', color='orange')
+        plt.xlabel('Epoch')
+        plt.ylabel('Total Loss')
+        plt.title('Total Loss over Epochs (Windowed LSTM)')
+        plt.legend()
+        plt.tight_layout()
+        plt.show()
+    else:
+        # Load the saved windowed LSTM model
+        WindowedLSTM = LSTM.LSTMModel(input_size=1, hidden_size=64, output_size=1, num_layers=1)
+        WindowedLSTM.load_state_dict(torch.load(Model_Save_Path, map_location=torch.device('cpu')))
 
     # print("Training Continuous LSTM...")
     # ContinuousLSTM, Continuous_avg_loss, Continuous_total_loss = train_continuous_lstm()
@@ -378,11 +406,57 @@ if __name__ == "__main__":
         title="Windowed LSTM Prediction vs True Sine"
     )
 
+    # metrics
+    mae_w, mse_w, rmse_w, r2_w = compute_metrics(y_true_w, y_pred_w)
+    print("\n--- Windowed LSTM Metrics ---")
+    print(f"MAE  : {mae_w:.6f}")
+    print(f"MSE  : {mse_w:.6f}")
+    print(f"RMSE : {rmse_w:.6f}")
+    print(f"R^2  : {r2_w:.6f}")
+
+    error = y_true_w - y_pred_w
+
+    plt.figure(figsize=(10,4))
+    plt.plot(t_pred_w, error)
+    plt.axhline(0, linestyle='--')
+    plt.xlabel("Time")
+    plt.ylabel("Error")
+    plt.title("Prediction Error Over Time")
+    plt.grid()
+    plt.show()
+
+    abs_error = np.abs(y_true_w - y_pred_w)
+
+    plt.figure(figsize=(10,4))
+    plt.plot(t_pred_w, abs_error)
+    plt.xlabel("Time")
+    plt.ylabel("Absolute Error")
+    plt.title("Absolute Error Over Time")
+    plt.grid()
+    plt.show()
+
+    plt.figure()
+    plt.hist(y_true_w - y_pred_w, bins=50)
+    plt.xlabel("Error")
+    plt.ylabel("Frequency")
+    plt.title("Error Distribution")
+    plt.show()
+
+    cum_mae = np.cumsum(np.abs(y_true_w - y_pred_w)) / np.arange(1, len(y_true_w)+1)
+
+    plt.figure()
+    plt.plot(cum_mae)
+    plt.xlabel("Samples")
+    plt.ylabel("MAE")
+    plt.title("Cumulative MAE")
+    plt.show()
+
     # Save the windowed LSTM model and make sure the save path exists
-    save_dir = os.path.dirname(Model_Save_Path)
-    if not os.path.exists(save_dir):
-        os.makedirs(save_dir)
-    torch.save(WindowedLSTM.state_dict(), Model_Save_Path)
+    if TRAIN:
+        save_dir = os.path.dirname(Model_Save_Path)
+        if not os.path.exists(save_dir):
+            os.makedirs(save_dir)
+        torch.save(WindowedLSTM.state_dict(), Model_Save_Path)
 
     # # 2. Streaming model evaluation
     # t_pred_s, y_true_s, y_pred_s = evaluate_streaming_lstm(
