@@ -487,6 +487,8 @@ if __name__ == "__main__":
                 "Optimized_Angle_Before": optimized_angle_before,
                 "Filtered_Net_A": filtered_net_a_values
             })
+            if not os.path.exists(SAVEPATH):
+                os.makedirs(SAVEPATH)
             results_file = SAVEPATH + f"EMG_MoCap_results_{optimizer}_{extension}.csv"
             results_df.to_csv(results_file, index=False)
 
