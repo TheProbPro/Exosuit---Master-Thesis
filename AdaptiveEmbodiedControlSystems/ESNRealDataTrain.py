@@ -13,8 +13,20 @@ import pandas as pd
 
 import matplotlib as mpl
 
-mpl.rcParams['text.usetex'] = True
-mpl.rcParams['font.family'] = 'serif'
+# mpl.rcParams['text.usetex'] = True
+# mpl.rcParams['font.family'] = 'serif'
+mpl.rcParams.update({
+    'text.usetex': True,
+    'font.family': 'serif',
+    
+    'font.size': 10,          # default text size
+    'axes.titlesize': 14,     # title
+    'axes.labelsize': 12,     # x and y labels
+    'xtick.labelsize': 10,    # x tick labels
+    'ytick.labelsize': 10,    # y tick labels
+    'legend.fontsize': 10,    
+    'figure.titlesize': 16
+})
 
 import ESN  # 你的ESN模块
 
@@ -314,7 +326,7 @@ def evaluate_continuous_esn(model, seq_len=25, device="cpu", total_points=1000):
     return t_pred, y_true, y_pred
 
 def plot_predictions(t_pred, y_true, y_pred, title):
-    plt.figure(figsize=(10,4))
+    plt.figure(figsize=(7,3))
     plt.plot(t_pred, y_true, label="Ground truth", linewidth=2)
     plt.plot(t_pred, y_pred, label="ESN prediction", linestyle='--')
     plt.xlabel("Time step", fontsize=12)
@@ -427,7 +439,7 @@ if __name__ == "__main__":
 
     error = y_true_w - y_pred_w
 
-    plt.figure(figsize=(10,4))
+    plt.figure(figsize=(7,3))
     plt.plot(t_pred_w, error)
     plt.axhline(0, linestyle='--')
     plt.xlabel("Time")
@@ -438,7 +450,7 @@ if __name__ == "__main__":
 
     abs_error = np.abs(y_true_w - y_pred_w)
 
-    plt.figure(figsize=(10,4))
+    plt.figure(figsize=(7,3))
     plt.plot(t_pred_w, abs_error)
     plt.xlabel("Time")
     plt.ylabel("Absolute Error")
@@ -446,20 +458,28 @@ if __name__ == "__main__":
     plt.grid()
     plt.show()
 
-    plt.figure()
+    low, high = np.percentile(error, [1, 99])  # keep central 98%
+
+    plt.figure(figsize=(7,3))
     plt.hist(y_true_w - y_pred_w, bins=50)
     plt.xlabel("Error")
+    plt.xlim([low, high])
     plt.ylabel("Frequency")
-    plt.title("Error Distribution")
+    plt.tight_layout()
+    plt.savefig("Outputs/PredictionResults/ESNErrorDist.png", dpi=300)
+    # plt.title("Error Distribution")
     plt.show()
 
     cum_mae = np.cumsum(np.abs(y_true_w - y_pred_w)) / np.arange(1, len(y_true_w)+1)
 
-    plt.figure()
+    plt.figure(figsize=(7,3))
     plt.plot(cum_mae)
     plt.xlabel("Samples")
+    plt.xlim([0, len(cum_mae)])
     plt.ylabel("MAE")
-    plt.title("Cumulative MAE")
+    plt.tight_layout()
+    plt.savefig("Outputs/PredictionResults/ESNCumError.png", dpi=300)
+    # plt.title("Cumulative MAE")
     plt.show()
 
     # Save the windowed ESN model and make sure the save path exists
