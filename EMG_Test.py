@@ -17,7 +17,7 @@ SAMPLE_RATE = 2000  # Hz
 USER_NAME = 'VictorBNielsen'
 ANGLE_MIN = 0
 ANGLE_MAX = 140
-SAVE_PATH = Path(f"C:/Users/nvigg/Documents/GitHub/Exosuit---Master-Thesis/Outputs/{Path(__file__).stem}/{USER_NAME}/")
+SAVE_PATH = Path(f"Outputs/{Path(__file__).stem}/{USER_NAME}/")
 SAVE_PATH.mkdir(parents=True, exist_ok=True)
 
 
@@ -74,7 +74,8 @@ def read_EMG(raw_queue):
         plot_processed_tricep_emg.append(filtered_tricep_rms)
 
         activation = interpreter.compute_activation([filtered_bicep_rms, filtered_tricep_rms])
-        desired_angle_deg = interpreter.compute_angle(activation[0], activation[1])
+        net_a = activation[0] - activation[1]  # Compute net activation (bicep - tricep)
+        desired_angle_deg = interpreter.compute_angle(net_a)
 
         #Plotting
         plot_bicep_activation.append(activation[0])
@@ -133,20 +134,20 @@ if __name__ == "__main__":
           "Processed Bicep EMG:", len(plot_processed_bicep_emg), "Processed Tricep EMG:", len(plot_processed_tricep_emg),
           "Bicep Activation:", len(plot_bicep_activation), "Tricep Activation:", len(plot_tricep_activation),
           "Desired Angle (Thread):", len(plot_desired_angle), "Desired Angle (Control Loop):", len(plot_control_desired_angle))
-    df_thread = pd.DataFrame({
-        'Raw_Bicep_EMG': plot_raw_bicep_emg,
-        'Raw_Tricep_EMG': plot_raw_tricep_emg,
-        'Processed_Bicep_EMG': plot_processed_bicep_emg,
-        'Processed_Tricep_EMG': plot_processed_tricep_emg,
-        'Bicep_Activation': plot_bicep_activation,
-        'Tricep_Activation': plot_tricep_activation,
-        'Desired_Angle_Thread': plot_desired_angle,
-    })
-    df_thread.to_csv(SAVE_PATH / f"EMG_Data_{USER_NAME}.csv", index=False)
-    df_control = pd.DataFrame({
-        'Desired_Angle_Control_Loop': plot_control_desired_angle,
-    })
-    df_control.to_csv(SAVE_PATH / f"EMG_Control_Loop_Data_{USER_NAME}.csv", index=False)
+    # df_thread = pd.DataFrame({
+    #     'Raw_Bicep_EMG': plot_raw_bicep_emg,
+    #     'Raw_Tricep_EMG': plot_raw_tricep_emg,
+    #     'Processed_Bicep_EMG': plot_processed_bicep_emg,
+    #     'Processed_Tricep_EMG': plot_processed_tricep_emg,
+    #     'Bicep_Activation': plot_bicep_activation,
+    #     'Tricep_Activation': plot_tricep_activation,
+    #     'Desired_Angle_Thread': plot_desired_angle,
+    # })
+    # df_thread.to_csv(SAVE_PATH / f"EMG_Data_{USER_NAME}.csv", index=False)
+    # df_control = pd.DataFrame({
+    #     'Desired_Angle_Control_Loop': plot_control_desired_angle,
+    # })
+    # df_control.to_csv(SAVE_PATH / f"EMG_Control_Loop_Data_{USER_NAME}.csv", index=False)
 
     # plot emg signal from thread and control loop
     plt.figure(figsize=(12, 8))

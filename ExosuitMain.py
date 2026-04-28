@@ -135,7 +135,7 @@ if __name__ == "__main__":
         pass
 
     # If we dont want to manually stop it we just have to call this after while loop
-    # stop_event.set()
+    # stop_event.set()here
 
     emg_thread.join()
 
