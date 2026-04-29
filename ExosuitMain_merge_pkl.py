@@ -19,6 +19,7 @@ import numpy as np
 import pandas as pd
 import torch
 from datetime import datetime
+from collections import deque
 
 # ──────────────────────────────────────────────────────────────
 #  EMG 相关导入
@@ -28,6 +29,12 @@ from SignalProcessing.Filtering import rt_filtering, rt_desired_Angle_lowpass
 from SignalProcessing.Interpretors import ProportionalMyoelectricalControl as PMC
 from Optimizations import optimizer_6
 import AdaptiveEmbodiedControlSystems.LSTM as LSTM
+
+# ──────────────────────────────────────────────────────────────
+#  MOTOR 相关导入
+# ──────────────────────────────────────────────────────────────
+
+from Motors.DynamixelHardwareInterface import Motors
 
 
 # ══════════════════════════════════════════════════════════════
@@ -52,7 +59,8 @@ THETA_RANGE  = THETA_MAX - THETA_MIN
 # ── 控制器参数 ────────────────────────────────────────────────
 SAMPLE_RATE  = 200
 DT           = 1.0 / SAMPLE_RATE
-TORQUE_MAX   = 10.1
+TORQUE_MAX   = 10.0
+# TORQUE_MAX   = 6.0
 TORQUE_MIN   = -TORQUE_MAX
 
 # OIAC 增益范围
@@ -77,8 +85,10 @@ DDTHETA_SMOOTH_N      = 5
 N_LAG                 = 3
 
 # ── 电机参数 ──────────────────────────────────────────────────
-MOTOR_PORT       = 'COM5'
+# MOTOR_PORT       = 'COM5'
+MOTOR_PORT         = 'COM4'
 MOTOR_BAUD       = 1_000_000
+# MOTOR_BAUD         = 4_500_000
 TORQUE_DIRECTION = 1
 
 # 标定参数
@@ -137,18 +147,20 @@ def emg_thread_fn(qd_queue: queue.Queue):
     model.eval()
 
     # optimizer_6 状态
+    window = deque(maxlen=100)  # 50 samples at 2000Hz = 25ms window
     emg_v             = 0.0
     optimized_angle   = float(np.deg2rad(SINE_CENTER_DEG))  # 从中心位置起步
+    sample_counter = 0
 
     # 启动传感器
     emg = DelsysEMG(channel_range=(0, 1))
     emg.start()
-    time.sleep(1.0)
+    # time.sleep(1.0)
     print("[EMG] 线程启动，开始采集...")
 
     while not stop_event.is_set():
         reading    = emg.read()
-        timestamp  = time.time()
+        sample_counter += 1
 
         # 带通滤波
         filtered_bicep  = filter_bicep.bandpass(reading[0])
@@ -156,11 +168,11 @@ def emg_thread_fn(qd_queue: queue.Queue):
 
         # 滑动 RMS
         if Bicep_RMS_queue.full():
-            Bicep_RMS_queue.get()
-        Bicep_RMS_queue.put(filtered_bicep)
+            Bicep_RMS_queue.get_nowait()
+        Bicep_RMS_queue.put_nowait(filtered_bicep)
         if Tricep_RMS_queue.full():
-            Tricep_RMS_queue.get()
-        Tricep_RMS_queue.put(filtered_tricep)
+            Tricep_RMS_queue.get_nowait()
+        Tricep_RMS_queue.put_nowait(filtered_tricep)
 
         Bicep_RMS  = np.sqrt(np.mean(np.array(list(Bicep_RMS_queue.queue))**2))
         Tricep_RMS = np.sqrt(np.mean(np.array(list(Tricep_RMS_queue.queue))**2))
@@ -182,24 +194,25 @@ def emg_thread_fn(qd_queue: queue.Queue):
             np.pi, EMG_B, EMG_K
         )
 
-        # LSTM 精细化预测
-        with torch.no_grad():
-            lstm_input      = torch.tensor([[optimized_angle]], dtype=torch.float32).to(device)
-            lstm_output     = model(lstm_input)
-            predicted_angle = float(lstm_output.item())
+        window.append(optimized_angle)
+        if len(window) < window.maxlen:
+            continue
 
-        # 硬限位保护
-        predicted_angle = float(np.clip(predicted_angle, THETA_MIN, THETA_MAX))
+        if len(window) == window.maxlen and sample_counter % 10 == 0:
+            with torch.inference_mode():
+                input_tensor = torch.as_tensor(
+                    window,
+                    dtype=torch.float32,
+                    device=device
+                ).unsqueeze(0).unsqueeze(-1)
+                lstm_output     = model(input_tensor)
+                predicted_angle = float(lstm_output.detach().cpu().item())
 
-        # 写入队列：始终保持最新帧（非阻塞，丢旧帧）
-        try:
-            qd_queue.put_nowait((predicted_angle, timestamp))
-        except queue.Full:
             try:
+                qd_queue.put_nowait((predicted_angle))
+            except queue.Full:
                 qd_queue.get_nowait()
-            except queue.Empty:
-                pass
-            qd_queue.put_nowait((predicted_angle, timestamp))
+                qd_queue.put_nowait((predicted_angle))
 
     # 清理
     emg.stop()
@@ -297,7 +310,6 @@ class Motor:
         if _SCRIPT_DIR not in sys.path:
             sys.path.insert(0, _SCRIPT_DIR)
 
-        from Motors.DynamixelHardwareInterface import Motors
         if not getattr(Motors, '_patched', False):
             _orig = Motors.__init__
             def _safe(s, *a, **kw):
@@ -443,7 +455,7 @@ class EMGReference:
                 break
 
         if latest is not None:
-            new_theta_d = float(latest[0])
+            new_theta_d = float(latest)
             # 一阶差分估算速度
             raw_vel = (new_theta_d - self._prev_theta_d) / DT
             self._dtheta_d = (self._vel_alpha * raw_vel
@@ -462,7 +474,7 @@ class EMGReference:
     def current_theta_d(self) -> float:
         return self._theta_d
 
-
+pt = []
 # ══════════════════════════════════════════════════════════════
 #  单次试验（EMG 驱动）
 # ══════════════════════════════════════════════════════════════
@@ -470,9 +482,8 @@ def run_trial(motor: Motor, policy: LinearPolicyNumpy,
               qd_queue: queue.Queue,
               trial_num: int, duration_s: float,
               pkl_path: str) -> dict | None:
-
     motor.home()
-
+    # lowpass_dq = rt_desired_Angle_lowpass(200)
     ref  = EMGReference(qd_queue)
     oiac = OIAC()
 
@@ -503,6 +514,7 @@ def run_trial(motor: Motor, policy: LinearPolicyNumpy,
             break
 
         dt_actual = now - t_last
+        pt.append(dt_actual)
         if dt_actual < DT:
             time.sleep(DT - dt_actual)
             continue
@@ -510,6 +522,9 @@ def run_trial(motor: Motor, policy: LinearPolicyNumpy,
 
         # ── 参考轨迹：EMG 输入 ─────────────────────────────────
         theta_d, dtheta_d, ddtheta_d = ref.update()
+
+        # TODO:Lowpass filter
+        # theta_d = lowpass_dq.lowpass(np.atleast_1d(theta_d))
 
         # 前向预测（N_LAG 步后的 dtheta_d，用简单线性外推）
         dtheta_d_fut = dtheta_d + ddtheta_d * N_LAG * DT
@@ -597,7 +612,7 @@ def run_trial(motor: Motor, policy: LinearPolicyNumpy,
                   f"err={math.degrees(e_c):+.1f}°  "
                   f"K={oiac.K:.1f}  B={oiac.B:.3f}  Kff={oiac.Kff:.2f}  "
                   f"τ={tau_f:.2f}Nm  r={r:.4f}")
-
+    print(f"Processing time per step: mean={np.mean(pt)*1000:.2f}ms")
     motor.stop()
 
     if not rewards:
@@ -707,6 +722,7 @@ if __name__ == "__main__":
     except Exception as e:
         print(f"\n❌ 电机连接失败: {e}")
         sys.exit(1)
+    time.sleep(1.0)  # 等待电机稳定
 
     # 信号处理
     def _on_interrupt(*_):
@@ -729,7 +745,7 @@ if __name__ == "__main__":
     )
     emg_thread.start()
 
-    # 等待 EMG 线程预热（等到第一帧数据进来）
+    # 等待 EMG 线程预热（等到第一帧数据进来
     print("[Main] 等待 EMG 初始化...")
     while qd_queue.empty() and not stop_event.is_set():
         time.sleep(0.1)
