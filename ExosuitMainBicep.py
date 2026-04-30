@@ -52,7 +52,7 @@ LSTM_PATH    = "Outputs/models/LSTM/Windowed_LSTM.pth"
 # EMG 优化器参数（与原 EMG 脚本保持一致）
 EMG_B        = 4.0
 # EMG_K        = np.pi * 10.0 * 2
-EMG_K        = np.pi * 1.0
+EMG_K        = np.pi * 1.5
 
 plot_dq = []
 
@@ -192,13 +192,14 @@ def emg_thread_fn(qd_queue: queue.Queue):
             [filtered_bicep_rms, filtered_tricep_rms]
         )
         # Standard:
-        # net_a = activation[0] - activation[1]
-
+        net_a = activation[0] - activation[1]
+        net_a_old = net_a
         # Normalize activation[0] (bicep activation) to [-1,1]
-        net_a = 2 * activation[0] - 1.0
+        # net_a = 2 * activation[0] - 1.0
         # Alternatively use temporal differnece, Try with both standard and bicep.
         net_a = (net_a - net_a_prev) / EMG_DT
-        net_a_prev = 2 * activation[0] - 1.0  # Store current activation, not derivative
+        net_a_prev = net_a_old  # Store current activation, not derivative
+        # net_a_prev = 2 * activation[0] - 1.0  # Store current activation, not derivative
 
         # net_a        = activation[0] - activation[1]
         filtered_net_a = float(net_a_lowpass.lowpass(np.atleast_1d(net_a))[0])
