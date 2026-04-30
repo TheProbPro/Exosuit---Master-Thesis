@@ -20,6 +20,7 @@ import pandas as pd
 import torch
 from datetime import datetime
 from collections import deque
+import matplotlib.pyplot as plt
 
 # ──────────────────────────────────────────────────────────────
 #  EMG 相关导入
@@ -45,11 +46,15 @@ from Motors.DynamixelHardwareInterface import Motors
 FS           = 2000          # EMG 采样率 (Hz)
 EMG_DT       = 1.0 / FS
 USER_NAME    = 'VictorBNielsen'
+# USER_NAME    = 'Zichen'
 LSTM_PATH    = "Outputs/models/LSTM/Windowed_LSTM.pth"
 
 # EMG 优化器参数（与原 EMG 脚本保持一致）
 EMG_B        = 4.0
-EMG_K        = np.pi * 10.0 * 2
+# EMG_K        = np.pi * 10.0 * 2
+EMG_K        = np.pi * 1.0
+
+plot_dq = []
 
 # ── 关节范围（EMG 和控制器共享）─────────────────────────────
 THETA_MIN    = np.deg2rad(0)    # 0 rad
@@ -57,6 +62,7 @@ THETA_MAX    = np.deg2rad(140)  # ~2.44 rad
 THETA_RANGE  = THETA_MAX - THETA_MIN
 
 # ── 控制器参数 ────────────────────────────────────────────────
+plot_q = []
 SAMPLE_RATE  = 200
 DT           = 1.0 / SAMPLE_RATE
 TORQUE_MAX   = 10.0
@@ -87,12 +93,12 @@ N_LAG                 = 3
 # ── 电机参数 ──────────────────────────────────────────────────
 # MOTOR_PORT       = 'COM5'
 MOTOR_PORT         = 'COM4'
-MOTOR_BAUD       = 1_000_000
-# MOTOR_BAUD         = 4_500_000
+# MOTOR_BAUD       = 3_000_000
+MOTOR_BAUD         = 4_500_000
 TORQUE_DIRECTION = 1
 
 # 标定参数
-SINE_CENTER_DEG  = 70.0          # 归中位置（对应 THETA 中点）
+SINE_CENTER_DEG  = 0.0          # 归中位置（对应 THETA 中点）
 RAW_MIN          = -15427
 RAW_MAX          = -2922
 ANGLE_RANGE_DEG  = 140.0
@@ -191,8 +197,8 @@ def emg_thread_fn(qd_queue: queue.Queue):
         # Normalize activation[0] (bicep activation) to [-1,1]
         net_a = 2 * activation[0] - 1.0
         # Alternatively use temporal differnece, Try with both standard and bicep.
-        # net_a = net_a - net_a_prev
-        # net_a_prev = net_a
+        net_a = (net_a - net_a_prev) / EMG_DT
+        net_a_prev = 2 * activation[0] - 1.0  # Store current activation, not derivative
 
         # net_a        = activation[0] - activation[1]
         filtered_net_a = float(net_a_lowpass.lowpass(np.atleast_1d(net_a))[0])
@@ -203,6 +209,12 @@ def emg_thread_fn(qd_queue: queue.Queue):
             optimized_angle, THETA_MIN, THETA_MAX,
             np.pi, EMG_B, EMG_K
         )
+
+        # try:
+        #     qd_queue.put_nowait((optimized_angle))
+        # except queue.Full:
+        #     qd_queue.get_nowait()
+        #     qd_queue.put_nowait((optimized_angle))
 
         window.append(optimized_angle)
         if len(window) < window.maxlen:
@@ -493,7 +505,7 @@ def run_trial(motor: Motor, policy: LinearPolicyNumpy,
               trial_num: int, duration_s: float,
               pkl_path: str) -> dict | None:
     motor.home()
-    # lowpass_dq = rt_desired_Angle_lowpass(200)
+    lowpass_dq = rt_desired_Angle_lowpass(106, lp_cutoff=2)
     ref  = EMGReference(qd_queue)
     oiac = OIAC()
 
@@ -534,7 +546,7 @@ def run_trial(motor: Motor, policy: LinearPolicyNumpy,
         theta_d, dtheta_d, ddtheta_d = ref.update()
 
         # TODO:Lowpass filter
-        # theta_d = lowpass_dq.lowpass(np.atleast_1d(theta_d))
+        theta_d = lowpass_dq.lowpass(np.atleast_1d(theta_d))
 
         # 前向预测（N_LAG 步后的 dtheta_d，用简单线性外推）
         dtheta_d_fut = dtheta_d + ddtheta_d * N_LAG * DT
@@ -547,6 +559,9 @@ def run_trial(motor: Motor, policy: LinearPolicyNumpy,
             motor.stop()
             time.sleep(0.3)
             continue
+
+        plot_q.append(theta)
+        plot_dq.append(theta_d)
 
         e_pos = theta_d - theta
 
@@ -744,7 +759,7 @@ if __name__ == "__main__":
     signal.signal(signal.SIGTERM, _on_interrupt)
 
     # 共享队列：maxsize=3，保证控制器始终取到最新帧
-    qd_queue = queue.Queue(maxsize=3)
+    qd_queue = queue.Queue(maxsize=2)
 
     # 启动 EMG 线程
     emg_thread = threading.Thread(
@@ -782,6 +797,25 @@ if __name__ == "__main__":
         )
         if res:
             all_results.append(res)
+
+        print(f"length of qd {len(plot_dq)}, length of q {len(plot_q)}, operational frequency: {len(plot_q)/TRIAL_DURATION_S:.2f} Hz")
+        t_qd = np.arange(len(plot_dq)) * DT
+        t_q = np.arange(len(plot_q)) * DT
+
+        plt.figure(figsize=(10, 4))
+        plt.subplot(1, 2, 1)
+        plt.plot(t_qd, plot_dq, label='θ_d (rad)')
+        plt.xlabel('Time (s)')
+        plt.ylabel('Angle (rad)')
+        plt.subplot(1, 2, 2)
+        plt.plot(t_q, plot_q, label='θ (rad)')
+        plt.xlabel('Time (s)')
+        plt.ylabel('Angle (rad)')
+        plt.tight_layout()
+        plt.show()
+
+        plot_dq.clear()
+        plot_q.clear()
 
     # 停止
     stop_event.set()
