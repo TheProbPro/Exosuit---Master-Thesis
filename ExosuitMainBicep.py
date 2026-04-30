@@ -63,6 +63,7 @@ THETA_RANGE  = THETA_MAX - THETA_MIN
 
 # ── 控制器参数 ────────────────────────────────────────────────
 plot_q = []
+plot_tau = []
 SAMPLE_RATE  = 200
 DT           = 1.0 / SAMPLE_RATE
 TORQUE_MAX   = 10.0
@@ -610,6 +611,7 @@ def run_trial(motor: Motor, policy: LinearPolicyNumpy,
             high_tau_count = 0
 
         tau_f = TAU_FILTER_ALPHA * tau_f + (1 - TAU_FILTER_ALPHA) * tau_raw
+        plot_tau.append(tau_f)
         motor.send(tau_f)
 
         # ── 奖励 ──────────────────────────────────────────────
@@ -815,8 +817,22 @@ if __name__ == "__main__":
         plt.tight_layout()
         plt.show()
 
+        # TODO: Add more data we want to save
+        data = pd.DataFrame({
+            "t_qd": t_qd,
+            "qd_rad": plot_dq,
+            "t_q": t_q,
+            "q_rad": plot_q,
+            "tau": plot_tau,
+        })
+        if not os.path.exists("Outputs/RWExosuitResults"):
+            os.makedirs("Outputs/RWExosuitResults")
+        data.to_csv(f"Outputs/RWExosuitResults/qd_q_trial_{i+1}.csv", index=False)
+
+
         plot_dq.clear()
         plot_q.clear()
+        plot_tau.clear()
 
     # 停止
     stop_event.set()
