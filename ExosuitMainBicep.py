@@ -46,13 +46,14 @@ from Motors.DynamixelHardwareInterface import Motors
 FS           = 2000          # EMG 采样率 (Hz)
 EMG_DT       = 1.0 / FS
 USER_NAME    = 'VictorBNielsen'
-# USER_NAME    = 'Zichen'
+# USER_NAME = 'ZichenWang'
 LSTM_PATH    = "Outputs/models/LSTM/Windowed_LSTM.pth"
 
 # EMG 优化器参数（与原 EMG 脚本保持一致）
-EMG_B        = 4.0
-# EMG_K        = np.pi * 10.0 * 2
-EMG_K        = np.pi * 1.5
+EMG_B        = 4.0 # Vic
+# EMG_B        = 6.0
+# EMG_K        = np.pi * 10.0 * 2 # 1.8
+EMG_K        = np.pi * 1.7 # Vic
 
 plot_dq = []
 
@@ -66,13 +67,13 @@ plot_q = []
 plot_tau = []
 SAMPLE_RATE  = 200
 DT           = 1.0 / SAMPLE_RATE
-TORQUE_MAX   = 10.0
+TORQUE_MAX   = 10.1
 # TORQUE_MAX   = 6.0
 TORQUE_MIN   = -TORQUE_MAX
 
 # OIAC 增益范围
 K_MIN,   K_MAX   = 5.0,  25.0
-B_MIN,   B_MAX   = 0.5,  3.0
+B_MIN,   B_MAX   = 0.6,  3.0
 KFF_MIN, KFF_MAX = 0.0,  3.0
 
 DELTA_MAX   = 0.03
@@ -194,13 +195,12 @@ def emg_thread_fn(qd_queue: queue.Queue):
         )
         # Standard:
         net_a = activation[0] - activation[1]
-        net_a_old = net_a
         # Normalize activation[0] (bicep activation) to [-1,1]
         # net_a = 2 * activation[0] - 1.0
+        net_a_old = net_a
         # Alternatively use temporal differnece, Try with both standard and bicep.
         net_a = (net_a - net_a_prev) / EMG_DT
         net_a_prev = net_a_old  # Store current activation, not derivative
-        # net_a_prev = 2 * activation[0] - 1.0  # Store current activation, not derivative
 
         # net_a        = activation[0] - activation[1]
         filtered_net_a = float(net_a_lowpass.lowpass(np.atleast_1d(net_a))[0])
@@ -633,13 +633,13 @@ def run_trial(motor: Motor, policy: LinearPolicyNumpy,
         accs.append(acc_f)
 
         # 实时打印（每秒一次）
-        if len(rewards) % SAMPLE_RATE == 0:
-            print(f"    t={elapsed:.0f}s  "
-                  f"θ_d={math.degrees(theta_d):.1f}°  "
-                  f"θ={math.degrees(theta):.1f}°  "
-                  f"err={math.degrees(e_c):+.1f}°  "
-                  f"K={oiac.K:.1f}  B={oiac.B:.3f}  Kff={oiac.Kff:.2f}  "
-                  f"τ={tau_f:.2f}Nm  r={r:.4f}")
+        # if len(rewards) % SAMPLE_RATE == 0:
+        #     print(f"    t={elapsed:.0f}s  "
+        #           f"θ_d={math.degrees(theta_d):.1f}°  "
+        #           f"θ={math.degrees(theta):.1f}°  "
+        #           f"err={math.degrees(e_c):+.1f}°  "
+        #           f"K={oiac.K:.1f}  B={oiac.B:.3f}  Kff={oiac.Kff:.2f}  "
+        #           f"τ={tau_f:.2f}Nm  r={r:.4f}")
     print(f"Processing time per step: mean={np.mean(pt)*1000:.2f}ms")
     motor.stop()
 
@@ -825,9 +825,9 @@ if __name__ == "__main__":
             "q_rad": plot_q,
             "tau": plot_tau,
         })
-        if not os.path.exists("Outputs/RWExosuitResults"):
-            os.makedirs("Outputs/RWExosuitResults")
-        data.to_csv(f"Outputs/RWExosuitResults/qd_q_trial_{i+1}.csv", index=False)
+        if not os.path.exists(f"Outputs/RWExosuitResults/{USER_NAME}/3"):
+            os.makedirs(f"Outputs/RWExosuitResults/{USER_NAME}/3")
+        data.to_csv(f"Outputs/RWExosuitResults//{USER_NAME}/3/trial_{i+1}.csv", index=False)
 
 
         plot_dq.clear()
