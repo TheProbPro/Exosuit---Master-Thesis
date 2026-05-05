@@ -29,6 +29,7 @@ from Sensors.EMGSensor import DelsysEMG
 from SignalProcessing.Filtering import rt_filtering, rt_desired_Angle_lowpass
 from SignalProcessing.Interpretors import ProportionalMyoelectricalControl as PMC
 from Optimizations import optimizer_6
+from ProjectInRobotics.pDMP.pDMP_functions import pDMP, pDMPCoupling1, pDMPOmega
 import AdaptiveEmbodiedControlSystems.LSTM as LSTM
 
 # ──────────────────────────────────────────────────────────────
@@ -48,6 +49,9 @@ EMG_DT       = 1.0 / FS
 USER_NAME    = 'VictorBNielsen'
 # USER_NAME = 'ZichenWang'
 LSTM_PATH    = "Outputs/models/LSTM/Windowed_LSTM_60.pth"
+TEST_DMP_VERSION = "pDMP"
+TEST_DMP_VERSION = "Coupled"
+TEST_DMP_VERSION = "Omega"
 
 # EMG 优化器参数（与原 EMG 脚本保持一致）
 EMG_B        = 4.0 # Vic
@@ -154,6 +158,90 @@ def emg_thread_fn(qd_queue: queue.Queue):
     model.load_state_dict(torch.load(LSTM_PATH, map_location=device))
     model.eval()
 
+    # Train DMP
+    phi = 0
+    tau = 0.5
+    if TEST_DMP_VERSION == "Omega":
+        tau = 5.0
+    omega0 = 2*np.pi/tau
+    DMP = None
+    if TEST_DMP_VERSION == "pDMP":
+        # Teach DMPS
+        DMP = pDMP(DOF=1, N=25, alpha=8, beta=2, lambd=0.9, dt=EMG_DT)
+        # Teach DMP 0 trajectory for 2s
+        y_old = 0
+        dy_old = 0
+        print("Teaching DMP 0 trajectory for 3s")
+        start_time = time.time()
+        while time.time() - start_time < 3:  # Teach for 3 seconds
+            print(f"elapsed time: {time.time() - start_time:.2f} seconds", end='\r')
+            phi += 16*np.pi * EMG_DT/tau
+            y = np.array([0])
+            dy = (y - y_old) / EMG_DT 
+            ddy = (dy - dy_old) / EMG_DT
+            DMP.set_phase(np.array([phi]))
+            DMP.set_period(np.array([tau]))
+            DMP.learn(y, dy, ddy)
+            DMP.integration()
+
+            # old values	
+            y_old = y
+            dy_old = dy
+            
+            # store data for plotting
+            x, dx, ph, ta = DMP.get_state()
+        print("DMP teaching completed")
+    elif TEST_DMP_VERSION == "Coupled":
+        DMP = pDMPCoupling1(DOF=1, N=25, alpha=8, beta=2, lambd=0.9, dt=EMG_DT)
+        # Teach DMP 0 trajectory for 3s
+        y_old = 0
+        dy_old = 0
+        print("Teaching pDMP coupling 1 with 0 trajectory for 2s")
+        start_time = time.time()
+        while time.time() - start_time < 3:  # Teach for 3 seconds
+            print(f"elapsed time: {time.time() - start_time:.2f} seconds", end='\r')
+            phi += 2*np.pi * EMG_DT/tau
+            y = np.array([0])
+            dy = (y - y_old) / EMG_DT 
+            ddy = (dy - dy_old) / EMG_DT
+            DMP.set_phase(np.array([phi]))
+            DMP.set_period(np.array([tau]))
+            DMP.learn(y, dy, ddy)
+
+            # old values	
+            y_old = y
+            dy_old = dy
+            
+            # store data for plotting
+            x, dx, ph, ta = DMP.get_state()
+    elif TEST_DMP_VERSION == "Omega":
+        mid = np.deg2rad(70)
+        DMP = pDMPOmega(DOF=1, N=25, alpha=8, beta=2, lambd=0.999, dt=EMG_DT)
+        DMP.set_frequency([omega0])
+        # Teach DMP 0 trajectory for 3s
+        y_old = 0
+        dy_old = 0
+        print("Teaching pDMP omega with 0 trajectory for 5s")
+        start_time = time.time()
+        samples = (1/EMG_DT) * 5
+        for i in range(int(samples)):
+            t = i * EMG_DT
+            y = np.array([mid * np.sin(omega0*t) + mid])
+            dy = (y - y_old) / EMG_DT
+            ddy = (dy - dy_old) / EMG_DT
+
+            DMP.set_frequency(np.array([omega0]))
+
+            DMP.learn(y, dy, ddy)
+            DMP.integration()
+
+            # old values	
+            y_old = y
+            dy_old = dy
+            
+            # store data for plotting
+            x, dx, ph, ta = DMP.get_state()
+
     # optimizer_6 状态
     window = deque(maxlen=100)  # 50 samples at 2000Hz = 25ms window
     emg_v             = 0.0
@@ -206,12 +294,39 @@ def emg_thread_fn(qd_queue: queue.Queue):
         filtered_net_a = float(net_a_lowpass.lowpass(np.atleast_1d(net_a))[0])
 
         # optimizer_6 → 平滑角度
-        optimized_angle, emg_v, _ = optimizer_6(
-            filtered_net_a, emg_v, EMG_DT,
-            optimized_angle, THETA_MIN, THETA_MAX,
-            np.pi, EMG_B, EMG_K
-        )
+        # optimized_angle, emg_v, _ = optimizer_6(
+        #     filtered_net_a, emg_v, EMG_DT,
+        #     optimized_angle, THETA_MIN, THETA_MAX,
+        #     np.pi, EMG_B, EMG_K
+        # )
+        if TEST_DMP_VERSION == "pDMP":
+            v = np.pi/10 #np.pi/22
+            DMP.set_phase(np.array([phi]))
+            DMP.set_period(np.array([tau]))
 
+            U = np.asarray([filtered_net_a*v])  # EMG activation as input
+            DMP.update(U)
+            DMP.integration()
+            x, dx, ph, ta = DMP.get_state()
+
+        elif TEST_DMP_VERSION == "Coupled":
+            DMP.set_phase(np.array([phi]))
+            DMP.set_period(np.array([tau]))
+
+            DMP.repeat()
+
+            DMP.integration(np.array([filtered_net_a]))
+
+            x, dx, ph, ta = DMP.get_state()
+                
+        elif TEST_DMP_VERSION == "Omega":
+            k = 1.0
+            omega = omega0 * (1 + k * filtered_net_a)
+            DMP.set_frequency([omega])
+            DMP.repeat()
+            DMP.integration()
+            x, dx, ph, ta = DMP.get_state()
+        optimized_angle = x
         # try:
         #     qd_queue.put_nowait((optimized_angle))
         # except queue.Full:
