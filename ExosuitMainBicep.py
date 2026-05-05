@@ -45,8 +45,8 @@ from Motors.DynamixelHardwareInterface import Motors
 # ── EMG 参数 ─────────────────────────────────────────────────
 FS           = 2000          # EMG 采样率 (Hz)
 EMG_DT       = 1.0 / FS
-USER_NAME    = 'VictorBNielsen'
-# USER_NAME = 'ZichenWang'
+# USER_NAME    = 'VictorBNielsen'
+USER_NAME = 'ZichenWang'
 LSTM_PATH    = "Outputs/models/LSTM/Windowed_LSTM_60.pth"
 
 # EMG 优化器参数（与原 EMG 脚本保持一致）
