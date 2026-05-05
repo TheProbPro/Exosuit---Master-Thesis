@@ -30,6 +30,7 @@ from SignalProcessing.Filtering import rt_filtering, rt_desired_Angle_lowpass
 from SignalProcessing.Interpretors import ProportionalMyoelectricalControl as PMC
 from Optimizations import optimizer_6
 import AdaptiveEmbodiedControlSystems.LSTM as LSTM
+from Controllers.OIAC_Controllers import OIACController
 
 # ──────────────────────────────────────────────────────────────
 #  MOTOR 相关导入
@@ -46,11 +47,14 @@ from Motors.DynamixelHardwareInterface import Motors
 FS           = 2000          # EMG 采样率 (Hz)
 EMG_DT       = 1.0 / FS
 USER_NAME    = 'VictorBNielsen'
+# USER_NAME = 'ZichenWang'
 LSTM_PATH    = "Outputs/models/LSTM/Windowed_LSTM.pth"
 
 # EMG 优化器参数（与原 EMG 脚本保持一致）
-EMG_B        = 4.0
-EMG_K        = np.pi * 10.0 * 2
+EMG_B        = 4.0 # Vic
+# EMG_B        = 6.0
+# EMG_K        = np.pi * 10.0 * 2 # 1.8
+EMG_K        = np.pi * 1.7 # Vic
 
 plot_dq = []
 
@@ -61,15 +65,16 @@ THETA_RANGE  = THETA_MAX - THETA_MIN
 
 # ── 控制器参数 ────────────────────────────────────────────────
 plot_q = []
+plot_tau = []
 SAMPLE_RATE  = 200
 DT           = 1.0 / SAMPLE_RATE
-# TORQUE_MAX   = 10.0
-TORQUE_MAX   = 6.0
+TORQUE_MAX   = 10.1
+# TORQUE_MAX   = 6.0
 TORQUE_MIN   = -TORQUE_MAX
 
 # OIAC 增益范围
 K_MIN,   K_MAX   = 5.0,  25.0
-B_MIN,   B_MAX   = 0.5,  3.0
+B_MIN,   B_MAX   = 0.6,  3.0
 KFF_MIN, KFF_MAX = 0.0,  3.0
 
 DELTA_MAX   = 0.03
@@ -91,8 +96,8 @@ N_LAG                 = 3
 # ── 电机参数 ──────────────────────────────────────────────────
 # MOTOR_PORT       = 'COM5'
 MOTOR_PORT         = 'COM4'
-MOTOR_BAUD       = 3_000_000
-# MOTOR_BAUD         = 4_500_000
+# MOTOR_BAUD       = 3_000_000
+MOTOR_BAUD         = 4_500_000
 TORQUE_DIRECTION = 1
 
 # 标定参数
@@ -155,6 +160,7 @@ def emg_thread_fn(qd_queue: queue.Queue):
     emg_v             = 0.0
     optimized_angle   = float(np.deg2rad(SINE_CENTER_DEG))  # 从中心位置起步
     sample_counter = 0
+    net_a_prev = 0.0
 
     # 启动传感器
     emg = DelsysEMG(channel_range=(0, 1))
@@ -188,7 +194,16 @@ def emg_thread_fn(qd_queue: queue.Queue):
         activation   = interpreter.compute_activation(
             [filtered_bicep_rms, filtered_tricep_rms]
         )
-        net_a        = activation[0] - activation[1]
+        # Standard:
+        net_a = activation[0] - activation[1]
+        # Normalize activation[0] (bicep activation) to [-1,1]
+        # net_a = 2 * activation[0] - 1.0
+        net_a_old = net_a
+        # Alternatively use temporal differnece, Try with both standard and bicep.
+        net_a = (net_a - net_a_prev) / EMG_DT
+        net_a_prev = net_a_old  # Store current activation, not derivative
+
+        # net_a        = activation[0] - activation[1]
         filtered_net_a = float(net_a_lowpass.lowpass(np.atleast_1d(net_a))[0])
 
         # optimizer_6 → 平滑角度
@@ -197,6 +212,12 @@ def emg_thread_fn(qd_queue: queue.Queue):
             optimized_angle, THETA_MIN, THETA_MAX,
             np.pi, EMG_B, EMG_K
         )
+
+        # try:
+        #     qd_queue.put_nowait((optimized_angle))
+        # except queue.Full:
+        #     qd_queue.get_nowait()
+        #     qd_queue.put_nowait((optimized_angle))
 
         window.append(optimized_angle)
         if len(window) < window.maxlen:
@@ -487,7 +508,7 @@ def run_trial(motor: Motor, policy: LinearPolicyNumpy,
               trial_num: int, duration_s: float,
               pkl_path: str) -> dict | None:
     motor.home()
-    # lowpass_dq = rt_desired_Angle_lowpass(200)
+    lowpass_dq = rt_desired_Angle_lowpass(106, lp_cutoff=2)
     ref  = EMGReference(qd_queue)
     oiac = OIAC()
 
@@ -528,7 +549,7 @@ def run_trial(motor: Motor, policy: LinearPolicyNumpy,
         theta_d, dtheta_d, ddtheta_d = ref.update()
 
         # TODO:Lowpass filter
-        # theta_d = lowpass_dq.lowpass(np.atleast_1d(theta_d))
+        theta_d = lowpass_dq.lowpass(np.atleast_1d(theta_d))
 
         # 前向预测（N_LAG 步后的 dtheta_d，用简单线性外推）
         dtheta_d_fut = dtheta_d + ddtheta_d * N_LAG * DT
@@ -541,8 +562,10 @@ def run_trial(motor: Motor, policy: LinearPolicyNumpy,
             motor.stop()
             time.sleep(0.3)
             continue
+
         plot_q.append(theta)
         plot_dq.append(theta_d)
+
         e_pos = theta_d - theta
 
         # ── 速度双路滤波 ──────────────────────────────────────
@@ -589,6 +612,7 @@ def run_trial(motor: Motor, policy: LinearPolicyNumpy,
             high_tau_count = 0
 
         tau_f = TAU_FILTER_ALPHA * tau_f + (1 - TAU_FILTER_ALPHA) * tau_raw
+        plot_tau.append(tau_f)
         motor.send(tau_f)
 
         # ── 奖励 ──────────────────────────────────────────────
@@ -610,13 +634,13 @@ def run_trial(motor: Motor, policy: LinearPolicyNumpy,
         accs.append(acc_f)
 
         # 实时打印（每秒一次）
-        if len(rewards) % SAMPLE_RATE == 0:
-            print(f"    t={elapsed:.0f}s  "
-                  f"θ_d={math.degrees(theta_d):.1f}°  "
-                  f"θ={math.degrees(theta):.1f}°  "
-                  f"err={math.degrees(e_c):+.1f}°  "
-                  f"K={oiac.K:.1f}  B={oiac.B:.3f}  Kff={oiac.Kff:.2f}  "
-                  f"τ={tau_f:.2f}Nm  r={r:.4f}")
+        # if len(rewards) % SAMPLE_RATE == 0:
+        #     print(f"    t={elapsed:.0f}s  "
+        #           f"θ_d={math.degrees(theta_d):.1f}°  "
+        #           f"θ={math.degrees(theta):.1f}°  "
+        #           f"err={math.degrees(e_c):+.1f}°  "
+        #           f"K={oiac.K:.1f}  B={oiac.B:.3f}  Kff={oiac.Kff:.2f}  "
+        #           f"τ={tau_f:.2f}Nm  r={r:.4f}")
     print(f"Processing time per step: mean={np.mean(pt)*1000:.2f}ms")
     motor.stop()
 
@@ -739,7 +763,7 @@ if __name__ == "__main__":
     signal.signal(signal.SIGTERM, _on_interrupt)
 
     # 共享队列：maxsize=3，保证控制器始终取到最新帧
-    qd_queue = queue.Queue(maxsize=3)
+    qd_queue = queue.Queue(maxsize=2)
 
     # 启动 EMG 线程
     emg_thread = threading.Thread(
@@ -778,6 +802,7 @@ if __name__ == "__main__":
         if res:
             all_results.append(res)
 
+        print(f"length of qd {len(plot_dq)}, length of q {len(plot_q)}, operational frequency: {len(plot_q)/TRIAL_DURATION_S:.2f} Hz")
         t_qd = np.arange(len(plot_dq)) * DT
         t_q = np.arange(len(plot_q)) * DT
 
@@ -792,6 +817,23 @@ if __name__ == "__main__":
         plt.ylabel('Angle (rad)')
         plt.tight_layout()
         plt.show()
+
+        # TODO: Add more data we want to save
+        data = pd.DataFrame({
+            "t_qd": t_qd,
+            "qd_rad": plot_dq,
+            "t_q": t_q,
+            "q_rad": plot_q,
+            "tau": plot_tau,
+        })
+        if not os.path.exists(f"Outputs/RWExosuitResults/{USER_NAME}/3"):
+            os.makedirs(f"Outputs/RWExosuitResults/{USER_NAME}/3")
+        data.to_csv(f"Outputs/RWExosuitResults//{USER_NAME}/3/trial_{i+1}.csv", index=False)
+
+
+        plot_dq.clear()
+        plot_q.clear()
+        plot_tau.clear()
 
     # 停止
     stop_event.set()
