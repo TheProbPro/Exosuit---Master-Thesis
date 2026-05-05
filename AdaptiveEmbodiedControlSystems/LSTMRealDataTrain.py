@@ -33,6 +33,14 @@ TRAIN_CSV = "Outputs/RecordedEMG/TrainLSTM.csv"
 TEST_CSV = "Outputs/RecordedEMG/TestLSTM.csv"
 COL = 'emg_pos'#'Processed EMG'#'Muscle Activation'
 
+# PREDICT_X = 40 #20ms
+# PREDICT_X = 60 #30ms
+PREDICT_X = 80 #40ms
+
+Model_Save_Path = "Outputs/models/LSTM/Windowed_LSTM_80.pth"
+# TRAIN = False
+TRAIN = True
+
 class CSVWindowedDataset(Dataset):
     def __init__(self, csv_file, seq_len):
         super().__init__()
@@ -43,9 +51,9 @@ class CSVWindowedDataset(Dataset):
         X_list = []
         y_list = []
         
-        for i in range(len(data) - seq_len - 40):
+        for i in range(len(data) - seq_len - PREDICT_X):
             window = data[i : i + seq_len]        # (seq_len,)
-            target = data[i + seq_len + 40]            # scalar
+            target = data[i + seq_len + PREDICT_X]            # scalar
             X_list.append(window[:, None])  # (seq_len, 1)
             y_list.append([target])          # (1,)
         self.X = torch.from_numpy(np.stack(X_list, axis=0))  # (N, seq_len, 1), float32
@@ -235,7 +243,7 @@ def evaluate_windowed_lstm(model, seq_len, device="cpu", total_points=1000):
 
     # we'll build all windows in one big batch for fast eval
     X_list = []
-    for i in range(T - seq_len - 40):
+    for i in range(T - seq_len - PREDICT_X):
         window = signal[i : i+seq_len]            # (seq_len,1)
         X_list.append(window.unsqueeze(0))        # (1,seq_len,1)
 
@@ -264,8 +272,7 @@ def evaluate_windowed_lstm(model, seq_len, device="cpu", total_points=1000):
 
     # 3) build ground truth targets aligned with predictions
     # each window i predicts point at index (i+seq_len)
-    horizon = 40
-    target_indices = torch.arange(seq_len + horizon, seq_len + horizon + len(y_pred))
+    target_indices = torch.arange(seq_len + PREDICT_X, seq_len + PREDICT_X + len(y_pred))
     y_true = signal[target_indices, 0].cpu().numpy()
     t_pred = t_axis[target_indices].cpu().numpy()
 
@@ -350,9 +357,6 @@ def compute_metrics(y_true, y_pred):
     r2 = 1 - np.sum((y_true - y_pred) ** 2) / denom if denom != 0 else np.nan
 
     return mae, mse, rmse, r2
-
-Model_Save_Path = "Outputs/models/LSTM/Windowed_LSTM.pth"
-TRAIN = False
 
 if __name__ == "__main__":
     if TRAIN:
