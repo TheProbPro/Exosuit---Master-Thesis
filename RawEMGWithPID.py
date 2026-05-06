@@ -44,6 +44,7 @@ THETA_RANGE     = THETA_MAX - THETA_MIN
 
 # ── 控制器参数 ────────────────────────────────────────────────
 plot_q   = []
+plot_tau = []
 SAMPLE_RATE  = 200
 DT           = 1.0 / SAMPLE_RATE
 TORQUE_MAX   = 10.1
@@ -556,6 +557,8 @@ def run_trial(motor: Motor,
 
         motor.send(motorcom)
 
+        plot_tau.append(motorcom)
+
         # ── 奖励 ──────────────────────────────────────────────
         e_c = float(np.clip(e_pos, -math.pi, math.pi))
 
@@ -703,6 +706,7 @@ if __name__ == "__main__":
             "qd_rad": plot_dq,
             "t_q":    t_q,
             "q_rad":  plot_q,
+            "tau":    plot_tau
         })
         save_dir = f"Outputs/RWExosuitResultsVic/{USER_NAME}/3"
         os.makedirs(save_dir, exist_ok=True)
@@ -710,6 +714,7 @@ if __name__ == "__main__":
 
         plot_dq.clear()
         plot_q.clear()
+        plot_tau.clear()
 
     # 停止
     stop_event.set()
