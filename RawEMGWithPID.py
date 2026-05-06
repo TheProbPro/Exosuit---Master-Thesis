@@ -1,23 +1,3 @@
-"""
-EMG-OIAC Hardware Runner  —  EMG -> ada_imp_con + ILC (AAN) -> Motor
-=====================================================================
-架构：
-  [EMG线程 2000Hz]  →  qd_queue  →  [控制主循环 200Hz]  →  Motor
-  - EMG线程：采集肌电 → 滤波 → LSTM预测 → predicted_angle → qd_queue
-  - 控制主循环：取最新theta_d → 构建state → ada_imp_con扭矩 + ILC前馈 → 电机
-
-ILC逻辑：
-  - Trial N运行时：从上一次update_learning得到的ff数组里 get_feedforward
-  - Trial N结束后：update_learning(error_array) 更新ff数组，供Trial N+1使用
-  - Trial 1时 learned_feedforward为空，ILC前馈全为0
-
-用法：
-    python run_emg_oiac_hardware.py                  # 直接运行
-    python run_emg_oiac_hardware.py 5                # 指定试验次数
-
-数据记录：t, q, q_des, K, B, jerk, tau, ilc_ff, reward  -> CSV
-"""
-
 import os, sys, math, time, signal, atexit, threading, queue
 import numpy as np
 import numpy.linalg as la
@@ -35,7 +15,6 @@ from SignalProcessing.Filtering import rt_filtering, rt_desired_Angle_lowpass
 from SignalProcessing.Interpretors import ProportionalMyoelectricalControl as PMC
 from Optimizations import optimizer_6
 import AdaptiveEmbodiedControlSystems.LSTM as LSTM
-from Controllers.OIAC_Controllers import ada_imp_con, ILC
 
 # ──────────────────────────────────────────────────────────────
 #  MOTOR 相关导入
@@ -65,7 +44,6 @@ THETA_RANGE     = THETA_MAX - THETA_MIN
 
 # ── 控制器参数 ────────────────────────────────────────────────
 plot_q   = []
-plot_tau = []
 SAMPLE_RATE  = 200
 DT           = 1.0 / SAMPLE_RATE
 TORQUE_MAX   = 10.1
@@ -117,6 +95,109 @@ device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 # ── 全局停止事件 ──────────────────────────────────────────────
 stop_event = threading.Event()
 
+
+# ==============================================================
+#  PID controller
+# ==============================================================
+
+class PositionTorquePID:
+    def __init__(
+        self,
+        kp: float,
+        ki: float,
+        kd: float,
+        torque_min: float,
+        torque_max: float,
+        integral_min: float = -2.0,
+        integral_max: float = 2.0,
+        deadband_rad: float = np.deg2rad(0.5),
+        derivative_filter_alpha: float = 0.8,
+    ):
+        """
+        PID controller for position control using torque output.
+
+        Inputs:
+            q_d: desired position in radians
+            q: actual position in radians
+            dq: actual velocity in rad/s
+            dt: timestep in seconds
+
+        Output:
+            torque command in Nm
+        """
+
+        self.kp = kp
+        self.ki = ki
+        self.kd = kd
+
+        self.torque_min = torque_min
+        self.torque_max = torque_max
+
+        self.integral_min = integral_min
+        self.integral_max = integral_max
+
+        self.deadband_rad = deadband_rad
+        self.derivative_filter_alpha = derivative_filter_alpha
+
+        self.integral = 0.0
+        self.prev_error = 0.0
+        self.filtered_derivative = 0.0
+        self.first_update = True
+
+    def reset(self):
+        self.integral = 0.0
+        self.prev_error = 0.0
+        self.filtered_derivative = 0.0
+        self.first_update = True
+
+    def update(self, q_d: float, q: float, dq: float, dt: float) -> float:
+        if dt <= 0.0:
+            return 0.0
+
+        # Clamp desired position to safe joint range
+        q_d = float(np.clip(q_d, THETA_MIN, THETA_MAX))
+        q = float(q)
+
+        error = q_d - q
+
+        # Small deadband to avoid buzzing around target
+        if abs(error) < self.deadband_rad:
+            error = 0.0
+
+        # Proportional torque
+        p_term = self.kp * error
+
+        # Integral torque with anti-windup
+        self.integral += error * dt
+        self.integral = float(np.clip(
+            self.integral,
+            self.integral_min,
+            self.integral_max
+        ))
+        i_term = self.ki * self.integral
+
+        # Derivative term
+        #
+        # For position control, using -dq is often better than differentiating
+        # noisy encoder position error.
+        #
+        # If q_d changes quickly, this ignores desired velocity. That is okay
+        # for a simple first version.
+        derivative = -dq
+
+        self.filtered_derivative = (
+            self.derivative_filter_alpha * self.filtered_derivative
+            + (1.0 - self.derivative_filter_alpha) * derivative
+        )
+
+        d_term = self.kd * self.filtered_derivative
+
+        torque = p_term + i_term + d_term
+        torque = float(np.clip(torque, self.torque_min, self.torque_max))
+
+        self.prev_error = error
+
+        return torque
 
 # ══════════════════════════════════════════════════════════════
 #  EMG 线程  （生产者，2000 Hz）
@@ -214,6 +295,7 @@ def emg_thread_fn(qd_queue: queue.Queue):
     Tricep_RMS_queue.queue.clear()
     print("[EMG] 线程已停止。")
 
+
 # ══════════════════════════════════════════════════════════════
 #  电机接口
 # ══════════════════════════════════════════════════════════════
@@ -254,6 +336,9 @@ class Motor:
     def _raw_to_deg(self, raw_signed):
         return float((raw_signed - self._raw_zero) / RAW_RANGE * ANGLE_RANGE_DEG)
 
+    def _deg_to_raw(self, deg):
+        return int(deg / ANGLE_RANGE_DEG * RAW_RANGE + self._raw_zero)
+
     def _set_current_mode(self):
         try:
             from dynamixel_sdk import PacketHandler, PortHandler
@@ -291,6 +376,7 @@ class Motor:
             deg_abs = self._raw_to_deg(self._raw_signed())
         except Exception:
             deg_abs = SINE_CENTER_DEG
+        # 软限位：超出关节范围时清零扭矩
         if deg_abs <= 0.5 and tau * TORQUE_DIRECTION < 0:
             tau = 0.0
         elif deg_abs >= ANGLE_RANGE_DEG - 0.5 and tau * TORQUE_DIRECTION > 0:
@@ -311,6 +397,7 @@ class Motor:
                 pass
 
     def home(self, target_deg=SINE_CENTER_DEG, gain=0.5, tol=1.0, max_steps=500):
+        """归中到 target_deg（绝对角度）"""
         print(f"[Motor] 归中到 {target_deg:.1f}°...")
         for _ in range(max_steps):
             if stop_event.is_set():
@@ -381,8 +468,6 @@ pt = []
 #  单次试验
 # ══════════════════════════════════════════════════════════════
 def run_trial(motor: Motor,
-              ada: ada_imp_con,
-              ilc: ILC,
               qd_queue: queue.Queue,
               trial_num: int,
               duration_s: float) -> dict | None:
@@ -390,29 +475,25 @@ def run_trial(motor: Motor,
     lowpass_dq = rt_desired_Angle_lowpass(106, lp_cutoff=2)
     ref = EMGReference(qd_queue)
 
-    # ILC 迭代器重置（每次trial从头取前馈）
-    # ilc.reset_iterator()
-
     vel_d_max       = float(THETA_RANGE) * 0.5
     JERK_NORM_SCALE = vel_d_max * 50.0
 
     # 滤波状态
     vel_ctrl = vel_acc = prev_vel = acc_f = prev_acc = 0.0
-    jerk_f   = tau_f = 0.0
+    jerk_f   = 0.0
     ddtheta_buf: list[float] = []
 
     # 数据记录
     timestamps = []; thetas = []; theta_ds = []
-    Ks = []; Bs = []
-    jerks = []; torques = []; ilc_ffs = [];
+    jerks = []
     errors_rad: list[float] = []          # 用于 ILC 学习（弧度）
     errors_deg: list[float] = []          # 用于统计打印（度）
     accs = []
 
-    high_tau_count = 0
+    # PID
+    pid = PositionTorquePID(kp=5.0, ki=0.0, kd=0.01, torque_min=TORQUE_MIN, torque_max=TORQUE_MAX)
 
-    print(f"\n[Trial {trial_num}] ▶ 开始，时长={duration_s}s  "
-          f"（移动手臂以控制目标角度）  ILC前馈={'有' if ilc.learned_feedforward else '无（Trial 1）'}")
+    print(f"\n[Trial {trial_num}] ▶ 开始，时长={duration_s}s")
     t_start = t_last = time.time()
 
     while True:
@@ -430,9 +511,7 @@ def run_trial(motor: Motor,
 
         # ── 参考轨迹：EMG 输入 ─────────────────────────────────
         theta_d, dtheta_d, ddtheta_d = ref.update()
-        theta_d = lowpass_dq.lowpass(np.atleast_1d(theta_d))
-
-        dtheta_d_fut = dtheta_d + ddtheta_d * N_LAG * DT
+        theta_d = float(lowpass_dq.lowpass(np.atleast_1d(theta_d)))
 
         # ── 读取电机 ──────────────────────────────────────────
         try:
@@ -473,39 +552,9 @@ def run_trial(motor: Motor,
         # ddtheta_sm 暂留，ada_imp_con 内部已处理前馈，此处不再单独使用
         # ddtheta_sm = float(np.mean(ddtheta_buf))
 
-        # ── ada_imp_con：计算自适应阻抗扭矩 ───────────────────
-        # 输入：当前位置、期望位置、当前速度（控制路径滤波）、期望速度（预测）
-        ada.update_impedance(theta, theta_d, vel_ctrl, dtheta_d)
-        # tau_ada = ada.get_tau(
-        #     q   = theta,
-        #     q_d = theta_d,
-        #     dq  = vel_ctrl,
-        #     dq_d = dtheta_d_fut,
-        # )
-        tau_ada = -ada.calc_tau_fb()[0, 0]
-        tau_ada = float(np.clip(tau_ada, TORQUE_MIN, TORQUE_MAX))
+        motorcom = pid.update(theta_d, theta, dtheta, DT)
 
-        # ── ILC 前馈叠加 ──────────────────────────────────────
-        # if trial_num > 1:
-        #     ilc_ff  = ilc.get_feedforward()
-        # else:
-        #     ilc_ff = 0.0
-        ilc_ff = 0
-        tau_raw = tau_ada + ilc_ff
-        tau_raw = float(np.clip(tau_raw, TORQUE_MIN, TORQUE_MAX))
-
-        # ── 过载保护 ──────────────────────────────────────────
-        if abs(tau_raw) > TORQUE_MAX * 0.7:
-            high_tau_count += 1
-            if high_tau_count > 10:
-                tau_raw = float(np.sign(tau_raw) * TORQUE_MAX * 0.5)
-        else:
-            high_tau_count = 0
-
-        # ── 扭矩低通平滑 ─────────────────────────────────────
-        tau_f = TAU_FILTER_ALPHA * tau_f + (1 - TAU_FILTER_ALPHA) * tau_raw
-        plot_tau.append(tau_f)
-        motor.send(tau_f)
+        motor.send(motorcom)
 
         # ── 奖励 ──────────────────────────────────────────────
         e_c = float(np.clip(e_pos, -math.pi, math.pi))
@@ -514,11 +563,7 @@ def run_trial(motor: Motor,
         timestamps.append(elapsed)
         thetas.append(theta)
         theta_ds.append(theta_d)
-        Ks.append(ada.k)
-        Bs.append(ada.b)
         jerks.append(jerk_f)
-        torques.append(tau_f)
-        ilc_ffs.append(ilc_ff)
         errors_rad.append(e_c)                        # 用于ILC（弧度，有符号）
         errors_deg.append(abs(math.degrees(e_c)))     # 用于统计（度，绝对值）
         accs.append(acc_f)
@@ -526,23 +571,16 @@ def run_trial(motor: Motor,
     print(f"Processing time per step: mean={np.mean(pt)*1000:.2f}ms")
     motor.stop()
 
-    # ── ILC 学习更新（本trial结束后执行，供下一trial使用）────
-    # ilc.update_learning(errors_rad)
-
     # ── CSV 导出 ──────────────────────────────────────────────
     os.makedirs(LOG_DIR, exist_ok=True)
     ts_str   = datetime.now().strftime("%Y%m%d_%H%M%S")
-    csv_path = os.path.join(LOG_DIR, f"emg_OIAC_trial{trial_num:02d}_{ts_str}.csv")
+    csv_path = os.path.join(LOG_DIR, f"emg_adailc_trial{trial_num:02d}_{ts_str}.csv")
 
     df = pd.DataFrame({
         "t_s":       timestamps,
         "q_rad":     thetas,
         "q_des_rad": theta_ds,
-        "K":         Ks,
-        "B":         Bs,
         "jerk":      jerks,
-        "tau_Nm":    torques,
-        "ilc_ff_Nm": ilc_ffs,
     })
     df.to_csv(csv_path, index=False)
     print(f"\n[Trial {trial_num}] 💾 数据已保存: {csv_path}  ({len(df)} 行)")
@@ -551,17 +589,12 @@ def run_trial(motor: Motor,
         track_rmse = float(np.sqrt(np.mean(np.square(errors_deg)))),
         acc_rms    = float(np.sqrt(np.mean(np.square(accs)))),
         max_err    = float(np.max(errors_deg)),
-        max_tau    = float(np.max(np.abs(torques))),
-        final_K    = ada.k,
-        final_B    = ada.b,
         csv_path   = csv_path,
     )
     print(f"\n[Trial {trial_num}] 结果:")
     print(f"    跟踪 RMSE  = {result['track_rmse']:.3f}°")
     print(f"    最大误差   = {result['max_err']:.2f}°")
     print(f"    加速度 RMS = {result['acc_rms']:.3f} rad/s²")
-    print(f"    最大扭矩   = {result['max_tau']:.2f} Nm")
-    print(f"    最终增益   K={result['final_K']:.4f}  B={result['final_B']:.4f}")
     return result
 
 
@@ -573,12 +606,12 @@ def print_summary(results: list):
     print(f"  汇总  —  ada_imp_con + ILC (AAN)")
     print(f"  试验次数: {len(results)}")
     print(f"{'='*55}")
-    keys   = ['track_rmse', 'acc_rms', 'max_err', 'max_tau']
+    keys   = ['track_rmse', 'acc_rms', 'max_err']
     labels = ['平均奖励', '跟踪RMSE(°)', '加速度RMS', '最大误差(°)', '最大扭矩(Nm)']
-    for k, lb in zip(keys, labels):
-        vals = [r[k] for r in results]
-        # best = np.max(vals) if k == 'avg_reward' else np.min(vals)
-        # print(f"  {lb:14s}  mean={np.mean(vals):.4f}  best={best:.4f}")
+    # for k, lb in zip(keys, labels):
+    #     vals = [r[k] for r in results]
+    #     best = np.min(vals)
+    #     print(f"  {lb:14s}  mean={np.mean(vals):.4f}  best={best:.4f}")
     print(f"\n  CSV 文件:")
     for r in results:
         print(f"    {r['csv_path']}")
@@ -596,10 +629,6 @@ if __name__ == "__main__":
     print(f"  试验数: {num_trials}  时长: {TRIAL_DURATION_S}s/次")
     print(f"  ILC 参考长度: {ILC_REFERENCE_LEN}  学习率: {ILC_LR}")
     print(f"{'='*55}")
-
-    # 初始化控制器（跨trial共享，ada_imp_con状态保留）
-    ada = ada_imp_con(1)
-    ilc = ILC(max_trials=num_trials + 1)
 
     # 连接电机
     try:
@@ -647,8 +676,6 @@ if __name__ == "__main__":
 
         res = run_trial(
             motor      = motor,
-            ada        = ada,
-            ilc        = ilc,
             qd_queue   = qd_queue,
             trial_num  = i + 1,
             duration_s = TRIAL_DURATION_S,
@@ -676,15 +703,13 @@ if __name__ == "__main__":
             "qd_rad": plot_dq,
             "t_q":    t_q,
             "q_rad":  plot_q,
-            "tau":    plot_tau,
         })
-        save_dir = f"Outputs/RWExosuitResultsVic/{USER_NAME}/OIAC"
+        save_dir = f"Outputs/RWExosuitResultsVic/{USER_NAME}/3"
         os.makedirs(save_dir, exist_ok=True)
         data.to_csv(f"{save_dir}/trial_{i+1}.csv", index=False)
 
         plot_dq.clear()
         plot_q.clear()
-        plot_tau.clear()
 
     # 停止
     stop_event.set()
