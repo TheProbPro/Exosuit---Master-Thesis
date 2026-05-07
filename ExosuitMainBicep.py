@@ -46,8 +46,9 @@ from Motors.DynamixelHardwareInterface import Motors
 FS           = 2000          # EMG 采样率 (Hz)
 EMG_DT       = 1.0 / FS
 # USER_NAME    = 'VictorBNielsen'
-USER_NAME    = 'Kally'
-# USER_NAME = 'ZichenWang'
+# USER_NAME    = 'Kally'
+USER_NAME = 'ZichenWang'
+# USER_NAME = 'Shelley'
 LSTM_PATH    = "Outputs/models/LSTM/Windowed_LSTM_60.pth"
 
 # EMG 优化器参数（与原 EMG 脚本保持一致）
@@ -59,7 +60,7 @@ EMG_K        = np.pi * 1.4 # 1.7 Vic
 plot_dq = []
 
 # Savepath
-SAVEPATH = f"Outputs/RWExosuitResults/" + USER_NAME + "/3"
+SAVEPATH = f"Outputs/RWExosuitResults/" + USER_NAME + "/1"
 
 # ── 关节范围（EMG 和控制器共享）─────────────────────────────
 THETA_MIN    = np.deg2rad(0)    # 0 rad
@@ -97,10 +98,10 @@ DDTHETA_SMOOTH_N      = 5
 N_LAG                 = 3
 
 # ── 电机参数 ──────────────────────────────────────────────────
-# MOTOR_PORT       = 'COM5'
-MOTOR_PORT         = 'COM4'
-# MOTOR_BAUD       = 3_000_000
-MOTOR_BAUD         = 4_500_000
+MOTOR_PORT       = 'COM5'
+# MOTOR_PORT         = 'COM4'
+MOTOR_BAUD       = 3_000_000
+# MOTOR_BAUD         = 4_500_000
 TORQUE_DIRECTION = 1
 
 # 标定参数
