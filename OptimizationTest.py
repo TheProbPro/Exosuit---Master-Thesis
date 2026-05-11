@@ -1,8 +1,10 @@
 from Optimizations import *
+from ProjectInRobotics.pDMP.pDMP_functions import pDMP, pDMPCoupling1, pDMPOmega
 import numpy as np
 import matplotlib as mpl
 import matplotlib.pyplot as plt
 import pandas as pd
+import time
 
 mpl.rcParams.update({
     'text.usetex': True,
@@ -40,8 +42,25 @@ if __name__ == "__main__":
     print("Starting EMG optimization test at 2000 Hz...")
     print(f"Theta max: {THETA_MAX}, Theta min: {THETA_MIN}")
     # Generate test muscle activations (EMG signal) using sinewave between -1 and 1
-    time = np.linspace(0, 10, FS*10)  # Time vector from 0 to 10 seconds
-    activation = np.sin(2 * np.pi * 0.2 * time)  # Sine wave with frequency of 0.2 Hz
+    time_v= np.linspace(0, 20, FS*20)  # Time vector from 0 to 20 seconds
+    activation = np.sin(2 * np.pi * 0.15 * time_v)  # Sine wave with frequency of 0.2 Hz
+
+    # Small random noise
+    rng = np.random.default_rng(seed=42)
+    noise = rng.normal(0, 1, size=time_v.shape)
+
+    # Smooth it with a moving average
+    window_size = 100  # increase for smoother wobble
+    kernel = np.ones(window_size) / window_size
+    smooth_noise = np.convolve(noise, kernel, mode="same")
+
+    # Scale the noise so it only creates a small wobble
+    # noise_amplitude = 0.03
+    noise_amplitude = 0.06
+
+    activation += noise_amplitude * smooth_noise
+
+    activation = np.clip(activation, -1, 1)
 
     # calculate the difference in activations
     activation_diff = np.diff(activation, prepend=activation[0]) / (1/FS)
@@ -49,12 +68,12 @@ if __name__ == "__main__":
     # Plot activation and activation difference
     plt.figure(figsize=(12, 6))
     plt.subplot(2, 1, 1)
-    plt.plot(time, activation, label='Activation')
+    plt.plot(time_v, activation, label='Activation')
     plt.xlabel('Time (s)')
     plt.ylabel('Activation')
     plt.title('Muscle Activation (EMG Signal)')
     plt.subplot(2, 1, 2)
-    plt.plot(time, activation_diff, label='Activation Difference', color='orange')
+    plt.plot(time_v, activation_diff, label='Activation Difference', color='orange')
     plt.xlabel('Time (s)')
     plt.ylabel('Activation Difference')
     plt.title('Difference of Muscle Activation')
@@ -69,9 +88,12 @@ if __name__ == "__main__":
     optimized_angles_5 = []
     optimized_angles_6 = []
     optimized_angles_7 = []
+    DMP_angles = []
+    DMP_Coupled_angles = []
+    DMP_Omega_angles = []
     
     # Initialize parameters for the optimizers along with the optimizers themselves
-    k = np.pi/2 # EMG
+    k = (1.2*np.pi) / 3 #* 2# EMG
     # k = (1.4*np.pi)/3
     t = 1/FS  # Time between updates (seconds)
     q = 0  # Initial angle (degrees)
@@ -81,8 +103,8 @@ if __name__ == "__main__":
 
     print(f"maximum angle for optimizer 1: {np.rad2deg(max(optimized_angles_1)):.2f} degrees, minimum angle for optimizer 1: {np.rad2deg(min(optimized_angles_1)):.2f} degrees")
 
-    k= 2 * np.pi # EMG
-    # k = 2 * np.pi
+    # k= 2 * np.pi # EMG
+    k = np.pi * 0.9
     optimized_angles_2.append(q)
     for a in activation:
         optimized_angles_2.append(optimize_2(k, a, t, optimized_angles_2[-1], THETA_MIN, THETA_MAX))
@@ -94,7 +116,7 @@ if __name__ == "__main__":
     #     optimized_angles_3.append(optimize_3(k, a, t, optimized_angles_3[-1], THETA_MIN, THETA_MAX, 0.1))
     # print(f"maximum angle for optimizer 3: {np.rad2deg(max(optimized_angles_3)):.2f} degrees, minimum angle for optimizer 3: {np.rad2deg(min(optimized_angles_3)):.2f} degrees")
 
-    k = np.pi / 2 # EMG
+    k = (1.6*np.pi) / 4 # EMG
     # k = (1.4*np.pi)/3
     optimized_angles_4.append(q)
     delta_q_prev = 0
@@ -105,7 +127,7 @@ if __name__ == "__main__":
     
     k = 0 # EMG
     # k = np.pi / 4
-    n = 1.4
+    n = (1.3*np.pi) / 3
     b = 0.01 # 0.001
     optimized_angles_5.append(q)
     for a in activation:
@@ -114,21 +136,143 @@ if __name__ == "__main__":
     print(f"maximum angle for optimizer 5: {np.rad2deg(max(optimized_angles_5)):.2f} degrees, minimum angle for optimizer 5: {np.rad2deg(min(optimized_angles_5)):.2f} degrees")
     
     v = 0  # Initial velocity
+    k = np.pi / 2
+    b = 2
     optimized_angles_6.append(q)
     for a in activation:
-        q_next, v, acc = optimizer_6(a, v, t, optimized_angles_6[-1], THETA_MIN, THETA_MAX)
+        q_next, v, acc = optimizer_6(a, v, t, optimized_angles_6[-1], THETA_MIN, THETA_MAX, np.pi, k, b)
         optimized_angles_6.append(q_next)
     print(f"maximum angle for optimizer 6: {np.rad2deg(max(optimized_angles_6)):.2f} degrees, minimum angle for optimizer 6: {np.rad2deg(min(optimized_angles_6)):.2f} degrees")
 
     optimized_angles_7.append(q)
-    kn = 2
-    kd = 2
-    b = 2
+    kn = 4
+    kd = 4
+    b = 4
     for a, da in zip(activation, activation_diff):
         q_next, v, acc = EMG_Optimizer(a, da, v, kn, kd, b, optimized_angles_7[-1], THETA_MIN, THETA_MAX, np.pi, t)
         optimized_angles_7.append(q_next)
     print(f"maximum angle for optimizer 7: {np.rad2deg(max(optimized_angles_7)):.2f} degrees, minimum angle for optimizer 7: {np.rad2deg(min(optimized_angles_7)):.2f} degrees")
 
+    #========================================= DMP's ====================================
+    # Teach DMP
+    dt = 1/FS
+    phi = 0
+    tau = 0.5
+    DMP = pDMP(DOF=1, N=25, alpha=8, beta=2, lambd=0.9, dt=dt)
+    y_old = 0
+    dy_old = 0
+    start_time = time.time()
+    while time.time() - start_time < 3:  # Teach for 3 seconds
+        print(f"elapsed time: {time.time() - start_time:.2f} seconds", end='\r')
+        phi += 2*np.pi * dt/tau #16*np.pi * dt/tau
+        y = np.array([0])
+        dy = (y - y_old) / dt 
+        ddy = (dy - dy_old) / dt
+        DMP.set_phase(np.array([phi]))
+        DMP.set_period(np.array([tau]))
+        DMP.learn(y, dy, ddy)
+        DMP.integration()
+
+        # old values	
+        y_old = y
+        dy_old = dy
+            
+        # store data for plotting
+        x, dx, ph, ta = DMP.get_state()
+
+    # Run DMP
+    v = np.pi/35 #np.pi/22
+    for a in activation:
+        DMP.set_phase(np.array([phi]))
+        DMP.set_period(np.array([tau]))
+
+        U = np.asarray([a*v])  # EMG activation as input
+        DMP.update(U)
+        DMP.integration()
+        x, dx, ph, ta = DMP.get_state()
+        DMP_angles.append(x[0])
+
+    print(f"maximum angle for DMP: {np.rad2deg(max(DMP_angles)):.2f} degrees, minimum angle for DMP: {np.rad2deg(min(DMP_angles)):.2f} degrees")
+
+    # Teach Coupled DMP
+    DMP = pDMPCoupling1(DOF=1, N=25, alpha=8, beta=2, lambd=0.9, dt=dt)
+    # Teach DMP 0 trajectory for 3s
+    y_old = 0
+    dy_old = 0
+    start_time = time.time()
+    while time.time() - start_time < 3:  # Teach for 3 seconds
+        print(f"elapsed time: {time.time() - start_time:.2f} seconds", end='\r')
+        phi += 2*np.pi * dt/tau
+        y = np.array([0])
+        dy = (y - y_old) / dt 
+        ddy = (dy - dy_old) / dt
+        DMP.set_phase(np.array([phi]))
+        DMP.set_period(np.array([tau]))
+        DMP.learn(y, dy, ddy)
+
+        # old values	
+        y_old = y
+        dy_old = dy
+            
+        # store data for plotting
+        x, dx, ph, ta = DMP.get_state()
+
+    # Run Coupled DMP
+    for a in activation:
+        DMP.set_phase(np.array([phi]))
+        DMP.set_period(np.array([tau]))
+
+        DMP.repeat()
+
+        DMP.integration(np.array([a]))
+
+        x, dx, ph, ta = DMP.get_state()
+        DMP_Coupled_angles.append(x[0])
+
+    print(f"maximum angle for Coupled DMP: {np.rad2deg(max(DMP_Coupled_angles)):.2f} degrees, minimum angle for Coupled DMP: {np.rad2deg(min(DMP_Coupled_angles)):.2f} degrees")
+
+    # Teach Omega DMP
+    tau = 5
+    omega0 = 2*np.pi/tau
+    mid = np.deg2rad(70)
+    DMP = pDMPOmega(DOF=1, N=25, alpha=8, beta=2, lambd=0.999, dt=dt)
+    DMP.set_frequency([omega0])
+    # Teach DMP 0 trajectory for 3s
+    y_old = 0
+    dy_old = 0
+    start_time = time.time()
+    samples = (1/dt) * 5
+    for i in range(int(samples)):
+        t = i * dt
+        y = np.array([mid * np.sin(omega0*t) + mid])
+        dy = (y - y_old) / dt 
+        ddy = (dy - dy_old) / dt
+
+        DMP.set_frequency(np.array([omega0]))
+
+        DMP.learn(y, dy, ddy)
+        DMP.integration()
+
+        # old values	
+        y_old = y
+        dy_old = dy
+            
+        # store data for plotting
+        x, dx, ph, ta = DMP.get_state()
+
+    # Run Omega DMP
+    k = 1.0
+    for a in activation:
+        omega = omega0 * (1 + k * a)
+        DMP.set_frequency([omega])
+        DMP.repeat()
+        DMP.integration()
+        x, dx, ph, ta = DMP.get_state()
+        DMP_Omega_angles.append(x[0])
+
+    print(f"maximum angle for Omega DMP: {np.rad2deg(max(DMP_Omega_angles)):.2f} degrees, minimum angle for Omega DMP: {np.rad2deg(min(DMP_Omega_angles)):.2f} degrees")
+
+    t = 1/FS
 
     # Remove the initial angle from the optimized angles lists
     optimized_angles_1.remove(optimized_angles_1[0])
@@ -169,33 +313,50 @@ if __name__ == "__main__":
     accelerations_7 = np.gradient(velocities_7, t)
     jerks_7 = np.gradient(accelerations_7, t)
 
+    DMP_velocities = np.gradient(DMP_angles, t)
+    DMP_accelerations = np.gradient(DMP_velocities, t)
+    DMP_jerks = np.gradient(DMP_accelerations, t)
+
+    DMP_Coupled_velocities = np.gradient(DMP_Coupled_angles, t)
+    DMP_Coupled_accelerations = np.gradient(DMP_Coupled_velocities, t)
+    DMP_Coupled_jerks = np.gradient(DMP_Coupled_accelerations, t)
+
+    DMP_Omega_velocities = np.gradient(DMP_Omega_angles, t)
+    DMP_Omega_accelerations = np.gradient(DMP_Omega_velocities, t)
+    DMP_Omega_jerks = np.gradient(DMP_Omega_accelerations, t)
+
     # Plot each optimized angle in different graphs comparing them to the input signal and with the position, velocity, acceleration and jerk.
     plt.figure(figsize=(12, 10))
     plt.title("Optimizer 1: EMG")
     plt.subplot(5, 1, 1)
-    plt.plot(time, activation, label="Activation")
+    plt.plot(time_v, activation, label="Activation")
     plt.xlabel("Time (s)")
     plt.ylabel("Activation")
+    plt.xlim(time_v[0], time_v[-1])
 
     plt.subplot(5, 1, 2)
-    plt.plot(time, optimized_angles_1, label="Optimized Angle")
+    plt.plot(time_v, optimized_angles_1, label="Optimized Angle")
     plt.xlabel("Time (s)")
     plt.ylabel("Optimized Angle (rad)")
+    plt.xlim(time_v[0], time_v[-1])
 
     plt.subplot(5, 1, 3)
-    plt.plot(time, velocities_1, label="Velocity")
+    plt.plot(time_v, velocities_1, label="Velocity")
     plt.xlabel("Time (s)")
     plt.ylabel("Velocity (rad/s)")
+    plt.xlim(time_v[0], time_v[-1])
 
     plt.subplot(5, 1, 4)
-    plt.plot(time, accelerations_1, label="Acceleration")
+    plt.plot(time_v, accelerations_1, label="Acceleration")
     plt.xlabel("Time (s)")
     plt.ylabel("Acceleration (rad/$s^2$)")
+    plt.xlim(time_v[0], time_v[-1])
 
     plt.subplot(5, 1, 5)
-    plt.plot(time, jerks_1, label="Jerk")
+    plt.plot(time_v, jerks_1, label="Jerk")
     plt.xlabel("Time (s)")
     plt.ylabel("Jerk (rad/$s^3$)")
+    plt.xlim(time_v[0], time_v[-1])
     plt.tight_layout()
     plt.show()
 
@@ -204,29 +365,34 @@ if __name__ == "__main__":
     plt.figure(figsize=(12, 10))
     plt.title("Optimizer 2: EMG")
     plt.subplot(5, 1, 1)
-    plt.plot(time, activation, label="Activation")
+    plt.plot(time_v, activation, label="Activation")
     plt.xlabel("Time (s)")
     plt.ylabel("Activation")
+    plt.xlim(time_v[0], time_v[-1])
     
     plt.subplot(5, 1, 2)
-    plt.plot(time, optimized_angles_2, label="Optimized Angle")
+    plt.plot(time_v, optimized_angles_2, label="Optimized Angle")
     plt.xlabel("Time (s)")
     plt.ylabel("Optimized Angle (rad)")
+    plt.xlim(time_v[0], time_v[-1])
     
     plt.subplot(5, 1, 3)
-    plt.plot(time, velocities_2, label="Velocity")
+    plt.plot(time_v, velocities_2, label="Velocity")
     plt.xlabel("Time (s)")
     plt.ylabel("Velocity (rad/s)")
+    plt.xlim(time_v[0], time_v[-1])
 
     plt.subplot(5, 1, 4)
-    plt.plot(time, accelerations_2, label="Acceleration")
+    plt.plot(time_v, accelerations_2, label="Acceleration")
     plt.xlabel("Time (s)")
     plt.ylabel("Acceleration (rad/$s^2$)")
+    plt.xlim(time_v[0], time_v[-1])
 
     plt.subplot(5, 1, 5)
-    plt.plot(time, jerks_2, label="Jerk")
+    plt.plot(time_v, jerks_2, label="Jerk")
     plt.xlabel("Time (s)")
     plt.ylabel("Jerk (rad/$s^3$)")
+    plt.xlim(time_v[0], time_v[-1])
     plt.tight_layout()
     plt.show()
 
@@ -266,29 +432,34 @@ if __name__ == "__main__":
     plt.figure(figsize=(12, 10))
     plt.title("Optimizer 4: EMG")
     plt.subplot(5, 1, 1)
-    plt.plot(time, activation, label="Activation")
+    plt.plot(time_v, activation, label="Activation")
     plt.xlabel("Time (s)")
     plt.ylabel("Activation")
+    plt.xlim(time_v[0], time_v[-1])
     
     plt.subplot(5, 1, 2)
-    plt.plot(time, optimized_angles_4, label="Optimized Angle")
+    plt.plot(time_v, optimized_angles_4, label="Optimized Angle")
     plt.xlabel("Time (s)")
     plt.ylabel("Optimized Angle (rad)")
+    plt.xlim(time_v[0], time_v[-1])
     
     plt.subplot(5, 1, 3)
-    plt.plot(time, velocities_4, label="Velocity")
+    plt.plot(time_v, velocities_4, label="Velocity")
     plt.xlabel("Time (s)")
     plt.ylabel("Velocity (rad/s)")
+    plt.xlim(time_v[0], time_v[-1])
 
     plt.subplot(5, 1, 4)
-    plt.plot(time, accelerations_4, label="Acceleration")
+    plt.plot(time_v, accelerations_4, label="Acceleration")
     plt.xlabel("Time (s)")
     plt.ylabel("Acceleration (rad/$s^2$)")
+    plt.xlim(time_v[0], time_v[-1])
 
     plt.subplot(5, 1, 5)
-    plt.plot(time, jerks_4, label="Jerk")
+    plt.plot(time_v, jerks_4, label="Jerk")
     plt.xlabel("Time (s)")
     plt.ylabel("Jerk (rad/$s^3$)")
+    plt.xlim(time_v[0], time_v[-1])
     plt.tight_layout()
     plt.show()
 
@@ -297,29 +468,34 @@ if __name__ == "__main__":
     plt.figure(figsize=(12, 10))
     plt.title("Optimizer 5: EMG")
     plt.subplot(5, 1, 1)
-    plt.plot(time, activation, label="Activation")
+    plt.plot(time_v, activation, label="Activation")
     plt.xlabel("Time (s)")
     plt.ylabel("Activation")
+    plt.xlim(time_v[0], time_v[-1])
 
     plt.subplot(5, 1, 2)
-    plt.plot(time, optimized_angles_5, label="Optimized Angle")
+    plt.plot(time_v, optimized_angles_5, label="Optimized Angle")
     plt.xlabel("Time (s)")
     plt.ylabel("Optimized Angle (rad)")
+    plt.xlim(time_v[0], time_v[-1])
 
     plt.subplot(5, 1, 3)
-    plt.plot(time, velocities_5, label="Velocity")
+    plt.plot(time_v, velocities_5, label="Velocity")
     plt.xlabel("Time (s)")
     plt.ylabel("Velocity (rad/s)")
+    plt.xlim(time_v[0], time_v[-1])
 
     plt.subplot(5, 1, 4)
-    plt.plot(time, accelerations_5, label="Acceleration")
+    plt.plot(time_v, accelerations_5, label="Acceleration")
     plt.xlabel("Time (s)")
     plt.ylabel("Acceleration (rad/$s^2$)")
+    plt.xlim(time_v[0], time_v[-1])
 
     plt.subplot(5, 1, 5)
-    plt.plot(time, jerks_5, label="Jerk")
+    plt.plot(time_v, jerks_5, label="Jerk")
     plt.xlabel("Time (s)")
     plt.ylabel("Jerk (rad/$s^3$)")
+    plt.xlim(time_v[0], time_v[-1])
     plt.tight_layout()
     plt.show()
 
@@ -328,25 +504,30 @@ if __name__ == "__main__":
     plt.figure(figsize=(12, 10))
     plt.title("Optimizer 6: EMG")
     plt.subplot(5, 1, 1)
-    plt.plot(time, activation, label="Activation")
+    plt.plot(time_v, activation, label="Activation")
     plt.xlabel("Time (s)")
     plt.ylabel("Activation")
+    plt.xlim(time_v[0], time_v[-1])
     plt.subplot(5, 1, 2)
-    plt.plot(time, optimized_angles_6, label="Optimized Angle")
+    plt.plot(time_v, optimized_angles_6, label="Optimized Angle")
     plt.xlabel("Time (s)")
     plt.ylabel("Optimized Angle (rad)")
+    plt.xlim(time_v[0], time_v[-1])
     plt.subplot(5, 1, 3)
-    plt.plot(time, velocities_6, label="Velocity")
+    plt.plot(time_v, velocities_6, label="Velocity")
     plt.xlabel("Time (s)")
     plt.ylabel("Velocity (rad/s)")
+    plt.xlim(time_v[0], time_v[-1])
     plt.subplot(5, 1, 4)
-    plt.plot(time, accelerations_6, label="Acceleration")
+    plt.plot(time_v, accelerations_6, label="Acceleration")
     plt.xlabel("Time (s)")
     plt.ylabel("Acceleration (rad/$s^2$)")
+    plt.xlim(time_v[0], time_v[-1])
     plt.subplot(5, 1, 5)
-    plt.plot(time, jerks_6, label="Jerk")
+    plt.plot(time_v, jerks_6, label="Jerk")
     plt.xlabel("Time (s)")
     plt.ylabel("Jerk (rad/$s^3$)")
+    plt.xlim(time_v[0], time_v[-1])
     plt.tight_layout()
     plt.show()
 
@@ -355,25 +536,126 @@ if __name__ == "__main__":
     plt.figure(figsize=(12, 10))
     plt.title("Optimizer 7: EMG with PD control and acceleration term")
     plt.subplot(5, 1, 1)
-    plt.plot(time, activation, label="Activation")
+    plt.plot(time_v, activation, label="Activation")
     plt.xlabel("Time (s)")
     plt.ylabel("Activation")
+    plt.xlim(time_v[0], time_v[-1])
     plt.subplot(5, 1, 2)
-    plt.plot(time, optimized_angles_7, label="Optimized Angle")
+    plt.plot(time_v, optimized_angles_7, label="Optimized Angle")
     plt.xlabel("Time (s)")
     plt.ylabel("Optimized Angle (rad)")
+    plt.xlim(time_v[0], time_v[-1])
     plt.subplot(5, 1, 3)
-    plt.plot(time, velocities_7, label="Velocity")
+    plt.plot(time_v, velocities_7, label="Velocity")
     plt.xlabel("Time (s)")
     plt.ylabel("Velocity (rad/s)")
+    plt.xlim(time_v[0], time_v[-1])
     plt.subplot(5, 1, 4)
-    plt.plot(time, accelerations_7, label="Acceleration")
+    plt.plot(time_v, accelerations_7, label="Acceleration")
     plt.xlabel("Time (s)")
     plt.ylabel("Acceleration (rad/$s^2$)")
+    plt.xlim(time_v[0], time_v[-1])
     plt.subplot(5, 1, 5)
-    plt.plot(time, jerks_7, label="Jerk")
+    plt.plot(time_v, jerks_7, label="Jerk")
     plt.xlabel("Time (s)")
     plt.ylabel("Jerk (rad/$s^3$)")
+    plt.xlim(time_v[0], time_v[-1])
+    plt.tight_layout()
+    plt.show()
+
+    #-----------------------------------------------------------------
+
+    plt.figure(figsize=(12, 10))
+    plt.title("pDMP")
+    plt.subplot(5, 1, 1)
+    plt.plot(time_v, activation, label="Activation")
+    plt.xlabel("Time (s)")
+    plt.ylabel("Activation")
+    plt.xlim(time_v[0], time_v[-1])
+    plt.subplot(5, 1, 2)
+    plt.plot(time_v, DMP_angles, label="DMP Angle")
+    plt.xlabel("Time (s)")
+    plt.ylabel("DMP Angle (rad)")
+    plt.xlim(time_v[0], time_v[-1])
+    plt.subplot(5, 1, 3)
+    plt.plot(time_v, DMP_velocities, label="DMP Velocity")
+    plt.xlabel("Time (s)")
+    plt.ylabel("DMP Velocity (rad/s)")
+    plt.xlim(time_v[0], time_v[-1])
+    plt.subplot(5, 1, 4)
+    plt.plot(time_v, DMP_accelerations, label="DMP Acceleration")
+    plt.xlabel("Time (s)")
+    plt.ylabel("DMP Acceleration (rad/$s^2$)")
+    plt.xlim(time_v[0], time_v[-1])
+    plt.subplot(5, 1, 5)
+    plt.plot(time_v, DMP_jerks, label="DMP Jerk")
+    plt.xlabel("Time (s)")
+    plt.ylabel("DMP Jerk (rad/$s^3$)")
+    plt.xlim(time_v[0], time_v[-1])
+    plt.tight_layout()
+    plt.show()
+
+    # -----------------------------------------------------------------
+
+    plt.figure(figsize=(12, 10))
+    plt.title("pDMP Coupled")
+    plt.subplot(5, 1, 1)
+    plt.plot(time_v, activation, label="Activation")
+    plt.xlabel("Time (s)")
+    plt.ylabel("Activation")
+    plt.xlim(time_v[0], time_v[-1])
+    plt.subplot(5, 1, 2)
+    plt.plot(time_v, DMP_Coupled_angles, label="DMP Coupled Angle")
+    plt.xlabel("Time (s)")
+    plt.ylabel("DMP Coupled Angle (rad)")
+    plt.xlim(time_v[0], time_v[-1])
+    plt.subplot(5, 1, 3)
+    plt.plot(time_v, DMP_Coupled_velocities, label="DMP Coupled Velocity")
+    plt.xlabel("Time (s)")
+    plt.ylabel("DMP Coupled Velocity (rad/s)")
+    plt.xlim(time_v[0], time_v[-1])
+    plt.subplot(5, 1, 4)
+    plt.plot(time_v, DMP_Coupled_accelerations, label="DMP Coupled Acceleration")
+    plt.xlabel("Time (s)")
+    plt.ylabel("DMP Coupled Acceleration (rad/$s^2$)")
+    plt.xlim(time_v[0], time_v[-1])
+    plt.subplot(5, 1, 5)
+    plt.plot(time_v, DMP_Coupled_jerks, label="DMP Coupled Jerk")
+    plt.xlabel("Time (s)")
+    plt.ylabel("DMP Coupled Jerk (rad/$s^3$)")
+    plt.xlim(time_v[0], time_v[-1])
+    plt.tight_layout()
+    plt.show()
+
+    # -----------------------------------------------------------------
+
+    plt.figure(figsize=(12, 10))
+    plt.title("pDMP Omega")
+    plt.subplot(5, 1, 1)
+    plt.plot(time_v, activation, label="Activation")
+    plt.xlabel("Time (s)")
+    plt.ylabel("Activation")
+    plt.xlim(time_v[0], time_v[-1])
+    plt.subplot(5, 1, 2)
+    plt.plot(time_v, DMP_Omega_angles, label="DMP Omega Angle")
+    plt.xlabel("Time (s)")
+    plt.ylabel("DMP Omega Angle (rad)")
+    plt.xlim(time_v[0], time_v[-1])
+    plt.subplot(5, 1, 3)
+    plt.plot(time_v, DMP_Omega_velocities, label="DMP Omega Velocity")
+    plt.xlabel("Time (s)")
+    plt.ylabel("DMP Omega Velocity (rad/s)")
+    plt.xlim(time_v[0], time_v[-1])
+    plt.subplot(5, 1, 4)
+    plt.plot(time_v, DMP_Omega_accelerations, label="DMP Omega Acceleration")
+    plt.xlabel("Time (s)")
+    plt.ylabel("DMP Omega Acceleration (rad/$s^2$)")
+    plt.xlim(time_v[0], time_v[-1])
+    plt.subplot(5, 1, 5)
+    plt.plot(time_v, DMP_Omega_jerks, label="DMP Omega Jerk")
+    plt.xlabel("Time (s)")
+    plt.ylabel("DMP Omega Jerk (rad/$s^3$)")
+    plt.xlim(time_v[0], time_v[-1])
     plt.tight_layout()
     plt.show()
 
@@ -384,7 +666,10 @@ if __name__ == "__main__":
         "Optimizer 3",
         "Optimizer 4",
         "Optimizer 5",
-        "Optimizer 6"
+        "Optimizer 6",
+        "pDMP",
+        "pDMP Coupled",
+        "pDMP Omega"
     ]
     # Calculate the jerk metrics
     j1, abs_j1, j_metrics1 = compute_jerk_metrics(jerks_1)
@@ -394,14 +679,17 @@ if __name__ == "__main__":
     j5, abs_j5, j_metrics5 = compute_jerk_metrics(jerks_5)
     j6, abs_j6, j_metrics6 = compute_jerk_metrics(jerks_6)
     j7, abs_j7, j_metrics7 = compute_jerk_metrics(jerks_7)
+    jDMP, abs_jDMP, j_metricsDMP = compute_jerk_metrics(DMP_jerks)
+    jDMP_Coupled, abs_jDMP_Coupled, j_metricsDMP_Coupled = compute_jerk_metrics(DMP_Coupled_jerks)
+    jDMP_Omega, abs_jDMP_Omega, j_metricsDMP_Omega = compute_jerk_metrics(DMP_Omega_jerks)
 
     # create vectors for the metrics
-    means = [j_metrics1["mean"], j_metrics2["mean"], j_metrics4["mean"], j_metrics5["mean"], j_metrics6["mean"], j_metrics7["mean"]]
-    medians = [j_metrics1["median"], j_metrics2["median"], j_metrics4["median"], j_metrics5["median"], j_metrics6["median"], j_metrics7["median"]]
-    sigmas = [j_metrics1["sigma"], j_metrics2["sigma"], j_metrics4["sigma"], j_metrics5["sigma"], j_metrics6["sigma"], j_metrics7["sigma"]]
-    maxs = [j_metrics1["max"], j_metrics2["max"], j_metrics4["max"], j_metrics5["max"], j_metrics6["max"], j_metrics7["max"]]
-    q25s = [j_metrics1["q25"], j_metrics2["q25"], j_metrics4["q25"], j_metrics5["q25"], j_metrics6["q25"], j_metrics7["q25"]]
-    q75s = [j_metrics1["q75"], j_metrics2["q75"], j_metrics4["q75"], j_metrics5["q75"], j_metrics6["q75"], j_metrics7["q75"]]
+    means = [j_metrics1["mean"], j_metrics2["mean"], j_metrics4["mean"], j_metrics5["mean"], j_metrics6["mean"], j_metrics7["mean"], j_metricsDMP["mean"], j_metricsDMP_Coupled["mean"], j_metricsDMP_Omega["mean"]]
+    medians = [j_metrics1["median"], j_metrics2["median"], j_metrics4["median"], j_metrics5["median"], j_metrics6["median"], j_metrics7["median"], j_metricsDMP["median"], j_metricsDMP_Coupled["median"], j_metricsDMP_Omega["median"]]
+    sigmas = [j_metrics1["sigma"], j_metrics2["sigma"], j_metrics4["sigma"], j_metrics5["sigma"], j_metrics6["sigma"], j_metrics7["sigma"], j_metricsDMP["sigma"], j_metricsDMP_Coupled["sigma"], j_metricsDMP_Omega["sigma"]]
+    maxs = [j_metrics1["max"], j_metrics2["max"], j_metrics4["max"], j_metrics5["max"], j_metrics6["max"], j_metrics7["max"], j_metricsDMP["max"], j_metricsDMP_Coupled["max"], j_metricsDMP_Omega["max"]]
+    q25s = [j_metrics1["q25"], j_metrics2["q25"], j_metrics4["q25"], j_metrics5["q25"], j_metrics6["q25"], j_metrics7["q25"], j_metricsDMP["q25"], j_metricsDMP_Coupled["q25"], j_metricsDMP_Omega["q25"]]
+    q75s = [j_metrics1["q75"], j_metrics2["q75"], j_metrics4["q75"], j_metrics5["q75"], j_metrics6["q75"], j_metrics7["q75"], j_metricsDMP["q75"], j_metricsDMP_Coupled["q75"], j_metricsDMP_Omega["q75"]]
     lower_errors = [mean - q25 for mean, q25 in zip(means, q25s)]
     upper_errors = [q75 - mean for mean, q75 in zip(means, q75s)]
     lower_median_errors = [mean - median for mean, median in zip(means, medians)]
@@ -410,6 +698,11 @@ if __name__ == "__main__":
     upper_errors = np.maximum(upper_errors, 0)
     lower_median_errors = np.maximum(lower_median_errors, 0)
     upper_median_errors = np.maximum(upper_median_errors, 0)
+
+    # Print mean and median jerk for each optimizer
+    print("Jerk Metrics for Each Optimizer:")
+    for label, mean, median, sigma, max_val in zip(labels, means, medians, sigmas, maxs):
+        print(f"{label}: Mean Jerk = {mean:.2e}, Median Jerk = {median:.2e}, Sigma = {sigma:.2e}, Max Jerk = {max_val:.2e}")
 
     # Create bar plots
     plt.figure(figsize=(7, 4))
@@ -437,14 +730,37 @@ if __name__ == "__main__":
     plt.tight_layout()
     plt.show()
 
+    abs_jerk_data = [abs_j1, abs_j2, abs_j4, abs_j5, abs_j6, abs_j7, abs_jDMP, abs_jDMP_Coupled, abs_jDMP_Omega]
+
     #create box plots
     plt.figure(figsize=(7, 4))
-    plt.boxplot([abs_j1, abs_j2, abs_j4, abs_j5, abs_j6, abs_j7], labels=labels, showfliers=False)
+    plt.boxplot(abs_jerk_data, labels=labels, showfliers=False)
     plt.yscale('log')
     plt.xticks(rotation=45)
     plt.xlabel("Optimizer")
     plt.ylabel("Absolute Jerk (log scale)")
     # plt.title("Distribution of Absolute Jerk for Different Optimizers")
+    plt.tight_layout()
+    plt.show()
+
+    # create violin plot
+    plt.figure(figsize=(7, 4))
+    violin = plt.violinplot(
+        abs_jerk_data,
+        showmeans=True,
+        showmedians=True,
+        showextrema=True
+    )
+
+    plt.yscale('log')
+    plt.xticks(
+        ticks=np.arange(1, len(labels) + 1),
+        labels=labels,
+        rotation=45
+    )
+    plt.xlabel("Optimizer")
+    plt.ylabel("Absolute Jerk (log scale)")
+    # plt.title("Violin Plot of Absolute Jerk for Different Optimizers")
     plt.tight_layout()
     plt.show()
 
@@ -457,12 +773,35 @@ if __name__ == "__main__":
     print("Starting IMU optimization test at 148 Hz...")
     FS = 148 # IMU
     # Generate test muscle activations (EMG signal) using sinewave between -1 and 1
-    time = np.linspace(0, 10, FS*10)  # Time vector from 0 to 10 seconds
-    activation = np.sin(2 * np.pi * 0.2 * time)  # Sine wave with frequency of 0.2 Hz
+    time_v = np.linspace(0, 20, FS*20)  # Time vector from 0 to 10 seconds
+    activation = np.sin(2 * np.pi * 0.15 * time_v)  # Sine wave with frequency of 0.2 Hz
+
+    # Small random noise
+    rng = np.random.default_rng(seed=42)
+    noise = rng.normal(0, 1, size=time_v.shape)
+
+    # Smooth it with a moving average
+    window_size = 30  # increase for smoother wobble
+    kernel = np.ones(window_size) / window_size
+    smooth_noise = np.convolve(noise, kernel, mode="same")
+
+    # Scale the noise so it only creates a small wobble
+    # noise_amplitude = 0.03
+    noise_amplitude = 0.06
+
+    activation += noise_amplitude * smooth_noise
+
+    activation = np.clip(activation, -1, 1)
+
     delay = 0.08  # 80 ms delay (typical electromechanical delay)
-    q_true = np.sin(2 * np.pi * 0.2 * (time-delay))
+    q_true = np.sin(2 * np.pi * 0.15 * (time_v-delay))
     omega = np.gradient(q_true, t)
-    imu_q = q_true + 0.05 * np.random.randn(len(q_true))  # noisy angle
+    imu_q = q_true + 0.01 * np.random.randn(len(q_true))  # noisy angle
+
+    plt.plot(time_v, activation, label="Activation")
+    plt.plot(time_v, imu_q, label="True Angle")
+    plt.legend()
+    plt.show()
 
     # Create empty lists to store optimized angles for each optimizer
     optimized_angles_1 = []
@@ -476,7 +815,7 @@ if __name__ == "__main__":
     
     # Initialize parameters for the optimizers along with the optimizers themselves
     # k = 4.8 * np.pi # IMU
-    k = (1.4 * np.pi) / 3
+    k = (1.2 * np.pi) / 3
     t = 1/FS  # Time between updates (seconds)
     q = 0  # Initial angle (degrees)
     optimized_angles_1.append(q)
@@ -486,7 +825,7 @@ if __name__ == "__main__":
     print(f"maximum angle for optimizer 1: {np.rad2deg(max(optimized_angles_1)):.2f} degrees, minimum angle for optimizer 1: {np.rad2deg(min(optimized_angles_1)):.2f} degrees")
 
     # k = 14 * np.pi # IMU
-    k = 2 * np.pi
+    k = 1.5 * np.pi
     optimized_angles_2.append(q)
     for a in activation:
         optimized_angles_2.append(optimize_2(k, a, t, optimized_angles_2[-1], THETA_MIN, THETA_MAX))
@@ -499,7 +838,7 @@ if __name__ == "__main__":
     # print(f"maximum angle for optimizer 3: {np.rad2deg(max(optimized_angles_3)):.2f} degrees, minimum angle for optimizer 3: {np.rad2deg(min(optimized_angles_3)):.2f} degrees")
 
     # k = 4.8 * np.pi # IMU
-    k = (1.4 * np.pi) / 3
+    k = (1.2 * np.pi) / 3
     optimized_angles_4.append(q)
     delta_q_prev = 0
     for a in activation:
@@ -508,18 +847,20 @@ if __name__ == "__main__":
     print(f"maximum angle for optimizer 4: {np.rad2deg(max(optimized_angles_4)):.2f} degrees, minimum angle for optimizer 4: {np.rad2deg(min(optimized_angles_4)):.2f} degrees")
     
     k = 0 # IMU
-    n = 1.3
-    b = 0.005
+    n = (1.3*np.pi) / 3
+    b = 0.01 # 0.001
     optimized_angles_5.append(q)
     for a in activation:
-        q_next, k = optimize_5_pd(a, k, t, optimized_angles_5[-1], THETA_MIN, THETA_MAX, n, b)
+        q_next, k = optimize_5_pd(a, k, t, optimized_angles_5[-1], THETA_MIN, THETA_MAX, np.pi, n, b)
         optimized_angles_5.append(q_next)
     print(f"maximum angle for optimizer 5: {np.rad2deg(max(optimized_angles_5)):.2f} degrees, minimum angle for optimizer 5: {np.rad2deg(min(optimized_angles_5)):.2f} degrees")
     
+    k = np.pi/2 
+    b = 2
     v = 0  # Initial velocity
     optimized_angles_6.append(q)
     for a in activation:
-        q_next, v, acc = optimizer_6(a, v, t, optimized_angles_6[-1], THETA_MIN, THETA_MAX)
+        q_next, v, acc = optimizer_6(a, v, t, optimized_angles_6[-1], THETA_MIN, THETA_MAX, np.pi, k, b)
         optimized_angles_6.append(q_next)
     print(f"maximum angle for optimizer 6: {np.rad2deg(max(optimized_angles_6)):.2f} degrees, minimum angle for optimizer 6: {np.rad2deg(min(optimized_angles_6)):.2f} degrees")
 
@@ -528,7 +869,7 @@ if __name__ == "__main__":
     for a, da, w, imu in zip(activation, activation_diff, omega, imu_q):
         q_next, v, acc = EMG_IMU_optimizer(
             a, da, v, w,
-            kn=2, kd=2, kp=2, b=2,
+            kn=2, kd=2, kp=2, b=3,
             q=optimized_angles_8[-1],
             imu_q=imu,
             theta_min=THETA_MIN,
@@ -542,7 +883,7 @@ if __name__ == "__main__":
     for a, da, w, imu in zip(activation, activation_diff, omega, imu_q):
         q_next, v = EMG_IMU_optimizer_2(
             a, da, w,
-            kn=2, kd=2,
+            kn=1.2, kd=1.2,
             imu_q=optimized_angles_9[-1],
             theta_min=THETA_MIN,
             theta_max=THETA_MAX,
@@ -599,29 +940,34 @@ if __name__ == "__main__":
     plt.figure(figsize=(12, 10))
     plt.title("Optimizer 1: IMU")
     plt.subplot(5, 1, 1)
-    plt.plot(time, activation, label="Activation")
+    plt.plot(time_v, activation, label="Activation")
     plt.xlabel("Time (s)")
     plt.ylabel("Activation")
+    plt.xlim(time_v[0], time_v[-1])
 
     plt.subplot(5, 1, 2)
-    plt.plot(time, optimized_angles_1, label="Optimized Angle")
+    plt.plot(time_v, optimized_angles_1, label="Optimized Angle")
     plt.xlabel("Time (s)")
     plt.ylabel("Optimized Angle (rad)")
+    plt.xlim(time_v[0], time_v[-1])
 
     plt.subplot(5, 1, 3)
-    plt.plot(time, velocities_1, label="Velocity")
+    plt.plot(time_v, velocities_1, label="Velocity")
     plt.xlabel("Time (s)")
     plt.ylabel("Velocity (rad/s)")
+    plt.xlim(time_v[0], time_v[-1])
 
     plt.subplot(5, 1, 4)
-    plt.plot(time, accelerations_1, label="Acceleration")
+    plt.plot(time_v, accelerations_1, label="Acceleration")
     plt.xlabel("Time (s)")
     plt.ylabel("Acceleration (rad/$s^2$)")
+    plt.xlim(time_v[0], time_v[-1])
 
     plt.subplot(5, 1, 5)
-    plt.plot(time, jerks_1, label="Jerk")
+    plt.plot(time_v, jerks_1, label="Jerk")
     plt.xlabel("Time (s)")
     plt.ylabel("Jerk (rad/$s^3$)")
+    plt.xlim(time_v[0], time_v[-1])
     plt.tight_layout()
     plt.show()
 
@@ -630,29 +976,34 @@ if __name__ == "__main__":
     plt.figure(figsize=(12, 10))
     plt.title("Optimizer 2: IMU")
     plt.subplot(5, 1, 1)
-    plt.plot(time, activation, label="Activation")
+    plt.plot(time_v, activation, label="Activation")
     plt.xlabel("Time (s)")
     plt.ylabel("Activation")
+    plt.xlim(time_v[0], time_v[-1])
     
     plt.subplot(5, 1, 2)
-    plt.plot(time, optimized_angles_2, label="Optimized Angle")
+    plt.plot(time_v, optimized_angles_2, label="Optimized Angle")
     plt.xlabel("Time (s)")
     plt.ylabel("Optimized Angle (rad)")
-    
+    plt.xlim(time_v[0], time_v[-1])
+
     plt.subplot(5, 1, 3)
-    plt.plot(time, velocities_2, label="Velocity")
+    plt.plot(time_v, velocities_2, label="Velocity")
     plt.xlabel("Time (s)")
     plt.ylabel("Velocity (rad/s)")
+    plt.xlim(time_v[0], time_v[-1])
 
     plt.subplot(5, 1, 4)
-    plt.plot(time, accelerations_2, label="Acceleration")
+    plt.plot(time_v, accelerations_2, label="Acceleration")
     plt.xlabel("Time (s)")
     plt.ylabel("Acceleration (rad/$s^2$)")
+    plt.xlim(time_v[0], time_v[-1])
 
     plt.subplot(5, 1, 5)
-    plt.plot(time, jerks_2, label="Jerk")
+    plt.plot(time_v, jerks_2, label="Jerk")
     plt.xlabel("Time (s)")
     plt.ylabel("Jerk (rad/$s^3$)")
+    plt.xlim(time_v[0], time_v[-1])
     plt.tight_layout()
     plt.show()
 
@@ -692,29 +1043,34 @@ if __name__ == "__main__":
     plt.figure(figsize=(12, 10))
     plt.title("Optimizer 4: IMU")
     plt.subplot(5, 1, 1)
-    plt.plot(time, activation, label="Activation")
+    plt.plot(time_v, activation, label="Activation")
     plt.xlabel("Time (s)")
     plt.ylabel("Activation")
+    plt.xlim(time_v[0], time_v[-1])
     
     plt.subplot(5, 1, 2)
-    plt.plot(time, optimized_angles_4, label="Optimized Angle")
+    plt.plot(time_v, optimized_angles_4, label="Optimized Angle")
     plt.xlabel("Time (s)")
     plt.ylabel("Optimized Angle (rad)")
+    plt.xlim(time_v[0], time_v[-1])
     
     plt.subplot(5, 1, 3)
-    plt.plot(time, velocities_4, label="Velocity")
+    plt.plot(time_v, velocities_4, label="Velocity")
     plt.xlabel("Time (s)")
     plt.ylabel("Velocity (rad/s)")
+    plt.xlim(time_v[0], time_v[-1])
 
     plt.subplot(5, 1, 4)
-    plt.plot(time, accelerations_4, label="Acceleration")
+    plt.plot(time_v, accelerations_4, label="Acceleration")
     plt.xlabel("Time (s)")
     plt.ylabel("Acceleration (rad/$s^2$)")
+    plt.xlim(time_v[0], time_v[-1])
 
     plt.subplot(5, 1, 5)
-    plt.plot(time, jerks_4, label="Jerk")
+    plt.plot(time_v, jerks_4, label="Jerk")
     plt.xlabel("Time (s)")
     plt.ylabel("Jerk (rad/$s^3$)")
+    plt.xlim(time_v[0], time_v[-1])
     plt.tight_layout()
     plt.show()
 
@@ -723,110 +1079,130 @@ if __name__ == "__main__":
     plt.figure(figsize=(12, 10))
     plt.title("Optimizer 5: IMU")
     plt.subplot(5, 1, 1)
-    plt.plot(time, activation, label="Activation")
+    plt.plot(time_v, activation, label="Activation")
     plt.xlabel("Time (s)")
     plt.ylabel("Activation")
+    plt.xlim(time_v[0], time_v[-1])
 
     plt.subplot(5, 1, 2)
-    plt.plot(time, optimized_angles_5, label="Optimized Angle")
+    plt.plot(time_v, optimized_angles_5, label="Optimized Angle")
     plt.xlabel("Time (s)")
     plt.ylabel("Optimized Angle (rad)")
+    plt.xlim(time_v[0], time_v[-1])
 
     plt.subplot(5, 1, 3)
-    plt.plot(time, velocities_5, label="Velocity")
+    plt.plot(time_v, velocities_5, label="Velocity")
     plt.xlabel("Time (s)")
     plt.ylabel("Velocity (rad/s)")
+    plt.xlim(time_v[0], time_v[-1])
 
     plt.subplot(5, 1, 4)
-    plt.plot(time, accelerations_5, label="Acceleration")
+    plt.plot(time_v, accelerations_5, label="Acceleration")
     plt.xlabel("Time (s)")
     plt.ylabel("Acceleration (rad/$s^2$)")
+    plt.xlim(time_v[0], time_v[-1])
 
     plt.subplot(5, 1, 5)
-    plt.plot(time, jerks_5, label="Jerk")
+    plt.plot(time_v, jerks_5, label="Jerk")
     plt.xlabel("Time (s)")
     plt.ylabel("Jerk (rad/$s^3$)")
+    plt.xlim(time_v[0], time_v[-1])
     plt.tight_layout()
     plt.show()
 
     plt.figure(figsize=(12, 10))
     plt.title("Optimizer 6: IMU with PD control")
     plt.subplot(5, 1, 1)
-    plt.plot(time, activation, label="Activation")
+    plt.plot(time_v, activation, label="Activation")
     plt.xlabel("Time (s)")
     plt.ylabel("Activation")
+    plt.xlim(time_v[0], time_v[-1])
     plt.subplot(5, 1, 2)
-    plt.plot(time, optimized_angles_6, label="Optimized Angle")
+    plt.plot(time_v, optimized_angles_6, label="Optimized Angle")
     plt.xlabel("Time (s)")
     plt.ylabel("Optimized Angle (rad)")
+    plt.xlim(time_v[0], time_v[-1])
     plt.subplot(5, 1, 3)
-    plt.plot(time, velocities_6, label="Velocity")
+    plt.plot(time_v, velocities_6, label="Velocity")
     plt.xlabel("Time (s)")
     plt.ylabel("Velocity (rad/s)")
+    plt.xlim(time_v[0], time_v[-1])
     plt.subplot(5, 1, 4)
-    plt.plot(time, accelerations_6, label="Acceleration")
+    plt.plot(time_v, accelerations_6, label="Acceleration")
     plt.xlabel("Time (s)")
     plt.ylabel("Acceleration (rad/$s^2$)")
+    plt.xlim(time_v[0], time_v[-1])
     plt.subplot(5, 1, 5)
-    plt.plot(time, jerks_6, label="Jerk")
+    plt.plot(time_v, jerks_6, label="Jerk")
     plt.xlabel("Time (s)")
     plt.ylabel("Jerk (rad/$s^3$)")
+    plt.xlim(time_v[0], time_v[-1])
     plt.tight_layout()
     plt.show()
 
     plt.figure(figsize=(12, 10))
     plt.title("Optimizer 8: IMU with PD control and acceleration term")
     plt.subplot(5, 1, 1)
-    plt.plot(time, activation, label="Activation")
+    plt.plot(time_v, activation, label="Activation")
     # plt.plot(time, omega, label="Angular Velocity", color='orange')
-    plt.plot(time, imu_q, label="IMU Angle", color='green')
+    plt.plot(time_v, imu_q, label="IMU Angle", color='green')
     plt.legend()
     plt.xlabel("Time (s)")
     plt.ylabel("Activation")
+    plt.xlim(time_v[0], time_v[-1])
     plt.subplot(5, 1, 2)
-    plt.plot(time, optimized_angles_8, label="Optimized Angle")
+    plt.plot(time_v, optimized_angles_8, label="Optimized Angle")
     plt.xlabel("Time (s)")
     plt.ylabel("Optimized Angle (rad)")
+    plt.xlim(time_v[0], time_v[-1])
     plt.subplot(5, 1, 3)
-    plt.plot(time, velocities_8, label="Velocity")
+    plt.plot(time_v, velocities_8, label="Velocity")
     plt.xlabel("Time (s)")
     plt.ylabel("Velocity (rad/s)")
+    plt.xlim(time_v[0], time_v[-1])
     plt.subplot(5, 1, 4)
-    plt.plot(time, accelerations_8, label="Acceleration")
+    plt.plot(time_v, accelerations_8, label="Acceleration")
     plt.xlabel("Time (s)")
     plt.ylabel("Acceleration (rad/$s^2$)")
+    plt.xlim(time_v[0], time_v[-1])
     plt.subplot(5, 1, 5)
-    plt.plot(time, jerks_8, label="Jerk")
+    plt.plot(time_v, jerks_8, label="Jerk")
     plt.xlabel("Time (s)")
     plt.ylabel("Jerk (rad/$s^3$)")
+    plt.xlim(time_v[0], time_v[-1])
     plt.tight_layout()
     plt.show()
 
     plt.figure(figsize=(12, 10))
     plt.title("Optimizer 9: IMU with PD control and no acceleration term")
     plt.subplot(5, 1, 1)
-    plt.plot(time, activation, label="Activation")
+    plt.plot(time_v, activation, label="Activation")
     # plt.plot(time, omega, label="Angular Velocity", color='orange')
-    plt.plot(time, imu_q, label="IMU Angle", color='green')
+    plt.plot(time_v, imu_q, label="IMU Angle", color='green')
     plt.legend()
     plt.xlabel("Time (s)")
     plt.ylabel("Activation")
+    plt.xlim(time_v[0], time_v[-1])
     plt.subplot(5, 1, 2)
-    plt.plot(time, optimized_angles_9, label="Optimized Angle")
+    plt.plot(time_v, optimized_angles_9, label="Optimized Angle")
     plt.xlabel("Time (s)")
     plt.ylabel("Optimized Angle (rad)")
+    plt.xlim(time_v[0], time_v[-1])
     plt.subplot(5, 1, 3)
-    plt.plot(time, velocities_9, label="Velocity")
+    plt.plot(time_v, velocities_9, label="Velocity")
     plt.xlabel("Time (s)")
     plt.ylabel("Velocity (rad/s)")
+    plt.xlim(time_v[0], time_v[-1])
     plt.subplot(5, 1, 4)
-    plt.plot(time, accelerations_9, label="Acceleration")
+    plt.plot(time_v, accelerations_9, label="Acceleration")
     plt.xlabel("Time (s)")
     plt.ylabel("Acceleration (rad/$s^2$)")
+    plt.xlim(time_v[0], time_v[-1])
     plt.subplot(5, 1, 5)
-    plt.plot(time, jerks_9, label="Jerk")
+    plt.plot(time_v, jerks_9, label="Jerk")
     plt.xlabel("Time (s)")
     plt.ylabel("Jerk (rad/$s^3$)")
+    plt.xlim(time_v[0], time_v[-1])
     plt.tight_layout()
     plt.show()
 
@@ -892,14 +1268,37 @@ if __name__ == "__main__":
     plt.tight_layout()
     plt.show()
 
+    abs_jerk_data = [abs_j1, abs_j2, abs_j4, abs_j5, abs_j6, abs_j8, abs_j9]
+
     #create box plots
     plt.figure(figsize=(7, 4))
-    plt.boxplot([abs_j1, abs_j2, abs_j4, abs_j5, abs_j6, abs_j8, abs_j9], labels=labels, showfliers=False)
+    plt.boxplot(abs_jerk_data, labels=labels, showfliers=False)
     plt.yscale('log')
     plt.xticks(rotation=45)
     plt.xlabel("Optimizer")
     plt.ylabel("Absolute Jerk (log scale)")
     # plt.title("Distribution of Absolute Jerk for Different Optimizers")
+    plt.tight_layout()
+    plt.show()
+
+    # create violin plot
+    plt.figure(figsize=(7, 4))
+    violin = plt.violinplot(
+        abs_jerk_data,
+        showmeans=True,
+        showmedians=True,
+        showextrema=True
+    )
+
+    plt.yscale('log')
+    plt.xticks(
+        ticks=np.arange(1, len(labels) + 1),
+        labels=labels,
+        rotation=45
+    )
+    plt.xlabel("Optimizer")
+    plt.ylabel("Absolute Jerk (log scale)")
+    # plt.title("Violin Plot of Absolute Jerk for Different Optimizers")
     plt.tight_layout()
     plt.show()
 
