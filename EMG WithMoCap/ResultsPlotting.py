@@ -168,7 +168,7 @@ if __name__ == "__main__":
             print("test", optimizer)
             # if optimizer contains "None"
             if "None" in optimizer:
-                if "ExoTestReal1" in file_name:
+                if "ExoTestReal1" in file_name or "001" in file_name:
                     labels.append("EMG to $q_d$")
                 else:
                     labels.append("IMU to $q_d$")
@@ -289,7 +289,7 @@ if __name__ == "__main__":
         for optimizer in optimizer_name:
             # if optimizer contains "None"
             if "None" in optimizer:
-                if "ExoTestReal1" in file_name:
+                if "ExoTestReal1" in file_name or "001" in file_name:
                     labels.append("EMG to $q_d$")
                 else:
                     labels.append("IMU to $q_d$")
@@ -341,6 +341,24 @@ if __name__ == "__main__":
         plt.xlabel("Optimizer")
         plt.ylabel("Absolute Jerk (log scale)")
         # plt.title("Distribution of Absolute Jerk for Different Optimizers")
+        plt.tight_layout()
+        plt.show()
+
+        plt.figure(figsize=(7, 4))
+        violin = plt.violinplot(
+            df_jerk["jerk_data"], 
+            showmeans=False,
+            showmedians=True,
+            showextrema=True
+        )
+        # plt.yscale('log')
+        plt.xticks(
+            ticks=range(1, len(df_jerk["labels"]) + 1),
+            labels=df_jerk["labels"],
+            rotation=45
+        )
+        plt.xlabel("Optimizer")
+        plt.ylabel("Absolute Jerk (log scale)")
         plt.tight_layout()
         plt.show()
 
@@ -421,7 +439,7 @@ if __name__ == "__main__":
         for optimizer in optimizer_name:
             # if optimizer contains "None"
             if "None" in optimizer:
-                if "ExoTestReal1" in file_name:
+                if "ExoTestReal1" in file_name or "001" in file_name:
                     labels.append("EMG to $q_d$")
                 else:
                     labels.append("IMU to $q_d$")
@@ -605,10 +623,10 @@ if __name__ == "__main__":
         weights = {
             "MAE": 1.0,
             "RMSE": 1.0,
-            "Bias": 0.8,
+            "Bias": 1.0,
             "Correlation": 1.5,
             "R_squared": 1.2,
-            "ROM_error": 1.0,
+            "ROM_error": 1.2,
             "Shifted_MAE": 1.0,
             "Shifted_RMSE": 1.0,
             "median_jerk": 1.5

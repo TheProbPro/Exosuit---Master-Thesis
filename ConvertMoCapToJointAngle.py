@@ -30,19 +30,19 @@ EMG_OPTIMIZERS = [
 
 INPUT_MOCAP_DATA = [
     # "Outputs/MoCap/ExoTestReal1.csv",
-    "Outputs/MoCap/ExoTestReal1_002.csv",
-    # "Outputs/MoCapEMGData/ExoTest1.csv",
-    # "Outputs/MoCapEMGData/ExoTest2.csv",
-    # "Outputs/MoCapEMGData/ExoTest3.csv",
+    # "Outputs/MoCap/ExoTestReal1_002.csv",
+    # # "Outputs/MoCapEMGData/ExoTest1.csv",
+    # # "Outputs/MoCapEMGData/ExoTest2.csv",
+    # # "Outputs/MoCapEMGData/ExoTest3.csv",
     "Outputs/NewMoCap/EMGTest6s_001.csv",
 ]
 
 INPUT_EMG_DATA = [
     # "Outputs/MoCap/ExoTestReal1_Trigno_2801.csv",
-    "Outputs/MoCap/ExoTestReal1_002_Trigno_2801.csv",
-    # "Outputs/MoCapEMGData/ExoTest1_Trigno_2801.csv",
-    # "Outputs/MoCapEMGData/ExoTest2_Trigno_2801.csv",
-    # "Outputs/MoCapEMGData/ExoTest3_Trigno_2801.csv",
+    # "Outputs/MoCap/ExoTestReal1_002_Trigno_2801.csv",
+    # # "Outputs/MoCapEMGData/ExoTest1_Trigno_2801.csv",
+    # # "Outputs/MoCapEMGData/ExoTest2_Trigno_2801.csv",
+    # # "Outputs/MoCapEMGData/ExoTest3_Trigno_2801.csv",
     "Outputs/NewMoCap/EMGTest6s_001_Trigno_2801.csv",
 ]
 
@@ -79,6 +79,13 @@ def process_mocap(file):
     upperarm_upper = df["UpperArm:Upper"][["X", "Y", "Z"]].to_numpy()
     upperarm_elbow = df["UpperArm:Elbow"][["X", "Y", "Z"]].to_numpy()
 
+    # Convert NaN to 0
+    # forearm_lower = np.nan_to_num(forearm_lower, nan=0.0)
+    # forearm_upper = np.nan_to_num(forearm_upper, nan=0.0)
+    # upperarm_middle = np.nan_to_num(upperarm_middle, nan=0.0)
+    # upperarm_upper = np.nan_to_num(upperarm_upper, nan=0.0)
+    # upperarm_elbow = np.nan_to_num(upperarm_elbow, nan=0.0)
+
     # Convert timestamps into unix timestamps
     # Fix format (replace dots in time part)
     start_time_clean = start_time.replace(".", ":", 2)  # only replace first two dots
@@ -87,7 +94,8 @@ def process_mocap(file):
     # Parse to datetime
     start_dt = datetime.strptime(start_time_clean, "%Y-%m-%d %H:%M:%S.%f")
     # If you know this should be PM rather than AM
-    start_dt = start_dt + timedelta(hours=12)
+    if not file == "Outputs/NewMoCap/EMGTest6s_001.csv":  # This file is from the morning, the others are from the afternoon
+        start_dt = start_dt + timedelta(hours=12)
     print("Parsed start datetime:", start_dt)
     
     # Convert to unix timestamp
@@ -130,6 +138,10 @@ def process_emg(file, optimizer):
     EMG_FS = 2000  # Hz
     dt = 1 / EMG_FS
 
+    THETA_MIN = np.deg2rad(0)
+    THETA_MAX = np.deg2rad(140)
+    THETA_RANGE = THETA_MAX - THETA_MIN
+
     phi = 0
     tau = 0.5
     if optimizer == "pDMP omega":
@@ -140,6 +152,8 @@ def process_emg(file, optimizer):
     if optimizer == "pDMP":
         # Teach DMPS
         DMP = pDMP(DOF=1, N=25, alpha=8, beta=2, lambd=0.9, dt=dt)
+        DMP.set_output_limits(THETA_MIN, THETA_MAX, squash_gain=1.0)
+        DMP.set_output_state(np.array([0.0]))
         # Teach DMP 0 trajectory for 2s
         y_old = 0
         dy_old = 0
@@ -255,9 +269,6 @@ def process_emg(file, optimizer):
 
     # Process EMG signals
     # EMG Processing parameters
-    THETA_MIN = np.deg2rad(0)
-    THETA_MAX = np.deg2rad(140)
-    THETA_RANGE = THETA_MAX - THETA_MIN
     USER_NAME = "VictorBNielsen"
     filter_bicep = rt_filtering(EMG_FS, 450, 20, 2)
     filter_tricep = rt_filtering(EMG_FS, 450, 20, 2)
@@ -273,9 +284,11 @@ def process_emg(file, optimizer):
     delta_q_prev = 0
     a_prev = 0
     dif_a_prev = 0
+    net_a_prev = 0
 
     # Containers
     filtered_net_a_values = []
+    # dif_filtered_net_a_values = []
     optimized_angle_values = []
 
     if optimizer != "None":
@@ -301,64 +314,98 @@ def process_emg(file, optimizer):
 
         activation = interpreter.compute_activation([filtered_bicep_rms, filtered_tricep_rms])
         net_a = activation[0] - activation[1]
+        # filtered_net_a_values.append(net_a)
+
+        # net_a_old = net_a
+        # net_a = (net_a - net_a_prev) / dt
+        # net_a_prev = net_a_old
+
+        # net_a = np.clip(net_a, -1.0, 1.0)
+        
         filtered_net_a = float(net_a_lowpass.lowpass(np.atleast_1d(net_a))[0])
+        filtered_net_a_values.append(filtered_net_a)
+
+        # dif_filtered_net_a_values.append(filtered_net_a)
         # TODO: Try with differentiated net a as input to optimizers instead of lowpassed net a
         # dif_a = (filtered_net_a - dif_a_prev) / dt
         # dif_a_prev = filtered_net_a
         # filtered_net_a = dif_a
-        filtered_net_a_values.append(filtered_net_a)
+        
 
         if optimizer == "None":
             optimized_angle_values.append(interpreter.compute_angle(filtered_net_a))
         elif optimizer == "optimizer_1":
             # k=3*np.pi
-            if file == "Outputs/MoCapEMGData/ExoTest1_Trigno_2801.csv":
+            if file == "Outputs/MoCap/ExoTestReal1_Trigno_2801.csv":
                 k = 2.4 * np.pi
             elif file == "Outputs/MoCap/ExoTestReal1_002_Trigno_2801.csv":
-                k = 2 * np.pi # File 2
+                k = 2.8 * np.pi # File 2
+            elif file == "Outputs/NewMoCap/EMGTest6s_001_Trigno_2801.csv":
+                k = (1.6*np.pi) / 3
             optimized_angle = optimize_1(k, filtered_net_a, dt, optimized_angle_values[-1], THETA_MIN, THETA_MAX)
             # optimized_angle = optimize_1((2*np.pi), filtered_net_a, dt, optimized_angle_values[-1], THETA_MIN, THETA_MAX)
             optimized_angle_values.append(optimized_angle)
         elif optimizer == "optimizer_2":
             # k = 4 * np.pi
-            if file == "Outputs/MoCapEMGData/ExoTest1_Trigno_2801.csv":
+            if file == "Outputs/MoCap/ExoTestReal1_Trigno_2801.csv":
                 k = 4.5 * np.pi
             elif file == "Outputs/MoCap/ExoTestReal1_002_Trigno_2801.csv":
-                k = 4.4 * np.pi # File 2
+                k = 4.5 * np.pi # File 2
+            elif file == "Outputs/NewMoCap/EMGTest6s_001_Trigno_2801.csv":
+                k = np.pi *1.1#* 0.9
             optimized_angle = optimize_2(k, filtered_net_a, dt, optimized_angle_values[-1], THETA_MIN, THETA_MAX)
             optimized_angle_values.append(optimized_angle)
         elif optimizer == "optimizer_4":
-            if file == "Outputs/MoCapEMGData/ExoTest1_Trigno_2801.csv":
-                k = 2.4 * np.pi # File 1
+            if file == "Outputs/MoCap/ExoTestReal1_Trigno_2801.csv":
+                k = 2.6 * np.pi # File 1
             elif file == "Outputs/MoCap/ExoTestReal1_002_Trigno_2801.csv":
-                k = 2 * np.pi # File 2
+                k = 2.6 * np.pi # File 2
+            elif file == "Outputs/NewMoCap/EMGTest6s_001_Trigno_2801.csv":
+                k = (2.2*np.pi) / 4
             optimized_angle, delta_q_prev = optimize_4(k, filtered_net_a, dt, optimized_angle_values[-1], delta_q_prev, THETA_MIN, THETA_MAX)
             optimized_angle_values.append(optimized_angle)
         elif optimizer == "optimizer_5_pd":
             # optimized_angle, v = optimize_5_pd(filtered_net_a, v, dt, optimized_angle_values[-1], THETA_MIN, THETA_MAX, np.pi, 4, 0.1)
             # k = 4
-            k = 20 # File 1
-            if file == "Outputs/MoCapEMGData/ExoTest1_Trigno_2801.csv":
+            k = 16 # File 1
+            if file == "Outputs/MoCap/ExoTestReal1_Trigno_2801.csv":
+                k = 24
                 b = 0.01 # file 1
             elif file == "Outputs/MoCap/ExoTestReal1_002_Trigno_2801.csv":
+                k = 24
                 b = 0.02 # file 2
+            elif file == "Outputs/NewMoCap/EMGTest6s_001_Trigno_2801.csv":
+                k = (1.6*np.pi) / 3
+                b = 0.01 # 0.001
             optimized_angle, v = optimize_5_pd(filtered_net_a, v, dt, optimized_angle_values[-1], THETA_MIN, THETA_MAX, np.pi, k, b)
             optimized_angle_values.append(optimized_angle)
         elif optimizer == "optimizer_6":
-            if file == "Outputs/MoCapEMGData/ExoTest1_Trigno_2801.csv":
+            k=np.pi*10.0*1.7 # File 1
+            if file == "Outputs/MoCap/ExoTestReal1_Trigno_2801.csv":
                 b = 3.0 # File 1
             elif file == "Outputs/MoCap/ExoTestReal1_002_Trigno_2801.csv":
-                b = 4.0 # File 2
-            k=np.pi*10.0*2 # File 1
+                b = 3.6 # File 2
+            elif file == "Outputs/NewMoCap/EMGTest6s_001_Trigno_2801.csv":
+                k = np.pi * 2.6
+                b = 4
             optimized_angle, v, acc = optimizer_6(filtered_net_a, v, dt, optimized_angle_values[-1], THETA_MIN, THETA_MAX, np.pi, b, k)
             optimized_angle_values.append(optimized_angle)
         elif optimizer == "EMG_Optimizer":
             a_d = (filtered_net_a - a_prev) / dt
             a_prev = filtered_net_a
-            optimized_angle, v, acc = EMG_Optimizer(filtered_net_a, a_d, v, 4.0, 8.0, 2.0, optimized_angle_values[-1], THETA_MIN, THETA_MAX, np.pi, dt)
+            kn = 4.0
+            kd = 2.0
+            b = 4.0
+            if file == "Outputs/NewMoCap/EMGTest6s_001_Trigno_2801.csv":
+                kn = 5
+                kd = 5
+                b = 4
+            optimized_angle, v, acc = EMG_Optimizer(filtered_net_a, a_d, v, kn, kd, b, optimized_angle_values[-1], THETA_MIN, THETA_MAX, np.pi, dt)
             optimized_angle_values.append(optimized_angle)
         elif optimizer == "pDMP":
-            v = np.pi/35 #np.pi/22
+            v = np.pi/40 #np.pi/22
+            if file == "Outputs/NewMoCap/EMGTest6s_001_Trigno_2801.csv":
+                v = np.pi/14
             DMP.set_phase(np.array([phi]))
             DMP.set_period(np.array([tau]))
 
@@ -394,7 +441,7 @@ def process_emg(file, optimizer):
     if optimizer != "None":
         optimized_angle_values.remove(optimized_angle_values[0])  # remove initial value to align with timestamps
 
-    return filtered_net_a_values, optimized_angle_values, absolute_timestamps, timestamps, start_time, emg_absolute_timestamps
+    return filtered_net_a_values, optimized_angle_values, absolute_timestamps, timestamps, start_time, emg_absolute_timestamps#dif_filtered_net_a_values, optimized_angle_values, absolute_timestamps, timestamps, start_time, emg_absolute_timestamps
 
 def upward_crossings(t, y, threshold):
     idx = np.where((y[:-1] < threshold) & (y[1:] >= threshold))[0]
@@ -414,6 +461,7 @@ if __name__ == "__main__":
 
         for optimizer in EMG_OPTIMIZERS:
             print(f"Processing EMG file: {emg_file} with optimizer: {optimizer}")
+            # filtered_net_a_values, dif_filtered_net_a_values, optimized_angle_values, absolute_timestamps2, timestamps, start_time, emg_absolute_timestamps = process_emg(emg_file, optimizer)
             filtered_net_a_values, optimized_angle_values, absolute_timestamps2, timestamps, start_time, emg_absolute_timestamps = process_emg(emg_file, optimizer)
 
             # Plot mocap and emg data overlapping
@@ -429,6 +477,17 @@ if __name__ == "__main__":
             # Convert to relative time
             t0 = emg_absolute_timestamps[0]
             time_sec = emg_absolute_timestamps - t0
+
+            # plt.figure(figsize=(12, 6))
+            # plt.plot(time_sec, filtered_net_a_values, label="Filtered Net Activation")
+            # # plt.plot(time_sec, dif_filtered_net_a_values, label="Differentiated Filtered Net Activation")
+            # plt.xlabel("Time (s)")
+            # plt.ylabel("Activation")
+            # plt.title(f"Filtered Net Activation and its Derivative - {optimizer}")
+            # plt.legend()
+            # plt.grid()
+            # plt.tight_layout()
+            # plt.show()
 
             plt.figure(figsize=(12, 6))
             plt.plot(time_sec, optimized_angle_values, label=f"Optimized Angle ({optimizer})")

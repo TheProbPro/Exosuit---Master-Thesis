@@ -1,7 +1,7 @@
 Format Version,1.23,Take Name,EMGTest6s_001,Take Notes,,Capture Frame Rate,200.000000,Export Frame Rate,200.000000,Capture Start Time,2026-05-06 09.23.02.890 ,Capture Start Frame,133260,Total Frames in Take,6242,Total Exported Frames,6242,Rotation Type,XYZ,Length Units,Centimeters,Coordinate Space,Global
 
 ,Type,Marker,Marker,Marker,Marker,Marker,Marker,Marker,Marker,Marker,Marker,Marker,Marker,Marker,Marker,Marker
-,Name,ForeArm:Lower,ForeArm:Lower,ForeArm:Lower,ForeArm:Upper,ForeArm:Upper,ForeArm:Upper,UpperArm:Elbow,UpperArm:Elbow,UpperArm:Elbow,UpperArm:Lower,UpperArm:Lower,UpperArm:Lower,UpperArm:Upper,UpperArm:Upper,UpperArm:Upper
+,Name,ForeArm:Lower,ForeArm:Lower,ForeArm:Lower,ForeArm:Upper,ForeArm:Upper,ForeArm:Upper,UpperArm:Elbow,UpperArm:Elbow,UpperArm:Elbow,UpperArm:Middle,UpperArm:Middle,UpperArm:Middle,UpperArm:Upper,UpperArm:Upper,UpperArm:Upper
 ,ID,"4E6BE1F30BC2491A11F1","4E6BE1F30BC2491A11F1","4E6BE1F30BC2491A11F1","4E70E1F30BC2491A11F1","4E70E1F30BC2491A11F1","4E70E1F30BC2491A11F1","4E6DE1F30BC2491A11F1","4E6DE1F30BC2491A11F1","4E6DE1F30BC2491A11F1","4E87E1F30BC2491A11F1","4E87E1F30BC2491A11F1","4E87E1F30BC2491A11F1","4E73E1F30BC2491A11F1","4E73E1F30BC2491A11F1","4E73E1F30BC2491A11F1"
 ,,Position,Position,Position,Position,Position,Position,Position,Position,Position,Position,Position,Position,Position,Position,Position
 Frame,Time (Seconds),X,Y,Z,X,Y,Z,X,Y,Z,X,Y,Z,X,Y,Z
