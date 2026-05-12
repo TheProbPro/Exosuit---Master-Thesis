@@ -30,10 +30,11 @@ EMG_OPTIMIZERS = [
 
 INPUT_MOCAP_DATA = [
     # "Outputs/MoCap/ExoTestReal1.csv",
-    "Outputs/MoCap/ExoTestReal1_002.csv"
+    "Outputs/MoCap/ExoTestReal1_002.csv",
     # "Outputs/MoCapEMGData/ExoTest1.csv",
     # "Outputs/MoCapEMGData/ExoTest2.csv",
     # "Outputs/MoCapEMGData/ExoTest3.csv",
+    "Outputs/NewMoCap/EMGTest6s_001.csv",
 ]
 
 INPUT_EMG_DATA = [
@@ -42,6 +43,7 @@ INPUT_EMG_DATA = [
     # "Outputs/MoCapEMGData/ExoTest1_Trigno_2801.csv",
     # "Outputs/MoCapEMGData/ExoTest2_Trigno_2801.csv",
     # "Outputs/MoCapEMGData/ExoTest3_Trigno_2801.csv",
+    "Outputs/NewMoCap/EMGTest6s_001_Trigno_2801.csv",
 ]
 
 def process_mocap(file):
@@ -145,7 +147,7 @@ def process_emg(file, optimizer):
         start_time = time.time()
         while time.time() - start_time < 3:  # Teach for 3 seconds
             print(f"elapsed time: {time.time() - start_time:.2f} seconds", end='\r')
-            phi += 16*np.pi * dt/tau
+            phi += 2*np.pi * dt/tau
             y = np.array([0])
             dy = (y - y_old) / dt 
             ddy = (dy - dy_old) / dt
@@ -356,7 +358,7 @@ def process_emg(file, optimizer):
             optimized_angle, v, acc = EMG_Optimizer(filtered_net_a, a_d, v, 4.0, 8.0, 2.0, optimized_angle_values[-1], THETA_MIN, THETA_MAX, np.pi, dt)
             optimized_angle_values.append(optimized_angle)
         elif optimizer == "pDMP":
-            v = np.pi/10 #np.pi/22
+            v = np.pi/35 #np.pi/22
             DMP.set_phase(np.array([phi]))
             DMP.set_period(np.array([tau]))
 

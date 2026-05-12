@@ -136,11 +136,11 @@ if __name__ == "__main__":
     print(f"maximum angle for optimizer 5: {np.rad2deg(max(optimized_angles_5)):.2f} degrees, minimum angle for optimizer 5: {np.rad2deg(min(optimized_angles_5)):.2f} degrees")
     
     v = 0  # Initial velocity
-    k = np.pi / 2
-    b = 2
+    k = np.pi * 1.6
+    b = 4
     optimized_angles_6.append(q)
     for a in activation:
-        q_next, v, acc = optimizer_6(a, v, t, optimized_angles_6[-1], THETA_MIN, THETA_MAX, np.pi, k, b)
+        q_next, v, acc = optimizer_6(a, v, t, optimized_angles_6[-1], THETA_MIN, THETA_MAX, np.pi, b, k)
         optimized_angles_6.append(q_next)
     print(f"maximum angle for optimizer 6: {np.rad2deg(max(optimized_angles_6)):.2f} degrees, minimum angle for optimizer 6: {np.rad2deg(min(optimized_angles_6)):.2f} degrees")
 
@@ -858,12 +858,12 @@ if __name__ == "__main__":
         optimized_angles_5.append(q_next)
     print(f"maximum angle for optimizer 5: {np.rad2deg(max(optimized_angles_5)):.2f} degrees, minimum angle for optimizer 5: {np.rad2deg(min(optimized_angles_5)):.2f} degrees")
     
-    k = np.pi/2 
-    b = 2
+    k = np.pi * 1.6
+    b = 4
     v = 0  # Initial velocity
     optimized_angles_6.append(q)
     for a in activation:
-        q_next, v, acc = optimizer_6(a, v, t, optimized_angles_6[-1], THETA_MIN, THETA_MAX, np.pi, k, b)
+        q_next, v, acc = optimizer_6(a, v, t, optimized_angles_6[-1], THETA_MIN, THETA_MAX, np.pi, b, k)
         optimized_angles_6.append(q_next)
     print(f"maximum angle for optimizer 6: {np.rad2deg(max(optimized_angles_6)):.2f} degrees, minimum angle for optimizer 6: {np.rad2deg(min(optimized_angles_6)):.2f} degrees")
 
