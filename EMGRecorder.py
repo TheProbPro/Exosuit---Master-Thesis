@@ -16,19 +16,22 @@ import signal
 import time
 import csv
 import math
+import pandas as pd
 
 # General configuration parameters
 FS = 2000  # Hz
 # FILE_NAME = "Outputs/RecordedEMG/TrainLSTM.csv"
-FILE_NAME = "Outputs/RecordedEMG/TestLSTM.csv"
+# FILE_NAME = "Outputs/RecordedEMG/TestLSTM.csv"
 USER_NAME = 'VictorBNielsen'
+
+FILE_NAME = f"Outputs/RecordedEMG/EMGData.csv"
 
 THETA_MIN = np.deg2rad(0)
 THETA_MAX = np.deg2rad(140)
 
 # RECORDING_DURATION = 90  # seconds
-RECORDING_DURATION = 60  # seconds
-
+# RECORDING_DURATION = 60  # seconds
+RECORDING_DURATION = 20  # seconds, for testing
 stop_event = threading.Event()
 
 # def read_EMG(raw_queue):
@@ -76,6 +79,15 @@ stop_event = threading.Event()
 #     Bicep_RMS_queue.queue.clear()
 #     Tricep_RMS_queue.queue.clear()
 
+raw_bicep_emg = []
+raw_tricep_emg = []
+processed_bicep_emg = []
+processed_tricep_emg = []
+bicep_activation = []
+tricep_activation = []
+net_activation = []
+filtered_net_activation = []
+
 if __name__ == "__main__":
     write_array = []
     
@@ -94,7 +106,7 @@ if __name__ == "__main__":
 
     emg = DelsysEMG(channel_range=(0,1))
     emg.start()
-    time.sleep(1.0)  # Allow some time for the EMG to start and gather data
+    # time.sleep(1.0)  # Allow some time for the EMG to start and gather data
 
     print("EMG initialized")
 
@@ -117,6 +129,9 @@ if __name__ == "__main__":
         filtered_bicep = filter_bicep.bandpass(reading[0])
         filtered_tricep = filter_tricep.bandpass(reading[1])
 
+        raw_bicep_emg.append(reading[0])
+        raw_tricep_emg.append(reading[1])
+
         if Bicep_RMS_queue.full():
             Bicep_RMS_queue.get()
         Bicep_RMS_queue.put(filtered_bicep)
@@ -130,15 +145,22 @@ if __name__ == "__main__":
         filtered_bicep_rms = float(filter_bicep.lowpass(np.atleast_1d(Bicep_RMS))[0])
         filtered_tricep_rms = float(filter_tricep.lowpass(np.atleast_1d(Tricep_RMS))[0])
 
-        activation = interpreter.compute_activation([filtered_bicep_rms, filtered_tricep_rms])
-        net_a = activation[0] - activation[1]  # Compute net activation (bicep - tricep)
-        filtered_net_a = float(net_a_lowpass.lowpass(np.atleast_1d(net_a))[0])
+        processed_bicep_emg.append(filtered_bicep_rms)
+        processed_tricep_emg.append(filtered_tricep_rms)
 
-        # TODO: Maybe do other optimizers
-        optimized_angle, v, acc = optimizer_6(filtered_net_a, v, dt, desired_angles[-1], THETA_MIN, THETA_MAX, b=10.0, k=np.pi*10.0*2)
+        activation = interpreter.compute_activation([filtered_bicep_rms, filtered_tricep_rms])
+        bicep_activation.append(activation[0])
+        tricep_activation.append(activation[1])
+        net_a = activation[0] - activation[1]  # Compute net activation (bicep - tricep)
+        net_activation.append(net_a)
+        filtered_net_a = float(net_a_lowpass.lowpass(np.atleast_1d(net_a))[0])
+        filtered_net_activation.append(filtered_net_a)
+
+        # TODO: For LSTM teaching data
+        # optimized_angle, v, acc = optimizer_6(filtered_net_a, v, dt, desired_angles[-1], THETA_MIN, THETA_MAX, b=10.0, k=np.pi*10.0*2)
         
-        desired_angles.append(optimized_angle)
-        write_array.append(optimized_angle)
+        # desired_angles.append(optimized_angle)
+        # write_array.append(optimized_angle)
 
         recorded_Samples += 1
 
@@ -146,16 +168,33 @@ if __name__ == "__main__":
     Bicep_RMS_queue.queue.clear()
     Tricep_RMS_queue.queue.clear()        
 
-    
+    #create a time vector spanning from 0 to recording duration with the same length as the EMG data
+    time_vector = np.linspace(0, RECORDING_DURATION, len(raw_bicep_emg))
 
+    df = pd.DataFrame({
+        "time": time_vector,
+        'raw_bicep_emg': raw_bicep_emg,
+        'raw_tricep_emg': raw_tricep_emg,
+        'processed_bicep_emg': processed_bicep_emg,
+        'processed_tricep_emg': processed_tricep_emg,
+        'bicep_activation': bicep_activation,
+        'tricep_activation': tricep_activation,
+        'net_activation': net_activation,
+        'filtered_net_activation': filtered_net_activation
+    })
+    if not os.path.exists("Outputs/RecordedEMG"):
+        os.makedirs("Outputs/RecordedEMG")
+    df.to_csv(FILE_NAME, index=False)
+
+    # For LSTM teaching data
     # Write the array to the .csv file
     # Create CSV file and write
-    header = ['emg_pos']
-    with open(FILE_NAME, mode='w', newline='', buffering=1) as file:
-        csv.writer(file).writerow(header)
-        csv.writer(file).writerows([[x] for x in write_array])
+    # header = ['emg_pos']
+    # with open(FILE_NAME, mode='w', newline='', buffering=1) as file:
+    #     csv.writer(file).writerow(header)
+    #     csv.writer(file).writerows([[x] for x in write_array])
 
-    print(f"len of write_array: {len(write_array)}, frequency {(len(write_array)/RECORDING_DURATION):.2f} Hz")
-    print(f"Recording finished! Recorded {recorded_Samples} samples over {RECORDING_DURATION} seconds.")
-    print(f"Data saved to {FILE_NAME}")
-    print("EMG stopped!")
+    # print(f"len of write_array: {len(write_array)}, frequency {(len(write_array)/RECORDING_DURATION):.2f} Hz")
+    # print(f"Recording finished! Recorded {recorded_Samples} samples over {RECORDING_DURATION} seconds.")
+    # print(f"Data saved to {FILE_NAME}")
+    # print("EMG stopped!")

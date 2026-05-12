@@ -159,6 +159,8 @@ if __name__ == "__main__":
     phi = 0
     tau = 0.5
     DMP = pDMP(DOF=1, N=25, alpha=8, beta=2, lambd=0.9, dt=dt)
+    DMP.set_output_limits(THETA_MIN, THETA_MAX, squash_gain=1.0)
+    DMP.set_output_state(np.array([0.0]))
     y_old = 0
     dy_old = 0
     start_time = time.time()
@@ -182,6 +184,7 @@ if __name__ == "__main__":
 
     # Run DMP
     v = np.pi/35 #np.pi/22
+    # v = np.pi/2
     for a in activation:
         DMP.set_phase(np.array([phi]))
         DMP.set_period(np.array([tau]))

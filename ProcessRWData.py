@@ -4,7 +4,7 @@ from pathlib import Path
 
 # RW exosuit bicep parameters
 # Usernames
-USERNAMES = ["VictorBNielsen", "Kally", "ZichenWang", "'Nicklas'", "Magnus"]
+USERNAMES = ["VictorBNielsen", "Kally", "ZichenWang", "Nicklas", "Magnus"]
 
 # Path to files
 BasePath = Path("Outputs/RWExosuitResults/")
