@@ -29,8 +29,8 @@ mpl.rcParams.update({
     'figure.titlesize': 16
 })
 
-TRAIN_CSV = "Outputs/RecordedEMG/TrainLSTM.csv"
-TEST_CSV = "Outputs/RecordedEMG/TestLSTM.csv"
+TRAIN_CSV = "Outputs/RecordedEMG/Optim2/TrainLSTM.csv"
+TEST_CSV = "Outputs/RecordedEMG/Optim2/TestLSTM.csv"
 COL = 'emg_pos'#'Processed EMG'#'Muscle Activation'
 
 # PREDICT_X = 40 #20ms

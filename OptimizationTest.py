@@ -712,7 +712,8 @@ if __name__ == "__main__":
     plt.bar(labels, means, yerr=[lower_median_errors, upper_median_errors], color='skyblue')
     plt.scatter(labels, maxs, color='red', label='Max Jerk')
     plt.ylabel('Mean Absolute Jerk (rad/s^3)')
-    plt.yscale('log')
+    plt.yscale("symlog", linthresh=0.01)
+    plt.ylim(bottom=0)
     plt.xticks(rotation=45)
     plt.xlabel("Optimizer")
     plt.ylabel("Mean Jerk (log scale)")
@@ -724,7 +725,8 @@ if __name__ == "__main__":
     plt.figure(figsize=(7, 4))
     plt.bar(labels, medians, yerr=[lower_median_errors, upper_median_errors], color='lightgreen')
     plt.scatter(labels, maxs, color='red', label='Max Jerk')
-    plt.yscale('log')
+    plt.yscale("symlog", linthresh=0.01)
+    plt.ylim(bottom=0)
     plt.xticks(rotation=45)
     plt.xlabel("Optimizer")
     plt.ylabel("Median Jerk (log scale)")
@@ -738,7 +740,8 @@ if __name__ == "__main__":
     #create box plots
     plt.figure(figsize=(7, 4))
     plt.boxplot(abs_jerk_data, labels=labels, showfliers=False)
-    plt.yscale('log')
+    # plt.yscale('log')
+    plt.yscale("symlog", linthresh=0.01)
     plt.xticks(rotation=45)
     plt.xlabel("Optimizer")
     plt.ylabel("Absolute Jerk (log scale)")
@@ -755,7 +758,7 @@ if __name__ == "__main__":
         showextrema=True
     )
 
-    plt.yscale('log')
+    plt.yscale("symlog", linthresh=0.01)
     plt.xticks(
         ticks=np.arange(1, len(labels) + 1),
         labels=labels,
@@ -1250,7 +1253,8 @@ if __name__ == "__main__":
     plt.bar(labels, means, yerr=[lower_median_errors, upper_median_errors], color='skyblue')
     plt.scatter(labels, maxs, color='red', label='Max Jerk')
     plt.ylabel('Mean Absolute Jerk (rad/s^3)')
-    plt.yscale('log')
+    plt.yscale("symlog", linthresh=0.01)
+    plt.ylim(bottom=0)
     plt.xticks(rotation=45)
     plt.xlabel("Optimizer")
     plt.ylabel("Mean Jerk (log scale)")
@@ -1262,7 +1266,8 @@ if __name__ == "__main__":
     plt.figure(figsize=(7, 4))
     plt.bar(labels, medians, yerr=[lower_median_errors, upper_median_errors], color='lightgreen')
     plt.scatter(labels, maxs, color='red', label='Max Jerk')
-    plt.yscale('log')
+    plt.yscale("symlog", linthresh=0.01)
+    plt.ylim(bottom=0)
     plt.xticks(rotation=45)
     plt.xlabel("Optimizer")
     plt.ylabel("Median Jerk (log scale)")
@@ -1276,7 +1281,7 @@ if __name__ == "__main__":
     #create box plots
     plt.figure(figsize=(7, 4))
     plt.boxplot(abs_jerk_data, labels=labels, showfliers=False)
-    plt.yscale('log')
+    plt.yscale("symlog", linthresh=0.01)
     plt.xticks(rotation=45)
     plt.xlabel("Optimizer")
     plt.ylabel("Absolute Jerk (log scale)")
@@ -1293,7 +1298,7 @@ if __name__ == "__main__":
         showextrema=True
     )
 
-    plt.yscale('log')
+    plt.yscale("symlog", linthresh=0.01)
     plt.xticks(
         ticks=np.arange(1, len(labels) + 1),
         labels=labels,
