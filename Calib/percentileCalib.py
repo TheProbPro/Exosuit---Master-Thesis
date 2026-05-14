@@ -13,13 +13,15 @@ from Sensors.EMGSensor import DelsysEMG
 
 Sensor_channels = [0, 1] # Bicep, Tricep
 # User_name = 'VictorBNielsen'
-# User_name = 'Kally'
+User_name = 'Kally'
 # User_name = 'ZichenWang'
 # User_name = 'Nicklas'
-User_name = 'Magnus'
+# User_name = 'Magnus'
 # User_name = 'XiaofengXiong'
 # User_name = 'Cao'
 # User_name = 'Shelley'
+# User_name = "Valentina"
+# User_name = "Cavan"
 
 FS = 2000 #Hz
 # FS = 1259 #Hz

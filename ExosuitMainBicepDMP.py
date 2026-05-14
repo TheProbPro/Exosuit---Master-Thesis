@@ -46,12 +46,15 @@ from Motors.DynamixelHardwareInterface import Motors
 # ── EMG 参数 ─────────────────────────────────────────────────
 FS           = 2000          # EMG 采样率 (Hz)
 EMG_DT       = 1.0 / FS
-USER_NAME    = 'VictorBNielsen'
-# USER_NAME = 'ZichenWang'
+# USER_NAME    = 'VictorBNielsen'
+# USER_NAME    = 'Kally'
+USER_NAME = 'ZichenWang'
+# USER_NAME = "Valentina"
+# USER_NAME = "Cavan"
 LSTM_PATH    = "Outputs/models/LSTM/Windowed_LSTM_60.pth"
 TEST_DMP_VERSION = "pDMP"
-TEST_DMP_VERSION = "Coupled"
-TEST_DMP_VERSION = "Omega"
+# TEST_DMP_VERSION = "Coupled"
+# TEST_DMP_VERSION = "Omega"
 
 # EMG 优化器参数（与原 EMG 脚本保持一致）
 EMG_B        = 4.0 # Vic
@@ -60,6 +63,9 @@ EMG_B        = 4.0 # Vic
 EMG_K        = np.pi * 1.5 # 1.7 Vic
 
 plot_dq = []
+
+# SAVEPATH = f"Outputs/RWExosuitResults/DMP/" + USER_NAME + "/FullMovement"
+SAVEPATH = f"Outputs/RWExosuitResults/DMP/" + USER_NAME + "/NonePeriodic"
 
 # ── 关节范围（EMG 和控制器共享）─────────────────────────────
 THETA_MIN    = np.deg2rad(0)    # 0 rad
@@ -168,6 +174,8 @@ def emg_thread_fn(qd_queue: queue.Queue):
     if TEST_DMP_VERSION == "pDMP":
         # Teach DMPS
         DMP = pDMP(DOF=1, N=25, alpha=8, beta=2, lambd=0.9, dt=EMG_DT)
+        DMP.set_output_limits(THETA_MIN, THETA_MAX, squash_gain=1.0)
+        DMP.set_output_state(np.array([0.0]))
         # Teach DMP 0 trajectory for 2s
         y_old = 0
         dy_old = 0
@@ -175,7 +183,7 @@ def emg_thread_fn(qd_queue: queue.Queue):
         start_time = time.time()
         while time.time() - start_time < 3:  # Teach for 3 seconds
             print(f"elapsed time: {time.time() - start_time:.2f} seconds", end='\r')
-            phi += 16*np.pi * EMG_DT/tau
+            phi += 2*np.pi * EMG_DT/tau
             y = np.array([0])
             dy = (y - y_old) / EMG_DT 
             ddy = (dy - dy_old) / EMG_DT
@@ -300,7 +308,7 @@ def emg_thread_fn(qd_queue: queue.Queue):
         #     np.pi, EMG_B, EMG_K
         # )
         if TEST_DMP_VERSION == "pDMP":
-            v = np.pi/10 #np.pi/22
+            v = np.pi/50 #np.pi/22
             DMP.set_phase(np.array([phi]))
             DMP.set_period(np.array([tau]))
 
@@ -326,32 +334,32 @@ def emg_thread_fn(qd_queue: queue.Queue):
             DMP.repeat()
             DMP.integration()
             x, dx, ph, ta = DMP.get_state()
-        optimized_angle = x
-        # try:
-        #     qd_queue.put_nowait((optimized_angle))
-        # except queue.Full:
-        #     qd_queue.get_nowait()
-        #     qd_queue.put_nowait((optimized_angle))
+        optimized_angle = x[0]
+        try:
+            qd_queue.put_nowait((optimized_angle))
+        except queue.Full:
+            qd_queue.get_nowait()
+            qd_queue.put_nowait((optimized_angle))
 
-        window.append(optimized_angle)
-        if len(window) < window.maxlen:
-            continue
+        # window.append(optimized_angle)
+        # if len(window) < window.maxlen:
+        #     continue
 
-        if len(window) == window.maxlen and sample_counter % 10 == 0:
-            with torch.inference_mode():
-                input_tensor = torch.as_tensor(
-                    window,
-                    dtype=torch.float32,
-                    device=device
-                ).unsqueeze(0).unsqueeze(-1)
-                lstm_output     = model(input_tensor)
-                predicted_angle = float(lstm_output.detach().cpu().item())
+        # if len(window) == window.maxlen and sample_counter % 10 == 0:
+        #     with torch.inference_mode():
+        #         input_tensor = torch.as_tensor(
+        #             window,
+        #             dtype=torch.float32,
+        #             device=device
+        #         ).unsqueeze(0).unsqueeze(-1)
+        #         lstm_output     = model(input_tensor)
+        #         predicted_angle = float(lstm_output.detach().cpu().item())
 
-            try:
-                qd_queue.put_nowait((predicted_angle))
-            except queue.Full:
-                qd_queue.get_nowait()
-                qd_queue.put_nowait((predicted_angle))
+        #     try:
+        #         qd_queue.put_nowait((predicted_angle))
+        #     except queue.Full:
+        #         qd_queue.get_nowait()
+        #         qd_queue.put_nowait((predicted_angle))
 
     # 清理
     emg.stop()
@@ -877,7 +885,7 @@ if __name__ == "__main__":
     signal.signal(signal.SIGTERM, _on_interrupt)
 
     # 共享队列：maxsize=3，保证控制器始终取到最新帧
-    qd_queue = queue.Queue(maxsize=2)
+    qd_queue = queue.Queue(maxsize=5)
 
     # 启动 EMG 线程
     emg_thread = threading.Thread(
@@ -940,9 +948,9 @@ if __name__ == "__main__":
             "q_rad": plot_q,
             "tau": plot_tau,
         })
-        if not os.path.exists(f"Outputs/RWExosuitResults/{USER_NAME}/3"):
-            os.makedirs(f"Outputs/RWExosuitResults/{USER_NAME}/3")
-        data.to_csv(f"Outputs/RWExosuitResults//{USER_NAME}/3/trial_{i+1}.csv", index=False)
+        if not os.path.exists(SAVEPATH):
+            os.makedirs(SAVEPATH)
+        data.to_csv(f"{SAVEPATH}/trial_{i+1}.csv", index=False)
 
 
         plot_dq.clear()
