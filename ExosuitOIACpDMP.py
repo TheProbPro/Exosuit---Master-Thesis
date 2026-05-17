@@ -33,7 +33,8 @@ import matplotlib.pyplot as plt
 from Sensors.EMGSensor import DelsysEMG
 from SignalProcessing.Filtering import rt_filtering, rt_desired_Angle_lowpass
 from SignalProcessing.Interpretors import ProportionalMyoelectricalControl as PMC
-from Optimizations import optimizer_6
+from Optimizations import optimize_2
+from ProjectInRobotics.pDMP.pDMP_functions import pDMP
 import AdaptiveEmbodiedControlSystems.LSTM as LSTM
 from Controllers.OIAC_Controllers import ada_imp_con, ILC
 
@@ -50,13 +51,20 @@ from Motors.DynamixelHardwareInterface import Motors
 # ── EMG 参数 ─────────────────────────────────────────────────
 FS           = 2000
 EMG_DT       = 1.0 / FS
-USER_NAME    = 'VictorBNielsen'
+# USER_NAME    = 'VictorBNielsen'
+# USER_NAME    = 'Kally'
+# USER_NAME = 'ZichenWang'
+# USER_NAME = "Valentina"
+USER_NAME = "Cavan"
 LSTM_PATH    = "Outputs/models/LSTM/Windowed_LSTM_60.pth"
 
 EMG_B        = 4.0
 EMG_K        = np.pi * 1.4
 
 plot_dq = []
+
+SAVEPATH = f"Outputs/IEEE/pDMP/OIAC/{USER_NAME}/Periodic"
+# SAVEPATH = f"Outputs/IEEE/pDMP/OIAC/{USER_NAME}/NonePeriodic"
 
 # ── 关节范围 ──────────────────────────────────────────────────
 THETA_MIN       = np.deg2rad(0)
@@ -145,6 +153,37 @@ def emg_thread_fn(qd_queue: queue.Queue):
     model.load_state_dict(torch.load(LSTM_PATH, map_location=device))
     model.eval()
 
+    phi = 0
+    tau = 0.5
+
+    # Teach DMPS
+    DMP = pDMP(DOF=1, N=25, alpha=8, beta=2, lambd=0.9, dt=EMG_DT)
+    DMP.set_output_limits(THETA_MIN, THETA_MAX, squash_gain=1.0)
+    DMP.set_output_state(np.array([0.0]))
+    # Teach DMP 0 trajectory for 2s
+    y_old = 0
+    dy_old = 0
+    print("Teaching DMP 0 trajectory for 3s")
+    start_time = time.time()
+    while time.time() - start_time < 3:  # Teach for 3 seconds
+        print(f"elapsed time: {time.time() - start_time:.2f} seconds", end='\r')
+        phi += 2*np.pi * EMG_DT/tau
+        y = np.array([0])
+        dy = (y - y_old) / EMG_DT 
+        ddy = (dy - dy_old) / EMG_DT
+        DMP.set_phase(np.array([phi]))
+        DMP.set_period(np.array([tau]))
+        DMP.learn(y, dy, ddy)
+        DMP.integration()
+
+        # old values	
+        y_old = y
+        dy_old = dy
+            
+        # store data for plotting
+        x, dx, ph, ta = DMP.get_state()
+    print("DMP teaching completed")
+
     window         = deque(maxlen=100)
     emg_v          = 0.0
     optimized_angle = float(np.deg2rad(SINE_CENTER_DEG))
@@ -185,29 +224,44 @@ def emg_thread_fn(qd_queue: queue.Queue):
 
         filtered_net_a = float(net_a_lowpass.lowpass(np.atleast_1d(net_a))[0])
 
-        optimized_angle, emg_v, _ = optimizer_6(
-            filtered_net_a, emg_v, EMG_DT,
-            optimized_angle, THETA_MIN, THETA_MAX,
-            np.pi, EMG_B, EMG_K
-        )
+        # optimized_angle = optimize_2(
+        #     np.pi*0.9, filtered_net_a, EMG_DT,
+        #     optimized_angle, THETA_MIN, THETA_MAX
+        # )
 
-        window.append(optimized_angle)
-        if len(window) < window.maxlen:
-            continue
+        v = np.pi/50 #np.pi/22
+        DMP.set_phase(np.array([phi]))
+        DMP.set_period(np.array([tau]))
 
-        if len(window) == window.maxlen and sample_counter % 10 == 0:
-            with torch.inference_mode():
-                input_tensor = torch.as_tensor(
-                    window, dtype=torch.float32, device=device
-                ).unsqueeze(0).unsqueeze(-1)
-                lstm_output     = model(input_tensor)
-                predicted_angle = float(lstm_output.detach().cpu().item())
+        U = np.asarray([filtered_net_a*v])  # EMG activation as input
+        DMP.update(U)
+        DMP.integration()
+        x, dx, ph, ta = DMP.get_state()
+        optimized_angle = x[0]
 
-            try:
-                qd_queue.put_nowait(predicted_angle)
-            except queue.Full:
-                qd_queue.get_nowait()
-                qd_queue.put_nowait(predicted_angle)
+        try:
+            qd_queue.put_nowait((optimized_angle))
+        except queue.Full:
+            qd_queue.get_nowait()
+            qd_queue.put_nowait((optimized_angle))
+
+        # window.append(optimized_angle)
+        # if len(window) < window.maxlen:
+        #     continue
+
+        # if len(window) == window.maxlen and sample_counter % 10 == 0:
+        #     with torch.inference_mode():
+        #         input_tensor = torch.as_tensor(
+        #             window, dtype=torch.float32, device=device
+        #         ).unsqueeze(0).unsqueeze(-1)
+        #         lstm_output     = model(input_tensor)
+        #         predicted_angle = float(lstm_output.detach().cpu().item())
+
+        #     try:
+        #         qd_queue.put_nowait(predicted_angle)
+        #     except queue.Full:
+        #         qd_queue.get_nowait()
+        #         qd_queue.put_nowait(predicted_angle)
 
     emg.stop()
     Bicep_RMS_queue.queue.clear()
@@ -619,7 +673,7 @@ if __name__ == "__main__":
     signal.signal(signal.SIGTERM, _on_interrupt)
 
     # 共享队列
-    qd_queue = queue.Queue(maxsize=2)
+    qd_queue = queue.Queue(maxsize=5)
 
     # 启动 EMG 线程
     emg_thread = threading.Thread(
@@ -678,9 +732,9 @@ if __name__ == "__main__":
             "q_rad":  plot_q,
             "tau":    plot_tau,
         })
-        save_dir = f"Outputs/RWExosuitResultsVic/{USER_NAME}/OIAC"
-        os.makedirs(save_dir, exist_ok=True)
-        data.to_csv(f"{save_dir}/trial_{i+1}.csv", index=False)
+        if not os.path.exists(SAVEPATH):
+            os.makedirs(SAVEPATH)
+        data.to_csv(f"{SAVEPATH}/trial_{i+1}.csv", index=False)
 
         plot_dq.clear()
         plot_q.clear()
