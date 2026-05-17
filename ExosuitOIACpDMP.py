@@ -63,8 +63,8 @@ EMG_K        = np.pi * 1.4
 
 plot_dq = []
 
-SAVEPATH = f"Outputs/IEEE/pDMP/OIAC/{USER_NAME}/Periodic"
-# SAVEPATH = f"Outputs/IEEE/pDMP/OIAC/{USER_NAME}/NonePeriodic"
+# SAVEPATH = f"Outputs/IEEE/pDMP/OIAC/{USER_NAME}/Periodic"
+SAVEPATH = f"Outputs/IEEE/pDMP/OIAC/{USER_NAME}/NonePeriodic"
 
 # ── 关节范围 ──────────────────────────────────────────────────
 THETA_MIN       = np.deg2rad(0)
