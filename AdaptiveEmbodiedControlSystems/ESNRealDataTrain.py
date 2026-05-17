@@ -30,10 +30,18 @@ mpl.rcParams.update({
 
 import ESN  # 你的ESN模块
 
-TRAIN_CSV = "Outputs/RecordedEMG/TrainLSTM.csv"
-TEST_CSV = "Outputs/RecordedEMG/TestLSTM.csv"
+TRAIN_CSV = "Outputs/RecordedEMG/Optim2/TrainLSTM.csv"
+TEST_CSV = "Outputs/RecordedEMG/Optim2/TestLSTM.csv"
 #COL = 'Processed EMG'  # 'Position'
 COL = 'emg_pos'
+
+# PREDICT_X = 40 #20ms
+# PREDICT_X = 60 #30ms
+PREDICT_X = 80 #40ms
+
+TRAIN = True
+
+Model_Save_Path = "Outputs/models/ESN/Windowed_ESN_80.pth"
 
 class CSVWindowedDataset(Dataset):
     def __init__(self, csv_file, seq_len):
@@ -45,9 +53,9 @@ class CSVWindowedDataset(Dataset):
         X_list = []
         y_list = []
         
-        for i in range(len(data) - seq_len - 40):
+        for i in range(len(data) - seq_len - PREDICT_X):
             window = data[i : i + seq_len]        # (seq_len,)
-            target = data[i + seq_len + 40]            # scalar
+            target = data[i + seq_len + PREDICT_X]            # scalar
             X_list.append(window[:, None])  # (seq_len, 1)
             y_list.append([target])          # (1,)
         self.X = torch.from_numpy(np.stack(X_list, axis=0))  # (N, seq_len, 1), float32
@@ -260,7 +268,7 @@ def evaluate_windowed_esn(model, seq_len, device="cpu", total_points=1000):
     T = signal.shape[0]
 
     X_list = []
-    for i in range(T - seq_len - 40):
+    for i in range(T - seq_len - PREDICT_X):
         window = signal[i : i+seq_len]
         X_list.append(window.unsqueeze(0))
 
@@ -284,8 +292,7 @@ def evaluate_windowed_esn(model, seq_len, device="cpu", total_points=1000):
     preds = torch.cat(preds_list, dim=0)
     y_pred = preds.squeeze(-1).cpu().numpy()
 
-    horizon = 40
-    target_indices = torch.arange(seq_len + horizon, seq_len + horizon + len(y_pred))
+    target_indices = torch.arange(seq_len + PREDICT_X, seq_len + PREDICT_X + len(y_pred))
     y_true = signal[target_indices, 0].cpu().numpy()
     t_pred = t_axis[target_indices].cpu().numpy()
 
@@ -353,10 +360,6 @@ def compute_metrics(y_true, y_pred):
     r2 = 1 - np.sum((y_true - y_pred) ** 2) / denom if denom != 0 else np.nan
 
     return mae, mse, rmse, r2
-
-TRAIN = False
-
-Model_Save_Path = "Outputs/models/ESN/Windowed_ESN.pth"
 
 if __name__ == "__main__":
     if TRAIN:

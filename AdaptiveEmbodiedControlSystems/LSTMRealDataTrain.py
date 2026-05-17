@@ -33,13 +33,13 @@ TRAIN_CSV = "Outputs/RecordedEMG/Optim2/TrainLSTM.csv"
 TEST_CSV = "Outputs/RecordedEMG/Optim2/TestLSTM.csv"
 COL = 'emg_pos'#'Processed EMG'#'Muscle Activation'
 
-# PREDICT_X = 40 #20ms
+PREDICT_X = 40 #20ms
 # PREDICT_X = 60 #30ms
-PREDICT_X = 80 #40ms
+# PREDICT_X = 80 #40ms
 
-Model_Save_Path = "Outputs/models/LSTM/Windowed_LSTM_80.pth"
+Model_Save_Path = "Outputs/models/LSTM/Windowed_LSTM_40.pth"
 # TRAIN = False
-TRAIN = True
+TRAIN = False
 
 class CSVWindowedDataset(Dataset):
     def __init__(self, csv_file, seq_len):
