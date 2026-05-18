@@ -20,7 +20,8 @@ Sensor_channels = [0, 1] # Bicep, Tricep
 # User_name = 'XiaofengXiong'
 # User_name = 'Cao'
 # User_name = 'Shelley'
-User_name = "Valentina"
+# User_name = "Valentina"
+User_name = "Annonomous"
 # User_name = "Cavan"
 
 FS = 2000 #Hz
