@@ -37,6 +37,30 @@ def compute_jerk_metrics(j):
 
     return j, abs_j, metrics
 
+Integrator_labels = [
+        "Integrator 1",
+        "Integrator 2",
+        "Integrator 3",
+        "Integrator 4",
+        "Integrator 5",
+        "Integrator 6",
+        "Integrator 7",
+        "Integrator 8",
+        "pDMP weight update",
+        "pDMP coupling term"
+    ]
+
+integrator1 = []
+integrator2 = []
+integrator3 = []
+integrator4 = []
+integrator5 = []
+integrator6 = []
+integrator7 = []
+integrator8 = []
+pDMPIntegrator = []
+couplingDMPIntegrator = []
+
 FS = 2000 # EMG
 if __name__ == "__main__":
     print("Starting EMG optimization test at 2000 Hz...")
@@ -285,6 +309,15 @@ if __name__ == "__main__":
     optimized_angles_5.remove(optimized_angles_5[0])
     optimized_angles_6.remove(optimized_angles_6[0])
     optimized_angles_7.remove(optimized_angles_7[0])
+
+    integrator1.extend(optimized_angles_1)
+    integrator2.extend(optimized_angles_2)
+    integrator3.extend(optimized_angles_4)
+    integrator4.extend(optimized_angles_5)
+    integrator5.extend(optimized_angles_6)
+    integrator6.extend(optimized_angles_7)
+    pDMPIntegrator.extend(DMP_angles)
+    couplingDMPIntegrator.extend(DMP_Coupled_angles)
     
 
     # Calculate the velocity, acceleration and jerk for each optimizer
@@ -907,6 +940,9 @@ if __name__ == "__main__":
     optimized_angles_6.remove(optimized_angles_6[0])
     optimized_angles_8.remove(optimized_angles_8[0])
     optimized_angles_9.remove(optimized_angles_9[0])
+
+    integrator7.extend(optimized_angles_8)
+    integrator8.extend(optimized_angles_9)
     
 
     # Calculate the velocity, acceleration and jerk for each optimizer
@@ -1311,3 +1347,163 @@ if __name__ == "__main__":
     plt.show()
 
     print(f"best median jerk: {min(medians):.2e}, optimizer: {labels[medians.index(min(medians))]}")
+
+    # Calculate jerk
+    t1 = 1/2000
+    t2 = 1/148
+    integrator1_velocities = np.gradient(integrator1, t1)
+    integrator1_accelerations = np.gradient(integrator1_velocities, t1)
+    integrator1_jerks = np.gradient(integrator1_accelerations, t1)
+
+    integrator2_velocities = np.gradient(integrator2, t1)
+    integrator2_accelerations = np.gradient(integrator2_velocities, t1)
+    integrator2_jerks = np.gradient(integrator2_accelerations, t1)
+
+    integrator3_velocities = np.gradient(integrator3, t1)
+    integrator3_accelerations = np.gradient(integrator3_velocities, t1)
+    integrator3_jerks = np.gradient(integrator3_accelerations, t1)
+
+    integrator4_velocities = np.gradient(integrator4, t1)
+    integrator4_accelerations = np.gradient(integrator4_velocities, t1)
+    integrator4_jerks = np.gradient(integrator4_accelerations, t1)
+
+    integrator5_velocities = np.gradient(integrator5, t1)
+    integrator5_accelerations = np.gradient(integrator5_velocities, t1)
+    integrator5_jerks = np.gradient(integrator5_accelerations, t1)
+
+    integrator6_velocities = np.gradient(integrator6, t1)
+    integrator6_accelerations = np.gradient(integrator6_velocities, t1)
+    integrator6_jerks = np.gradient(integrator6_accelerations, t1)
+
+    integrator7_velocities = np.gradient(integrator7, t2)
+    integrator7_accelerations = np.gradient(integrator7_velocities, t2)
+    integrator7_jerks = np.gradient(integrator7_accelerations, t2)
+
+    integrator8_velocities = np.gradient(integrator8, t2)
+    integrator8_accelerations = np.gradient(integrator8_velocities, t2)
+    integrator8_jerks = np.gradient(integrator8_accelerations, t2)
+
+    pDMPIntegrator_velocities = np.gradient(pDMPIntegrator, t1)
+    pDMPIntegrator_accelerations = np.gradient(pDMPIntegrator_velocities, t1)
+    pDMPIntegrator_jerks = np.gradient(pDMPIntegrator_accelerations, t1)
+
+    couplingDMPIntegrator_velocities = np.gradient(couplingDMPIntegrator, t1)
+    couplingDMPIntegrator_accelerations = np.gradient(couplingDMPIntegrator_velocities, t1)
+    couplingDMPIntegrator_jerks = np.gradient(couplingDMPIntegrator_accelerations, t1)
+
+    # Compute jerk metrics
+    j_integrator1, abs_j_integrator1, j_metrics_integrator1 = compute_jerk_metrics(integrator1_jerks)
+    j_integrator2, abs_j_integrator2, j_metrics_integrator2 = compute_jerk_metrics(integrator2_jerks)
+    j_integrator3, abs_j_integrator3, j_metrics_integrator3 = compute_jerk_metrics(integrator3_jerks)
+    j_integrator4, abs_j_integrator4, j_metrics_integrator4 = compute_jerk_metrics(integrator4_jerks)
+    j_integrator5, abs_j_integrator5, j_metrics_integrator5 = compute_jerk_metrics(integrator5_jerks)
+    j_integrator6, abs_j_integrator6, j_metrics_integrator6 = compute_jerk_metrics(integrator6_jerks)
+    j_integrator7, abs_j_integrator7, j_metrics_integrator7 = compute_jerk_metrics(integrator7_jerks)
+    j_integrator8, abs_j_integrator8, j_metrics_integrator8 = compute_jerk_metrics(integrator8_jerks)
+    j_pDMPIntegrator, abs_j_pDMPIntegrator, j_metrics_pDMPIntegrator = compute_jerk_metrics(pDMPIntegrator_jerks)
+    j_couplingDMPIntegrator, abs_j_couplingDMPIntegrator, j_metrics_couplingDMPIntegrator = compute_jerk_metrics(couplingDMPIntegrator_jerks)
+
+    # Create vectors for the metrics
+    means = [
+        j_metrics_integrator1["mean"],
+        j_metrics_integrator2["mean"],
+        j_metrics_integrator3["mean"],
+        j_metrics_integrator4["mean"],
+        j_metrics_integrator5["mean"],
+        j_metrics_integrator6["mean"],
+        j_metrics_integrator7["mean"],
+        j_metrics_integrator8["mean"],
+        j_metrics_pDMPIntegrator["mean"],
+        j_metrics_couplingDMPIntegrator["mean"]
+    ]
+    medians = [
+        j_metrics_integrator1["median"],
+        j_metrics_integrator2["median"],
+        j_metrics_integrator3["median"],
+        j_metrics_integrator4["median"],
+        j_metrics_integrator5["median"],
+        j_metrics_integrator6["median"],
+        j_metrics_integrator7["median"],
+        j_metrics_integrator8["median"],
+        j_metrics_pDMPIntegrator["median"],
+        j_metrics_couplingDMPIntegrator["median"]
+    ]
+    sigmas = [
+        j_metrics_integrator1["sigma"],
+        j_metrics_integrator2["sigma"],
+        j_metrics_integrator3["sigma"],
+        j_metrics_integrator4["sigma"],
+        j_metrics_integrator5["sigma"],
+        j_metrics_integrator6["sigma"],
+        j_metrics_integrator7["sigma"],
+        j_metrics_integrator8["sigma"],
+        j_metrics_pDMPIntegrator["sigma"],
+        j_metrics_couplingDMPIntegrator["sigma"]
+    ]
+    maxs = [
+        j_metrics_integrator1["max"],
+        j_metrics_integrator2["max"],
+        j_metrics_integrator3["max"],
+        j_metrics_integrator4["max"],
+        j_metrics_integrator5["max"],
+        j_metrics_integrator6["max"],
+        j_metrics_integrator7["max"],
+        j_metrics_integrator8["max"],
+        j_metrics_pDMPIntegrator["max"],
+        j_metrics_couplingDMPIntegrator["max"]
+    ]
+    q25s = [
+        j_metrics_integrator1["q25"],
+        j_metrics_integrator2["q25"],
+        j_metrics_integrator3["q25"],
+        j_metrics_integrator4["q25"],
+        j_metrics_integrator5["q25"],
+        j_metrics_integrator6["q25"],
+        j_metrics_integrator7["q25"],
+        j_metrics_integrator8["q25"],
+        j_metrics_pDMPIntegrator["q25"],
+        j_metrics_couplingDMPIntegrator["q25"]
+    ]
+    q75s = [
+        j_metrics_integrator1["q75"],
+        j_metrics_integrator2["q75"],
+        j_metrics_integrator3["q75"],
+        j_metrics_integrator4["q75"],
+        j_metrics_integrator5["q75"],
+        j_metrics_integrator6["q75"],
+        j_metrics_integrator7["q75"],
+        j_metrics_integrator8["q75"],
+        j_metrics_pDMPIntegrator["q75"],
+        j_metrics_couplingDMPIntegrator["q75"]
+    ]
+    lower_errors = [mean - q25 for mean, q25 in zip(means, q25s)]
+    upper_errors = [q75 - mean for mean, q75 in zip(means, q75s)]
+    lower_median_errors = [mean - median for mean, median in zip(means, medians)]
+    upper_median_errors = [median - mean for mean, median in zip(means, medians)]
+    lower_errors = np.maximum(lower_errors, 0)
+    upper_errors = np.maximum(upper_errors, 0)
+    lower_median_errors = np.maximum(lower_median_errors, 0)
+    upper_median_errors = np.maximum(upper_median_errors, 0)
+
+    abs_jerk_data = [
+        abs_j_integrator1,
+        abs_j_integrator2,
+        abs_j_integrator3,
+        abs_j_integrator4,
+        abs_j_integrator5,
+        abs_j_integrator6,
+        abs_j_integrator7,
+        abs_j_integrator8,
+        abs_j_pDMPIntegrator,
+        abs_j_couplingDMPIntegrator
+    ]
+    
+    # Create box plot
+    plt.figure(figsize=(7, 4))
+    plt.boxplot(abs_jerk_data, labels=Integrator_labels, showfliers=False)
+    plt.yscale("symlog", linthresh=0.01)
+    plt.xticks(rotation=45)
+    plt.xlabel("Trajectory generator")
+    plt.ylabel("Absolute Jerk (log scale)")
+    plt.tight_layout()
+    plt.show()
