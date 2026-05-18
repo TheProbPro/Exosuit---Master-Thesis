@@ -703,12 +703,12 @@ if __name__ == "__main__":
         weights = {
             "MAE": 1.0,
             "RMSE": 1.0,
-            "Bias": 1.0,
+            # "Bias": 1.0,
             "Correlation": 1.5,
             "R_squared": 1.2,
             "ROM_error": 1.2,
-            "Shifted_MAE": 1.0,
-            "Shifted_RMSE": 1.0,
+            # "Shifted_MAE": 1.0,
+            # "Shifted_RMSE": 1.0,
             "median_jerk": 1.5,
             "Median_Onset_Lag_sec": 0.0,
             "Median_Peak_Lag_sec": 0.0
