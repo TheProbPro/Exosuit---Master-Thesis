@@ -25,6 +25,18 @@ RESULTS_PATH = "Outputs/Results/"
 VEUSZ_CSV_PATH = "Outputs/Results/VeuszPlotting/"
 GRAPH_SAVE_PATH = "Outputs/Results/Graphs/"
 
+df_radar = pd.DataFrame({
+    "Integrator": [],
+    "MAE": [],
+    "RMSE": [],
+    "Correlation": [],
+    "R_squared": [],
+    "ROM_error": [],
+    "median_jerk": [],
+    "Median_Onset_Lag_sec": [],
+    "Median_Peak_Lag_sec": []
+})
+
 OPTIMIZERS = [
     "optimizer_1",
     "optimizer_2",
@@ -48,16 +60,16 @@ SCRIPTS = [
 ORDER = [
     "EMG to $q_d$",
     "IMU to $q_d$",
-    "Optimizer 1",
-    "Optimizer 2",
-    "Optimizer 3",
-    "Optimizer 4",
-    "Optimizer 5",
-    "Optimizer 6",
-    "Optimizer 7",
-    "Optimizer 8",
-    "pDMP",
-    "pDMP coupled",
+    "Integrator 1",
+    "Integrator 2",
+    "Integrator 3",
+    "Integrator 4",
+    "Integrator 5",
+    "Integrator 6",
+    "Integrator 7",
+    "Integrator 8",
+    "pDMP Weight update",
+    "pDMP coupling term",
     "pDMP omega"
 ]
 
@@ -173,27 +185,27 @@ if __name__ == "__main__":
                 else:
                     labels.append("IMU to $q_d$")
             elif "EMG_IMU_optimizer_2" in optimizer:
-                labels.append("Optimizer 8")
+                labels.append("Integrator 8")
             elif "EMG_IMU_optimizer" in optimizer:
-                labels.append("Optimizer 7")
+                labels.append("Integrator 7")
             elif "optimizer_1" in optimizer:
-                labels.append("Optimizer 1")
+                labels.append("Integrator 1")
             elif "optimizer_2" in optimizer:
-                labels.append("Optimizer 2")
+                labels.append("Integrator 2")
             elif "optimizer_4" in optimizer:
-                labels.append("Optimizer 3")
+                labels.append("Integrator 3")
             elif "optimizer_5" in optimizer:
-                labels.append("Optimizer 4")
+                labels.append("Integrator 4")
             elif "optimizer_6" in optimizer:
-                labels.append("Optimizer 5")
+                labels.append("Integrator 5")
             elif "EMG_Optimizer" in optimizer:
-                labels.append("Optimizer 6")
+                labels.append("Integrator 6")
             elif "pDMP coupled" in optimizer:
-                labels.append("pDMP coupled")
+                labels.append("pDMP coupling term")
             elif "pDMP omega" in optimizer:
                 labels.append("pDMP omega")
             elif "pDMP" in optimizer:
-                labels.append("pDMP")
+                labels.append("pDMP Weight update")
             else:
                 print("Ups ", optimizer)
                 labels.append(optimizer)
@@ -294,27 +306,27 @@ if __name__ == "__main__":
                 else:
                     labels.append("IMU to $q_d$")
             elif "EMG_IMU_optimizer_2" in optimizer:
-                labels.append("Optimizer 8")
+                labels.append("Integrator 8")
             elif "EMG_IMU_optimizer" in optimizer:
-                labels.append("Optimizer 7")
+                labels.append("Integrator 7")
             elif "optimizer_1" in optimizer:
-                labels.append("Optimizer 1")
+                labels.append("Integrator 1")
             elif "optimizer_2" in optimizer:
-                labels.append("Optimizer 2")
+                labels.append("Integrator 2")
             elif "optimizer_4" in optimizer:
-                labels.append("Optimizer 3")
+                labels.append("Integrator 3")
             elif "optimizer_5" in optimizer:
-                labels.append("Optimizer 4")
+                labels.append("Integrator 4")
             elif "optimizer_6" in optimizer:
-                labels.append("Optimizer 5")
+                labels.append("Integrator 5")
             elif "EMG_Optimizer" in optimizer:
-                labels.append("Optimizer 6")
+                labels.append("Integrator 6")
             elif "pDMP coupled" in optimizer:
-                labels.append("pDMP coupled")
+                labels.append("pDMP coupling term")
             elif "pDMP omega" in optimizer:
                 labels.append("pDMP omega")
             elif "pDMP" in optimizer:
-                labels.append("pDMP")
+                labels.append("pDMP Weight update")
             else:
                 print(optimizer)
                 labels.append(optimizer)
@@ -444,27 +456,27 @@ if __name__ == "__main__":
                 else:
                     labels.append("IMU to $q_d$")
             elif "EMG_IMU_optimizer_2" in optimizer:
-                labels.append("Optimizer 8")
+                labels.append("Integrator 8")
             elif "EMG_IMU_optimizer" in optimizer:
-                labels.append("Optimizer 7")
+                labels.append("Integrator 7")
             elif "optimizer_1" in optimizer:
-                labels.append("Optimizer 1")
+                labels.append("Integrator 1")
             elif "optimizer_2" in optimizer:
-                labels.append("Optimizer 2")
+                labels.append("Integrator 2")
             elif "optimizer_4" in optimizer:
-                labels.append("Optimizer 3")
+                labels.append("Integrator 3")
             elif "optimizer_5" in optimizer:
-                labels.append("Optimizer 4")
+                labels.append("Integrator 4")
             elif "optimizer_6" in optimizer:
-                labels.append("Optimizer 5")
+                labels.append("Integrator 5")
             elif "EMG_Optimizer" in optimizer:
-                labels.append("Optimizer 6")
+                labels.append("Integrator 6")
             elif "pDMP coupled" in optimizer:
-                labels.append("pDMP coupled")
+                labels.append("pDMP coupling term")
             elif "pDMP omega" in optimizer:
                 labels.append("pDMP omega")
             elif "pDMP" in optimizer:
-                labels.append("pDMP")
+                labels.append("pDMP Weight update")
             else:
                 print(optimizer)
                 labels.append(optimizer)
@@ -513,6 +525,70 @@ if __name__ == "__main__":
 
         # Merge into df_stats
         df_stats = df_stats.merge(df_jerk_stats, on="optimizer", how="left")
+        
+        emg_integrators = [
+            "EMG to $q_d$",
+            "Integrator 1",
+            "Integrator 2",
+            "Integrator 3",
+            "Integrator 4",
+            "Integrator 5",
+            "Integrator 6",
+            "pDMP Weight update",
+            "pDMP coupling term"
+        ]
+
+        imu_integrators = [
+            "IMU to $q_d$",
+            "Integrator 7",
+            "Integrator 8"
+        ]
+
+        is_emgtest6s_001 = (
+            "EMGTest6s_001" in file_name
+            or df_stats["file"].astype(str).str.contains("EMGTest6s_001", regex=False).any()
+        )
+
+        is_exoimutest1_003 = (
+            "ExoIMUTest1_003" in file_name
+            or df_stats["file"].astype(str).str.contains("ExoIMUTest1_003", regex=False).any()
+        )
+
+        if is_emgtest6s_001:
+            selected_labels = emg_integrators
+
+        elif is_exoimutest1_003:
+            selected_labels = imu_integrators
+
+        else:
+            selected_labels = []
+
+        if selected_labels:
+            df_selected = df_stats[
+                df_stats["labels"].astype(str).isin(selected_labels)
+            ].copy()
+
+            df_selected = df_selected[[
+                "labels",
+                "MAE",
+                "RMSE",
+                "Correlation",
+                "R_squared",
+                "ROM_error",
+                "median_jerk",
+                "Median_Onset_Lag_sec",
+                "Median_Peak_Lag_sec"
+            ]]
+
+            df_selected = df_selected.rename(columns={
+                "labels": "Integrator"
+            })
+
+            df_radar = pd.concat(
+                [df_radar, df_selected],
+                ignore_index=True
+            )
+
         ####################################
 
         # print optimizer with lowest MAE, RMSE, shifted MAE, shifted RMSE
@@ -543,13 +619,17 @@ if __name__ == "__main__":
         #     "MAE","RMSE","Bias","Correlation","R_squared",
         #     "Lag","Lag_time_sec","ROM_error","Shifted_MAE","Shifted_RMSE", "median_jerk"
         # ]
+        # metrics = [
+        #     "MAE","RMSE","Bias","Correlation","R_squared",
+        #     "ROM_error","Shifted_MAE","Shifted_RMSE", "median_jerk"
+        # ]
         metrics = [
-            "MAE","RMSE","Bias","Correlation","R_squared",
-            "ROM_error","Shifted_MAE","Shifted_RMSE", "median_jerk"
+            "MAE","RMSE","Correlation","R_squared",
+            "ROM_error", "median_jerk", "Median_Onset_Lag_sec", "Median_Peak_Lag_sec"
         ]
         metrics_labels = [
-            "MAE","RMSE","Bias","Correlation","$R^2$",
-            "ROM error","Shifted MAE","Shifted RMSE", "$\eta$ Jerk"
+            "MAE","RMSE","Pearson correlation","$R^2$",
+            "ROM error", "Median jerk", "Median onset lag (s)", "Median peak lag (s)"
         ]
 
         df_norm = df_stats.copy()
@@ -629,13 +709,133 @@ if __name__ == "__main__":
             "ROM_error": 1.2,
             "Shifted_MAE": 1.0,
             "Shifted_RMSE": 1.0,
-            "median_jerk": 1.5
+            "median_jerk": 1.5,
+            "Median_Onset_Lag_sec": 0.0,
+            "Median_Peak_Lag_sec": 0.0
         }
 
         df_norm["score"] = sum(df_norm[m] * weights[m] for m in metrics) / sum(weights.values())
         df_norm = df_norm.sort_values("score", ascending=False)
         for i, row in df_norm.iterrows():
             print(f"{row['optimizer']:<20} | Score: {row['score']:.3f}")
+
+    # Sort radar dataframe in the desired final order
+    radar_order = [
+        "EMG to $q_d$",
+        "IMU to $q_d$",
+        "Integrator 1",
+        "Integrator 2",
+        "Integrator 3",
+        "Integrator 4",
+        "Integrator 5",
+        "Integrator 6",
+        "Integrator 7",
+        "Integrator 8",
+        "pDMP Weight update",
+        "pDMP coupling term",
+    ]
+
+    df_radar["Integrator"] = pd.Categorical(
+        df_radar["Integrator"],
+        categories=radar_order,
+        ordered=True
+    )
+
+    df_radar = df_radar.sort_values("Integrator")
+
+    print("\nFinal radar dataframe:")
+    print(df_radar)
+
+    # df_radar.to_csv(
+    #     os.path.join(VEUSZ_CSV_PATH, "combined_radar_dataframe.csv"),
+    #     index=False
+    # )
+
+    df_norm = df_radar.copy()
+
+    # Exclude the pDMP optimizers #TODO
+    df_norm = df_norm[~df_norm["Integrator"].str.contains("pDMP")]
+    # df_norm = df_norm[~df_norm["Integrator"].str.contains("pDMP omega")]
+
+    # Handle special cases first
+    # df_norm["Bias"] = df_norm["Bias"].abs()
+    # df_norm["Lag"] = df_norm["Lag"].abs()
+    # df_norm["Lag_time_sec"] = df_norm["Lag_time_sec"].abs()
+    df_norm["ROM_error"] = df_norm["ROM_error"].abs()
+
+    # vals = df_stats["Lag"].astype(float)
+    # max_abs = np.max(np.abs(vals)) + 1e-8
+    # # Normalize to [-1, 1]
+    # norm = vals / max_abs
+    # # Shift to [0, 1] (so radar works)
+    # df_norm["Lag"] = (norm + 1) / 2
+
+    # vals = df_stats["Lag_time_sec"].astype(float)
+    # max_abs = np.max(np.abs(vals)) + 1e-8
+    # norm = vals / max_abs
+    # df_norm["Lag_time_sec"] = (norm + 1) / 2
+
+    # Normalize all metrics to [0,1]
+    for col in metrics:
+        vals = df_norm[col].astype(float)
+        min_v = vals.min()
+        max_v = vals.max()
+            
+        # avoid divide by zero
+        norm = (vals - min_v) / (max_v - min_v + 1e-8)
+        
+        # invert "error" metrics
+        if col not in ["Correlation", "R_squared"]:
+            norm = 1 - norm
+            
+        df_norm[col] = norm
+
+    # Radar setup
+    labels = metrics_labels
+    num_vars = len(labels)
+
+    angles = np.linspace(0, 2*np.pi, num_vars, endpoint=False)
+    angles = np.concatenate([angles, [angles[0]]])
+
+    fig, ax = plt.subplots(figsize=(9, 7), subplot_kw=dict(polar=True))
+
+    # Plot each optimizer
+    cmap = mpl.colormaps["tab20"].resampled(len(df_norm))
+
+    for j, (_, row) in enumerate(df_norm.iterrows()):
+        values = [row[m] for m in metrics]
+        values += values[:1]
+
+        color = cmap(j)
+
+        ax.plot(
+            angles,
+            values,
+            label=row["Integrator"],   # or row["labels"] if using df_stats
+            color=color,
+            linewidth=1.8
+        )
+        ax.fill(
+            angles,
+            values,
+            color=color,
+            alpha=0.05
+        )
+
+    ax.set_xticks(angles[:-1])
+    ax.set_xticklabels(labels, fontsize=9)
+    ax.set_ylim(0, 1)
+
+    # Move plot left and reserve space for legend
+    fig.subplots_adjust(right=0.68)
+
+    ax.legend(
+        loc="center left",
+        bbox_to_anchor=(1.15, 0.5),
+        frameon=True
+    )
+
+    plt.show()
     
     # # Load stats
     # # Optimizer,MAE,RMSE,Bias,Correlation,R_squared,Lag,Lag_time_sec,ROM_error,Shifted_MAE,Shifted_RMSE
