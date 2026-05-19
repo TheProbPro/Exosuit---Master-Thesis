@@ -32,8 +32,9 @@ EMG_DT       = 1.0 / FS
 # USER_NAME    = 'VictorBNielsen'
 # USER_NAME    = 'Kally'
 # USER_NAME = 'ZichenWang'
+USER_NAME = "Annonomous"
 # USER_NAME = "Valentina"
-USER_NAME = "Cavan"
+# USER_NAME = "Cavan"
 LSTM_PATH    = "Outputs/models/LSTM/Optim6/Windowed_LSTM_60.pth"
 
 EMG_B        = 4.0
