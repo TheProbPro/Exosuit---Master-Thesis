@@ -14,7 +14,7 @@ import torch.optim as optim
 # EMG processing imports
 from SignalProcessing.Filtering import rt_filtering, rt_desired_Angle_lowpass
 from SignalProcessing.Interpretors import ProportionalMyoelectricalControl as PMC
-from Optimizations import optimizer_6
+from Optimizations import optimizer_6, optimize_2
 import AdaptiveEmbodiedControlSystems.ESN as ESN
 import AdaptiveEmbodiedControlSystems.LSTM as LSTM
 
@@ -57,10 +57,10 @@ class WindowedESNWithActivation(nn.Module):
             output = self.activation(output)
         return output
 
-SAVEPATH = "Outputs/PredictionResults/"
+SAVEPATH = "Outputs/PredictionResults/New/"
 
-ESN_SAVEPATH = "Outputs/models/ESN/Windowed_ESN.pth"
-LSTM_SAVEPATH = "Outputs/models/LSTM/Windowed_LSTM.pth"
+ESN_SAVEPATH = "Outputs/models/ESN/Windowed_ESN_80.pth"
+LSTM_SAVEPATH = "Outputs/models/LSTM/Windowed_LSTM_80.pth"
 
 PREDICTION_MODELS = [
     "ESN",
@@ -68,13 +68,15 @@ PREDICTION_MODELS = [
 ]
 
 INPUT_MOCAP_DATA = [
-    "Outputs/MoCap/ExoTestReal1.csv",
-    "Outputs/MoCap/ExoTestReal1_002.csv"
+    # "Outputs/MoCap/ExoTestReal1.csv",
+    # "Outputs/MoCap/ExoTestReal1_002.csv"
+    "Outputs/NewMoCap/EMGTest6s_001.csv",
 ]
 
 INPUT_EMG_DATA = [
-    "Outputs/MoCap/ExoTestReal1_Trigno_2801.csv",
-    "Outputs/MoCap/ExoTestReal1_002_Trigno_2801.csv"
+    # "Outputs/MoCap/ExoTestReal1_Trigno_2801.csv",
+    # "Outputs/MoCap/ExoTestReal1_002_Trigno_2801.csv"
+    "Outputs/NewMoCap/EMGTest6s_001_Trigno_2801.csv"
 ]
 
 def process_mocap(file):
@@ -118,7 +120,7 @@ def process_mocap(file):
     # Parse to datetime
     start_dt = datetime.strptime(start_time_clean, "%Y-%m-%d %H:%M:%S.%f")
     # If you know this should be PM rather than AM
-    start_dt = start_dt + timedelta(hours=12)
+    # start_dt = start_dt + timedelta(hours=12)
     print("Parsed start datetime:", start_dt)
     
     # Convert to unix timestamp
@@ -268,8 +270,12 @@ def process_emg(file, optimizer):
         filtered_net_a = float(net_a_lowpass.lowpass(np.atleast_1d(net_a))[0])
         filtered_net_a_values.append(filtered_net_a)
 
-        optimized_angle, v, acc = optimizer_6(filtered_net_a, v, dt, optimized_angle_before[-1], THETA_MIN, THETA_MAX, np.pi, b=10.0, k=np.pi*10.0*2)
-        
+        # optimized_angle, v, acc = optimizer_6(filtered_net_a, v, dt, optimized_angle_before[-1], THETA_MIN, THETA_MAX, np.pi, b=10.0, k=np.pi*10.0*2)
+        optimized_angle = optimize_2(
+            np.pi*0.9, filtered_net_a, dt,
+            optimized_angle_before[-1], THETA_MIN, THETA_MAX
+        )
+
         optimized_angle_before.append(optimized_angle)
 
         try:
