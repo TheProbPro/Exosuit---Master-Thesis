@@ -11,6 +11,7 @@ from pathlib import Path
 mpl.rcParams.update({
     'text.usetex': True,
     'font.family': 'serif',
+    'text.latex.preamble': r'\usepackage{amsmath}',
     
     'font.size': 10,          # default text size
     'axes.titlesize': 14,     # title
@@ -34,7 +35,8 @@ df_radar = pd.DataFrame({
     "ROM_error": [],
     "median_jerk": [],
     "Median_Onset_Lag_sec": [],
-    "Median_Peak_Lag_sec": []
+    "Median_Peak_Lag_sec": [],
+    "score": []
 })
 
 OPTIMIZERS = [
@@ -743,6 +745,58 @@ if __name__ == "__main__":
 
     df_radar = df_radar.sort_values("Integrator")
 
+    # ---------- Add weighted score to df_radar ----------
+
+    score_metrics = [
+        "MAE",
+        "RMSE",
+        "Correlation",
+        "R_squared",
+        "ROM_error",
+        "median_jerk",
+        "Median_Onset_Lag_sec",
+        "Median_Peak_Lag_sec"
+    ]
+
+    weights = {
+        "MAE": 1.0,
+        "RMSE": 1.0,
+        "Correlation": 1.5,
+        "R_squared": 1.2,
+        "ROM_error": 1.2,
+        "median_jerk": 1.5,
+        "Median_Onset_Lag_sec": 0.0,
+        "Median_Peak_Lag_sec": 0.0
+    }
+
+    df_score = df_radar.copy()
+
+    # Make error values positive before scoring
+    df_score["ROM_error"] = df_score["ROM_error"].abs()
+
+    # Normalize metrics to [0, 1]
+    # Higher score = better performance
+    for col in score_metrics:
+        vals = df_score[col].astype(float)
+
+        min_v = vals.min()
+        max_v = vals.max()
+
+        norm = (vals - min_v) / (max_v - min_v + 1e-8)
+
+        # For these two, higher is better
+        # For all others, lower is better
+        if col not in ["Correlation", "R_squared"]:
+            norm = 1 - norm
+
+        df_score[col] = norm
+
+    # Weighted average score
+    df_radar["score"] = (
+        sum(df_score[m] * weights[m] for m in score_metrics)
+        / sum(weights.values())
+    )
+
     print("\nFinal radar dataframe:")
     print(df_radar)
 
@@ -751,11 +805,21 @@ if __name__ == "__main__":
     #     index=False
     # )
 
+    metrics = [
+        "MAE","RMSE","Correlation","R_squared",
+        "ROM_error", "median_jerk", "Median_Onset_Lag_sec", "Median_Peak_Lag_sec", "score"
+    ]
+    metrics_labels = [
+        "MAE","RMSE","$r$","$R^2$",
+        "ROM\nerror", "Median\n" + r"$(|\dddot{q}_d|)$", r"$\tilde{t}_{\mathrm{onset}}$", r"$\tilde{t}_{\mathrm{peak}}$",
+        "Weighted\nscore"
+    ]
+
     df_norm = df_radar.copy()
 
     # Exclude the pDMP optimizers #TODO
-    df_norm = df_norm[~df_norm["Integrator"].str.contains("pDMP")]
-    # df_norm = df_norm[~df_norm["Integrator"].str.contains("pDMP omega")]
+    # df_norm = df_norm[~df_norm["Integrator"].str.contains("pDMP")]
+    df_norm = df_norm[~df_norm["Integrator"].str.contains("pDMP omega")]
 
     # Handle special cases first
     # df_norm["Bias"] = df_norm["Bias"].abs()
@@ -785,7 +849,7 @@ if __name__ == "__main__":
         norm = (vals - min_v) / (max_v - min_v + 1e-8)
         
         # invert "error" metrics
-        if col not in ["Correlation", "R_squared"]:
+        if col not in ["Correlation", "R_squared", "score"]:
             norm = 1 - norm
             
         df_norm[col] = norm
@@ -822,12 +886,49 @@ if __name__ == "__main__":
             alpha=0.05
         )
 
+    # ax.set_xticks(angles[:-1])
+    # ax.set_xticklabels(labels, fontsize=9)
+    # ax.set_ylim(0, 1)
+    # Remove default angular labels
     ax.set_xticks(angles[:-1])
-    ax.set_xticklabels(labels, fontsize=9)
+    ax.set_xticklabels([])
+
     ax.set_ylim(0, 1)
 
+    # Add custom labels slightly outside the radar plot
+    label_radius = 1.12
+
+    for angle, label in zip(angles[:-1], labels):
+        x = np.cos(angle)
+        y = np.sin(angle)
+
+        if x > 0.2:
+            ha = "left"
+        elif x < -0.2:
+            ha = "right"
+        else:
+            ha = "center"
+
+        if y > 0.2:
+            va = "bottom"
+        elif y < -0.2:
+            va = "top"
+        else:
+            va = "center"
+
+        ax.text(
+            angle,
+            label_radius,
+            label,
+            ha=ha,
+            va=va,
+            fontsize=9,
+            clip_on=False
+        )
+
     # Move plot left and reserve space for legend
-    fig.subplots_adjust(right=0.68)
+    # fig.subplots_adjust(right=0.68)
+    fig.subplots_adjust(left=0.08, right=0.62, top=0.90, bottom=0.10)
 
     ax.legend(
         loc="center left",

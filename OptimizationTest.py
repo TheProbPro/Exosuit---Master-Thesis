@@ -9,6 +9,7 @@ import time
 mpl.rcParams.update({
     'text.usetex': True,
     'font.family': 'serif',
+    'text.latex.preamble': r'\usepackage{amsmath}',
     
     'font.size': 10,          # default text size
     'axes.titlesize': 14,     # title
@@ -1504,6 +1505,6 @@ if __name__ == "__main__":
     plt.yscale("symlog", linthresh=0.01)
     plt.xticks(rotation=45)
     plt.xlabel("Trajectory generator")
-    plt.ylabel("Absolute Jerk (log scale)")
+    plt.ylabel("$|\dddot{q}_d|$ [rad/$s^3$]")  # Absolute jerk
     plt.tight_layout()
     plt.show()
