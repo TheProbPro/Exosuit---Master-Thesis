@@ -1,9 +1,9 @@
 # Veusz saved document (version 4.2)
-# Saved at 2026-05-27T12:04:41.384057
+# Saved at 2026-05-27T12:03:03.961695
 
 SetCompatLevel(1)
 AddImportPath('C:\\Users\\nvigg\\Documents\\GitHub\\Exosuit---Master-Thesis\\Outputs\\IEEE\\Veusz')
-ImportFileCSV('../Processed/Optim2/PID/Cavan/NonePeriodic/trial_1.csv', linked=True)
+ImportFileCSV('../Processed/Optim2/OIAC/Cavan/NonePeriodic/trial_1.csv', linked=True)
 Set('englishlocale', True)
 Set('colorTheme', 'default-latest')
 Set('StyleSheet/axis-function/autoRange', 'next-tick')

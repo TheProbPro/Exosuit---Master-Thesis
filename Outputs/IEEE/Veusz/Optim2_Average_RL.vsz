@@ -1,9 +1,9 @@
 # Veusz saved document (version 4.2)
-# Saved at 2026-05-27T11:46:57.857747
+# Saved at 2026-05-27T11:40:52.244815
 
 SetCompatLevel(1)
 AddImportPath('C:\\Users\\nvigg\\Documents\\GitHub\\Exosuit---Master-Thesis\\Outputs\\IEEE\\Veusz')
-ImportFileCSV('../Processed/Average_trial_1_Optim2_PID_Periodic_Data.csv', linked=True)
+ImportFileCSV('../../RWExosuitResults/Processed/Average_trial_1_Optim2_FullMovement_Data.csv', linked=True)
 Set('englishlocale', True)
 Set('colorTheme', 'default-latest')
 Set('StyleSheet/axis-function/autoRange', 'next-tick')
