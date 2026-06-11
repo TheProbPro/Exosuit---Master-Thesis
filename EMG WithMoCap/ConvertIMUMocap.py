@@ -26,22 +26,22 @@ IMU_OPTIMIZERS = [
 ]
 
 INPUT_MOCAP_DATA = [
-    "Outputs/MoCap/ExoIMUTest1_002.csv",
+    # "Outputs/MoCap/ExoIMUTest1_002.csv",
     "Outputs/MoCap/ExoIMUTest1_003.csv"
 ]
 
 INPUT_EMG_DATA = [
-    "Outputs/IMUMocap2/emg_data.csv",
+    # "Outputs/IMUMocap2/emg_data.csv",
     "Outputs/IMUMocap3/emg_data.csv"
 ]
 
 INPUT_IMU_DATA = [
-    "Outputs/IMUMocap2/imu_data.csv",
+    # "Outputs/IMUMocap2/imu_data.csv",
     "Outputs/IMUMocap3/imu_data.csv"
 ]
 
 INPUT_IMU_CALIBRATION_DATA = [
-    "Outputs/IMUMocap2/imu_calibration_data.csv",
+    # "Outputs/IMUMocap2/imu_calibration_data.csv",
     "Outputs/IMUMocap3/imu_calibration_data.csv"
 ]
 

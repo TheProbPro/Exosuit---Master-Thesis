@@ -18,7 +18,7 @@ mpl.rcParams.update({
     'axes.labelsize': 12,     # x and y labels
     'xtick.labelsize': 10,    # x tick labels
     'ytick.labelsize': 10,    # y tick labels
-    'legend.fontsize': 10,    
+    'legend.fontsize': 11,    
     'figure.titlesize': 16
 })
 
@@ -769,7 +769,7 @@ if __name__ == "__main__":
         "Median_Peak_Lag_sec": 0.0
     }
 
-    df_score = df_radar.copy()
+    df_score = df_radar.copy() 
 
     # Make error values positive before scoring
     df_score["ROM_error"] = df_score["ROM_error"].abs()
@@ -811,7 +811,7 @@ if __name__ == "__main__":
     ]
     metrics_labels = [
         "MAE","RMSE","$r$","$R^2$",
-        "ROM\nerror", "Median\n" + r"$(|\dddot{q}_d|)$", r"$\tilde{t}_{\mathrm{onset}}$", r"$\tilde{t}_{\mathrm{peak}}$",
+        "ROM\nerror", r"$|\widetilde{\dddot{q}}_d|$", r"$\tilde{t}_{\mathrm{onset}}$", r"$\tilde{t}_{\mathrm{peak}}$",
         "Weighted\nscore"
     ]
 
@@ -861,7 +861,7 @@ if __name__ == "__main__":
     angles = np.linspace(0, 2*np.pi, num_vars, endpoint=False)
     angles = np.concatenate([angles, [angles[0]]])
 
-    fig, ax = plt.subplots(figsize=(9, 7), subplot_kw=dict(polar=True))
+    fig, ax = plt.subplots(figsize=(7, 4), subplot_kw=dict(polar=True))
 
     # Plot each optimizer
     cmap = mpl.colormaps["tab20"].resampled(len(df_norm))
@@ -896,7 +896,7 @@ if __name__ == "__main__":
     ax.set_ylim(0, 1)
 
     # Add custom labels slightly outside the radar plot
-    label_radius = 1.12
+    label_radius = 1.05
 
     for angle, label in zip(angles[:-1], labels):
         x = np.cos(angle)
@@ -922,7 +922,7 @@ if __name__ == "__main__":
             label,
             ha=ha,
             va=va,
-            fontsize=9,
+            fontsize=12,
             clip_on=False
         )
 
@@ -932,7 +932,7 @@ if __name__ == "__main__":
 
     ax.legend(
         loc="center left",
-        bbox_to_anchor=(1.15, 0.5),
+        bbox_to_anchor=(1.10, 0.5),
         frameon=True
     )
 

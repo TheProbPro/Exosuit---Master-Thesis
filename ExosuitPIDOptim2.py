@@ -29,10 +29,10 @@ from Motors.DynamixelHardwareInterface import Motors
 # ── EMG 参数 ─────────────────────────────────────────────────
 FS           = 2000
 EMG_DT       = 1.0 / FS
-# USER_NAME    = 'VictorBNielsen'
+USER_NAME    = 'VictorBNielsen'
 # USER_NAME    = 'Kally'
 # USER_NAME = 'ZichenWang'
-USER_NAME = "Annonomous"
+# USER_NAME = "Annonomous"
 # USER_NAME = "Valentina"
 # USER_NAME = "Cavan"
 LSTM_PATH    = "Outputs/models/LSTM/Windowed_LSTM_60.pth"
@@ -244,8 +244,10 @@ def emg_thread_fn(qd_queue: queue.Queue):
     emg = DelsysEMG(channel_range=(0, 1))
     emg.start()
     print("[EMG] 线程启动，开始采集...")
+    pt_analysis = []
 
     while not stop_event.is_set():
+        pt_start = time.time()
         reading    = emg.read()
         sample_counter += 1
 
@@ -298,9 +300,14 @@ def emg_thread_fn(qd_queue: queue.Queue):
                 qd_queue.get_nowait()
                 qd_queue.put_nowait(predicted_angle)
 
+        pt_end = time.time()
+        pt_duration = pt_end - pt_start
+        pt_analysis.append(pt_duration)
+
     emg.stop()
     Bicep_RMS_queue.queue.clear()
     Tricep_RMS_queue.queue.clear()
+    print(f"EMG average processing time: {np.mean(pt_analysis)*1000:.4f} ms per sample")
     print("[EMG] 线程已停止。")
 
 

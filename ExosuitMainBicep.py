@@ -45,9 +45,9 @@ from Motors.DynamixelHardwareInterface import Motors
 # ── EMG 参数 ─────────────────────────────────────────────────
 FS           = 2000          # EMG 采样率 (Hz)
 EMG_DT       = 1.0 / FS
-# USER_NAME    = 'VictorBNielsen'
+USER_NAME    = 'VictorBNielsen'
 # USER_NAME    = 'Kally'
-USER_NAME = 'ZichenWang'
+# USER_NAME = 'ZichenWang'
 # USER_NAME = 'Nicklas'
 # USER_NAME = 'Magnus'
 # USER_NAME = 'Shelley'
@@ -68,7 +68,8 @@ plot_dq = []
 # SAVEPATH = f"Outputs/RWExosuitResults/Optim2/" + USER_NAME + "/FullMovement"
 # SAVEPATH = f"Outputs/RWExosuitResults/Optim2/" + USER_NAME + "/NonePeriodic"
 # SAVEPATH = f"Outputs/RWExosuitResults/Optim6/" + USER_NAME + "/FullMovement"
-SAVEPATH = f"Outputs/RWExosuitResults/Optim6/" + USER_NAME + "/NonePeriodic"
+# SAVEPATH = f"Outputs/RWExosuitResults/Optim6/" + USER_NAME + "/NonePeriodic"
+SAVEPATH = f"Outputs/Test/{USER_NAME}/Optim6/"
 
 # ── 关节范围（EMG 和控制器共享）─────────────────────────────
 THETA_MIN    = np.deg2rad(0)    # 0 rad
