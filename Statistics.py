@@ -27,8 +27,7 @@ EMG_OPTIMIZERS = [
     "optimizer_6",
     "EMG_Optimizer",
     "pDMP",
-    "pDMP coupled",
-    "pDMP omega"
+    "pDMP coupled"
 ]
 
 INPUT_MOCAP_DATA = [
@@ -183,6 +182,8 @@ def process_emg(file, optimizer):
 
     elif optimizer == "pDMP coupled":
         DMP = pDMPCoupling1(DOF=1, N=25, alpha=8, beta=2, lambd=0.9, dt=dt)
+        DMP.set_output_limits(THETA_MIN, THETA_MAX, squash_gain=1.0)
+        DMP.set_output_state(np.array([0.0]))
         # Teach DMP 0 trajectory for 3s
         y_old = 0
         dy_old = 0
@@ -713,8 +714,7 @@ def run_friedman_and_posthoc(cycle_metrics_df, metric="Weighted_Score", higher_i
         "Integrator 5",
         "Integrator 6",
         "pDMP weight update",
-        "pDMP coupled",
-        "pDMP omega"
+        "pDMP coupled"
     ]
 
     # Build ordered lists of original column names and labels

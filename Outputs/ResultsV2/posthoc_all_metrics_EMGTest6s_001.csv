@@ -1,0 +1,253 @@
+Method_A,Method_B,Metric,Wilcoxon_stat,p_value,Median_Difference_A_minus_B,Significant_p_less_0_1
+EMG to q_d,Integrator 1,Median_Abs_Jerk,0.0,0.0625,327.226529400824,True
+EMG to q_d,Integrator 2,Median_Abs_Jerk,0.0,0.0625,296.57437478248653,True
+EMG to q_d,Integrator 3,Median_Abs_Jerk,0.0,0.0625,329.47017791817706,True
+EMG to q_d,Integrator 4,Median_Abs_Jerk,0.0,0.0625,327.58420035867,True
+EMG to q_d,Integrator 5,Median_Abs_Jerk,0.0,0.0625,336.74931143185586,True
+EMG to q_d,Integrator 6,Median_Abs_Jerk,0.0,0.0625,342.0777607970674,True
+EMG to q_d,pDMP weight update,Median_Abs_Jerk,0.0,0.0625,364.9827936645966,True
+EMG to q_d,pDMP coupled,Median_Abs_Jerk,0.0,0.0625,364.92708552436665,True
+Integrator 1,Integrator 2,Median_Abs_Jerk,0.0,0.0625,-44.45164513128648,True
+Integrator 1,Integrator 3,Median_Abs_Jerk,4.0,0.4375,-1.1597293798675992,False
+Integrator 1,Integrator 4,Median_Abs_Jerk,3.0,0.3125,-0.23128144071392853,False
+Integrator 1,Integrator 5,Median_Abs_Jerk,3.0,0.3125,-4.962561564611406,False
+Integrator 1,Integrator 6,Median_Abs_Jerk,0.0,0.0625,33.750898792889416,True
+Integrator 1,pDMP weight update,Median_Abs_Jerk,0.0,0.0625,74.63362291621891,True
+Integrator 1,pDMP coupled,Median_Abs_Jerk,0.0,0.0625,69.9871937573413,True
+Integrator 2,Integrator 3,Median_Abs_Jerk,0.0,0.0625,43.291915751418884,True
+Integrator 2,Integrator 4,Median_Abs_Jerk,0.0,0.0625,44.05211728437226,True
+Integrator 2,Integrator 5,Median_Abs_Jerk,1.0,0.125,34.793757346283655,False
+Integrator 2,Integrator 6,Median_Abs_Jerk,0.0,0.0625,90.37015110211757,True
+Integrator 2,pDMP weight update,Median_Abs_Jerk,0.0,0.0625,131.4253108824977,True
+Integrator 2,pDMP coupled,Median_Abs_Jerk,0.0,0.0625,126.60644606656946,True
+Integrator 3,Integrator 4,Median_Abs_Jerk,4.0,0.4375,0.7602015329533742,False
+Integrator 3,Integrator 5,Median_Abs_Jerk,4.0,0.4375,-3.717029755434851,False
+Integrator 3,Integrator 6,Median_Abs_Jerk,1.0,0.125,34.28438883714318,False
+Integrator 3,pDMP weight update,Median_Abs_Jerk,0.0,0.0625,75.33954861752332,True
+Integrator 3,pDMP coupled,Median_Abs_Jerk,0.0,0.0625,70.52068380159507,True
+Integrator 4,Integrator 5,Median_Abs_Jerk,3.0,0.3125,-4.731280123897477,False
+Integrator 4,Integrator 6,Median_Abs_Jerk,0.0,0.0625,33.75212111192229,True
+Integrator 4,pDMP weight update,Median_Abs_Jerk,0.0,0.0625,74.80728089230243,True
+Integrator 4,pDMP coupled,Median_Abs_Jerk,0.0,0.0625,69.98841607637418,True
+Integrator 5,Integrator 6,Median_Abs_Jerk,1.0,0.125,56.691151613301116,False
+Integrator 5,pDMP weight update,Median_Abs_Jerk,0.0,0.0625,96.63155353621406,True
+Integrator 5,pDMP coupled,Median_Abs_Jerk,1.0,0.125,91.8126887202858,False
+Integrator 6,pDMP weight update,Median_Abs_Jerk,0.0,0.0625,33.492512470347144,True
+Integrator 6,pDMP coupled,Median_Abs_Jerk,0.0,0.0625,31.780839174912828,True
+pDMP weight update,pDMP coupled,Median_Abs_Jerk,0.0,0.0625,-1.3778793079175755,True
+EMG to q_d,Integrator 1,Pearson_r,0.0,0.0625,-0.40415421195214485,True
+EMG to q_d,Integrator 2,Pearson_r,0.0,0.0625,-0.4055050713550902,True
+EMG to q_d,Integrator 3,Pearson_r,0.0,0.0625,-0.4042067974814103,True
+EMG to q_d,Integrator 4,Pearson_r,0.0,0.0625,-0.40419723014205233,True
+EMG to q_d,Integrator 5,Pearson_r,0.0,0.0625,-0.33916441806712416,True
+EMG to q_d,Integrator 6,Pearson_r,0.0,0.0625,-0.19898173142455855,True
+EMG to q_d,pDMP weight update,Pearson_r,0.0,0.0625,0.4277524985146013,True
+EMG to q_d,pDMP coupled,Pearson_r,1.0,0.125,0.4010254365568312,False
+Integrator 1,Integrator 2,Pearson_r,0.0,0.0625,-0.011813272786863505,True
+Integrator 1,Integrator 3,Pearson_r,2.0,0.1875,-0.0004739060481144808,False
+Integrator 1,Integrator 4,Pearson_r,2.0,0.1875,-0.00012356629155663157,False
+Integrator 1,Integrator 5,Pearson_r,0.0,0.0625,0.031227434498090068,True
+Integrator 1,Integrator 6,Pearson_r,0.0,0.0625,0.19711476138142758,True
+Integrator 1,pDMP weight update,Pearson_r,0.0,0.0625,0.804400993237242,True
+Integrator 1,pDMP coupled,Pearson_r,0.0,0.0625,0.805179648508976,True
+Integrator 2,Integrator 3,Pearson_r,0.0,0.0625,0.011214506097514843,True
+Integrator 2,Integrator 4,Pearson_r,0.0,0.0625,0.011630094757999254,True
+Integrator 2,Integrator 5,Pearson_r,0.0,0.0625,0.05170601677568565,True
+Integrator 2,Integrator 6,Pearson_r,0.0,0.0625,0.2089280341682911,True
+Integrator 2,pDMP weight update,Pearson_r,0.0,0.0625,0.8175271514441045,True
+Integrator 2,pDMP coupled,Pearson_r,0.0,0.0625,0.8065305079119214,True
+Integrator 3,Integrator 4,Pearson_r,2.0,0.1875,0.0003503397565578492,False
+Integrator 3,Integrator 5,Pearson_r,0.0,0.0625,0.03323856811411474,True
+Integrator 3,Integrator 6,Pearson_r,0.0,0.0625,0.19771352807077625,True
+Integrator 3,pDMP weight update,Pearson_r,0.0,0.0625,0.8042389949591847,True
+Integrator 3,pDMP coupled,Pearson_r,0.0,0.0625,0.8052322340382415,True
+Integrator 4,Integrator 5,Pearson_r,0.0,0.0625,0.03206034306788441,True
+Integrator 4,Integrator 6,Pearson_r,0.0,0.0625,0.19729793941029183,True
+Integrator 4,pDMP weight update,Pearson_r,0.0,0.0625,0.80433183052874,True
+Integrator 4,pDMP coupled,Pearson_r,0.0,0.0625,0.8052226666988835,True
+Integrator 5,Integrator 6,Pearson_r,0.0,0.0625,0.1289615438895273,True
+Integrator 5,pDMP weight update,Pearson_r,0.0,0.0625,0.7564958036120036,True
+Integrator 5,pDMP coupled,Pearson_r,0.0,0.0625,0.7640380106127356,True
+Integrator 6,pDMP weight update,Pearson_r,0.0,0.0625,0.6267342299391598,True
+Integrator 6,pDMP coupled,Pearson_r,0.0,0.0625,0.5957011191144752,True
+pDMP weight update,pDMP coupled,Pearson_r,5.0,0.625,-0.013953117439167523,False
+EMG to q_d,Integrator 1,R_squared,0.0,0.0625,-0.8159247805176357,True
+EMG to q_d,Integrator 2,R_squared,0.0,0.0625,-0.974536288216866,True
+EMG to q_d,Integrator 3,R_squared,0.0,0.0625,-0.8294010337671811,True
+EMG to q_d,Integrator 4,R_squared,0.0,0.0625,-0.8207090972541805,True
+EMG to q_d,Integrator 5,R_squared,0.0,0.0625,-0.8326571001964718,True
+EMG to q_d,Integrator 6,R_squared,6.0,0.8125,-0.012229974285658418,False
+EMG to q_d,pDMP weight update,R_squared,0.0,0.0625,2.167267289948437,True
+EMG to q_d,pDMP coupled,R_squared,0.0,0.0625,2.0059549281070996,True
+Integrator 1,Integrator 2,R_squared,0.0,0.0625,-0.2326499061907339,True
+Integrator 1,Integrator 3,R_squared,0.0,0.0625,-0.02440667951145259,True
+Integrator 1,Integrator 4,R_squared,0.0,0.0625,-0.00846179519152468,True
+Integrator 1,Integrator 5,R_squared,1.0,0.125,-0.08751001561405758,False
+Integrator 1,Integrator 6,R_squared,0.0,0.0625,0.8955230836362283,True
+Integrator 1,pDMP weight update,R_squared,0.0,0.0625,2.9174880359356123,True
+Integrator 1,pDMP coupled,R_squared,0.0,0.0625,2.8218797086247354,True
+Integrator 2,Integrator 3,R_squared,0.0,0.0625,0.2191736529411885,True
+Integrator 2,Integrator 4,R_squared,0.0,0.0625,0.2278655894541891,True
+Integrator 2,Integrator 5,R_squared,0.0,0.0625,0.13184766651803204,True
+Integrator 2,Integrator 6,R_squared,0.0,0.0625,1.1966720131239876,True
+Integrator 2,pDMP weight update,R_squared,0.0,0.0625,3.141803578165303,True
+Integrator 2,pDMP coupled,R_squared,0.0,0.0625,3.0810735111179275,True
+Integrator 3,Integrator 4,R_squared,0.0,0.0625,0.01594488431992791,True
+Integrator 3,Integrator 5,R_squared,2.0,0.1875,-0.07798934281567549,False
+Integrator 3,Integrator 6,R_squared,0.0,0.0625,0.9318810979514399,True
+Integrator 3,pDMP weight update,R_squared,0.0,0.0625,2.9546242256385122,True
+Integrator 3,pDMP coupled,R_squared,0.0,0.0625,2.8353559618742805,True
+Integrator 4,Integrator 5,R_squared,1.0,0.125,-0.08416863680068565,False
+Integrator 4,Integrator 6,R_squared,0.0,0.0625,0.9075183998189704,True
+Integrator 4,pDMP weight update,R_squared,0.0,0.0625,2.929816990838862,True
+Integrator 4,pDMP coupled,R_squared,0.0,0.0625,2.8266640253612803,True
+Integrator 5,Integrator 6,R_squared,0.0,0.0625,1.0648243466059557,True
+Integrator 5,pDMP weight update,R_squared,0.0,0.0625,3.056106068930478,True
+Integrator 5,pDMP coupled,R_squared,0.0,0.0625,2.9391943230975333,True
+Integrator 6,pDMP weight update,R_squared,0.0,0.0625,2.008069627430305,True
+Integrator 6,pDMP coupled,R_squared,0.0,0.0625,1.8696970129498305,True
+pDMP weight update,pDMP coupled,R_squared,0.0,0.0625,-0.0607300670473756,True
+EMG to q_d,Integrator 1,MAE,0.0,0.0625,0.22075659635129152,True
+EMG to q_d,Integrator 2,MAE,0.0,0.0625,0.36129131374338935,True
+EMG to q_d,Integrator 3,MAE,0.0,0.0625,0.23424131595904202,True
+EMG to q_d,Integrator 4,MAE,0.0,0.0625,0.22512532401780205,True
+EMG to q_d,Integrator 5,MAE,0.0,0.0625,0.32769226553436115,True
+EMG to q_d,Integrator 6,MAE,6.0,0.8125,-0.004227697907746686,False
+EMG to q_d,pDMP weight update,MAE,0.0,0.0625,-0.35666236916329563,True
+EMG to q_d,pDMP coupled,MAE,0.0,0.0625,-0.31661835223703527,True
+Integrator 1,Integrator 2,MAE,0.0,0.0625,0.10812686769144397,True
+Integrator 1,Integrator 3,MAE,0.0,0.0625,0.013484719607750495,True
+Integrator 1,Integrator 4,MAE,0.0,0.0625,0.00436872766651053,True
+Integrator 1,Integrator 5,MAE,0.0,0.0625,0.0722344521511436,True
+Integrator 1,Integrator 6,MAE,0.0,0.0625,-0.2086831400362737,True
+Integrator 1,pDMP weight update,MAE,0.0,0.0625,-0.5759774660271668,True
+Integrator 1,pDMP coupled,MAE,0.0,0.0625,-0.5737515219262097,True
+Integrator 2,Integrator 3,MAE,0.0,0.0625,-0.10210578597713177,True
+Integrator 2,Integrator 4,MAE,0.0,0.0625,-0.10588801879182203,True
+Integrator 2,Integrator 5,MAE,3.0,0.3125,-0.015536596117174895,False
+Integrator 2,Integrator 6,MAE,0.0,0.0625,-0.34167399129406834,True
+Integrator 2,pDMP weight update,MAE,0.0,0.0625,-0.723118899139645,True
+Integrator 2,pDMP coupled,MAE,0.0,0.0625,-0.7208929550386879,True
+Integrator 3,Integrator 4,MAE,0.0,0.0625,-0.009115991941239965,True
+Integrator 3,Integrator 5,MAE,0.0,0.0625,0.06977436215239047,True
+Integrator 3,Integrator 6,MAE,0.0,0.0625,-0.223576684985484,True
+Integrator 3,pDMP weight update,MAE,0.0,0.0625,-0.5908710109763772,True
+Integrator 3,pDMP coupled,MAE,0.0,0.0625,-0.5886450668754201,True
+Integrator 4,Integrator 5,MAE,0.0,0.0625,0.07150651748067838,True
+Integrator 4,Integrator 6,MAE,0.0,0.0625,-0.21350416852920706,True
+Integrator 4,pDMP weight update,MAE,0.0,0.0625,-0.5807984945201002,True
+Integrator 4,pDMP coupled,MAE,0.0,0.0625,-0.5785725504191431,True
+Integrator 5,Integrator 6,MAE,0.0,0.0625,-0.3077737119945866,True
+Integrator 5,pDMP weight update,MAE,0.0,0.0625,-0.7075823030224702,True
+Integrator 5,pDMP coupled,MAE,0.0,0.0625,-0.668478572291267,True
+Integrator 6,pDMP weight update,MAE,0.0,0.0625,-0.3549285542962807,True
+Integrator 6,pDMP coupled,MAE,0.0,0.0625,-0.35453643149365466,True
+pDMP weight update,pDMP coupled,MAE,0.0,0.0625,0.012126619603753164,True
+EMG to q_d,Integrator 1,RMSE,0.0,0.0625,0.2843583606711003,True
+EMG to q_d,Integrator 2,RMSE,0.0,0.0625,0.40228704013693967,True
+EMG to q_d,Integrator 3,RMSE,0.0,0.0625,0.298215902685086,True
+EMG to q_d,Integrator 4,RMSE,0.0,0.0625,0.2888920185002748,True
+EMG to q_d,Integrator 5,RMSE,0.0,0.0625,0.3171612445601465,True
+EMG to q_d,Integrator 6,RMSE,6.0,0.8125,0.0031971030527588873,False
+EMG to q_d,pDMP weight update,RMSE,0.0,0.0625,-0.47916786879208073,True
+EMG to q_d,pDMP coupled,RMSE,0.0,0.0625,-0.45783421767696,True
+Integrator 1,Integrator 2,RMSE,0.0,0.0625,0.13332053448526793,True
+Integrator 1,Integrator 3,RMSE,0.0,0.0625,0.013449439431497068,True
+Integrator 1,Integrator 4,RMSE,0.0,0.0625,0.004533657829174476,True
+Integrator 1,Integrator 5,RMSE,1.0,0.125,0.031145171592416032,False
+Integrator 1,Integrator 6,RMSE,0.0,0.0625,-0.2713078634657199,True
+Integrator 1,pDMP weight update,RMSE,0.0,0.0625,-0.7016075039101141,True
+Integrator 1,pDMP coupled,RMSE,0.0,0.0625,-0.6996152030393573,True
+Integrator 2,Integrator 3,RMSE,0.0,0.0625,-0.11832225323600243,True
+Integrator 2,Integrator 4,RMSE,0.0,0.0625,-0.12838828193948326,True
+Integrator 2,Integrator 5,RMSE,0.0,0.0625,-0.0647194205885182,True
+Integrator 2,Integrator 6,RMSE,0.0,0.0625,-0.4139297604864592,True
+Integrator 2,pDMP weight update,RMSE,0.0,0.0625,-0.834928038395382,True
+Integrator 2,pDMP coupled,RMSE,0.0,0.0625,-0.8329357375246252,True
+Integrator 3,Integrator 4,RMSE,0.0,0.0625,-0.008840026706899595,True
+Integrator 3,Integrator 5,RMSE,2.0,0.1875,0.027845287446887967,False
+Integrator 3,Integrator 6,RMSE,0.0,0.0625,-0.2851654054797056,True
+Integrator 3,pDMP weight update,RMSE,0.0,0.0625,-0.7166057851593796,True
+Integrator 3,pDMP coupled,RMSE,0.0,0.0625,-0.7146134842886228,True
+Integrator 4,Integrator 5,RMSE,1.0,0.125,0.029989369102981556,False
+Integrator 4,Integrator 6,RMSE,0.0,0.0625,-0.27584152129489437,True
+Integrator 4,pDMP weight update,RMSE,0.0,0.0625,-0.7065397564558987,True
+Integrator 4,pDMP coupled,RMSE,0.0,0.0625,-0.704547455585142,True
+Integrator 5,Integrator 6,RMSE,0.0,0.0625,-0.3528776399419973,True
+Integrator 5,pDMP weight update,RMSE,0.0,0.0625,-0.7785186822260616,True
+Integrator 5,pDMP coupled,RMSE,0.0,0.0625,-0.7781638016825608,True
+Integrator 6,pDMP weight update,RMSE,0.0,0.0625,-0.41190069731682566,True
+Integrator 6,pDMP coupled,RMSE,0.0,0.0625,-0.4011313636567263,True
+pDMP weight update,pDMP coupled,RMSE,0.0,0.0625,0.010769333660099356,True
+EMG to q_d,Integrator 1,Abs_ROM_Error,0.0,0.0625,0.4261589128201102,True
+EMG to q_d,Integrator 2,Abs_ROM_Error,0.0,0.0625,0.5832379502685463,True
+EMG to q_d,Integrator 3,Abs_ROM_Error,0.0,0.0625,0.4112289776954494,True
+EMG to q_d,Integrator 4,Abs_ROM_Error,0.0,0.0625,0.40811369839351874,True
+EMG to q_d,Integrator 5,Abs_ROM_Error,0.0,0.0625,0.5402828130631745,True
+EMG to q_d,Integrator 6,Abs_ROM_Error,0.0,0.0625,0.510671853212227,True
+EMG to q_d,pDMP weight update,Abs_ROM_Error,0.0,0.0625,-1.1576185992779102,True
+EMG to q_d,pDMP coupled,Abs_ROM_Error,0.0,0.0625,-1.1563267464742322,True
+Integrator 1,Integrator 2,Abs_ROM_Error,0.0,0.0625,0.17824438259658115,True
+Integrator 1,Integrator 3,Abs_ROM_Error,5.0,0.625,0.04767902835603177,False
+Integrator 1,Integrator 4,Abs_ROM_Error,5.0,0.625,0.015412019083881123,False
+Integrator 1,Integrator 5,Abs_ROM_Error,4.0,0.4375,0.17380244045924154,False
+Integrator 1,Integrator 6,Abs_ROM_Error,0.0,0.0625,0.09430800215147839,True
+Integrator 1,pDMP weight update,Abs_ROM_Error,0.0,0.0625,-1.525790073162823,True
+Integrator 1,pDMP coupled,Abs_ROM_Error,0.0,0.0625,-1.5200165914028205,True
+Integrator 2,Integrator 3,Abs_ROM_Error,0.0,0.0625,-0.1513772413705039,True
+Integrator 2,Integrator 4,Abs_ROM_Error,0.0,0.0625,-0.16243748388331358,True
+Integrator 2,Integrator 5,Abs_ROM_Error,1.0,0.125,-0.04295513720537181,False
+Integrator 2,Integrator 6,Abs_ROM_Error,3.0,0.3125,-0.02066943590243242,False
+Integrator 2,pDMP weight update,Abs_ROM_Error,0.0,0.0625,-1.7408565495464565,True
+Integrator 2,pDMP coupled,Abs_ROM_Error,0.0,0.0625,-1.7074908159520918,True
+Integrator 3,Integrator 4,Abs_ROM_Error,5.0,0.625,-0.03226700927215065,False
+Integrator 3,Integrator 5,Abs_ROM_Error,4.0,0.4375,0.12612341210320976,False
+Integrator 3,Integrator 6,Abs_ROM_Error,0.0,0.0625,0.12367256613342237,True
+Integrator 3,pDMP weight update,Abs_ROM_Error,0.0,0.0625,-1.5734691015188547,True
+Integrator 3,pDMP coupled,Abs_ROM_Error,0.0,0.0625,-1.5669874409831153,True
+Integrator 4,Integrator 5,Abs_ROM_Error,4.0,0.4375,0.1583904213753604,False
+Integrator 4,Integrator 6,Abs_ROM_Error,0.0,0.0625,0.10255815481870822,True
+Integrator 4,pDMP weight update,Abs_ROM_Error,0.0,0.0625,-1.541202092246704,True
+Integrator 4,pDMP coupled,Abs_ROM_Error,0.0,0.0625,-1.5353833278350166,True
+Integrator 5,Integrator 6,Abs_ROM_Error,6.0,0.8125,-0.016543205030540964,False
+Integrator 5,pDMP weight update,Abs_ROM_Error,0.0,0.0625,-1.6325092431588926,True
+Integrator 5,pDMP coupled,Abs_ROM_Error,0.0,0.0625,-1.5904333591720314,True
+Integrator 6,pDMP weight update,Abs_ROM_Error,0.0,0.0625,-1.615616446357977,True
+Integrator 6,pDMP coupled,Abs_ROM_Error,0.0,0.0625,-1.614324593554299,True
+pDMP weight update,pDMP coupled,Abs_ROM_Error,0.0,0.0625,0.04207588398686113,True
+EMG to q_d,Integrator 1,Abs_Onset_Lag_sec,0.0,0.0625,0.7105147377452932,True
+EMG to q_d,Integrator 2,Abs_Onset_Lag_sec,0.0,0.0625,0.6073819101878408,True
+EMG to q_d,Integrator 3,Abs_Onset_Lag_sec,0.0,0.0625,0.7114596519024783,True
+EMG to q_d,Integrator 4,Abs_Onset_Lag_sec,0.0,0.0625,0.7106601825150083,True
+EMG to q_d,Integrator 5,Abs_Onset_Lag_sec,0.0,0.0625,1.0112050849524792,True
+EMG to q_d,Integrator 6,Abs_Onset_Lag_sec,0.0,0.0625,0.24144595682237624,True
+EMG to q_d,pDMP weight update,Abs_Onset_Lag_sec,0.0,0.0625,0.7935519902634871,True
+EMG to q_d,pDMP coupled,Abs_Onset_Lag_sec,1.0,0.125,0.6930668887851228,False
+Integrator 1,Integrator 2,Abs_Onset_Lag_sec,0.0,0.0625,-0.12420078797279999,True
+Integrator 1,Integrator 3,Abs_Onset_Lag_sec,6.0,0.8125,0.0006844974835402695,False
+Integrator 1,Integrator 4,Abs_Onset_Lag_sec,6.0,0.8125,6.406699972671959e-05,False
+Integrator 1,Integrator 5,Abs_Onset_Lag_sec,0.0,0.0625,0.13290448979661273,True
+Integrator 1,Integrator 6,Abs_Onset_Lag_sec,0.0,0.0625,-0.46330494273203726,True
+Integrator 1,pDMP weight update,Abs_Onset_Lag_sec,6.0,0.8125,0.007221464108788878,False
+Integrator 1,pDMP coupled,Abs_Onset_Lag_sec,1.0,0.125,-0.04284142930400847,False
+Integrator 2,Integrator 3,Abs_Onset_Lag_sec,0.0,0.0625,0.1252686344220706,True
+Integrator 2,Integrator 4,Abs_Onset_Lag_sec,0.0,0.0625,0.12439248978161288,True
+Integrator 2,Integrator 5,Abs_Onset_Lag_sec,0.0,0.0625,0.3832328867021153,True
+Integrator 2,Integrator 6,Abs_Onset_Lag_sec,0.0,0.0625,-0.38763119420384484,True
+Integrator 2,pDMP weight update,Abs_Onset_Lag_sec,0.0,0.0625,0.18142816590748367,True
+Integrator 2,pDMP coupled,Abs_Onset_Lag_sec,5.0,0.625,0.08135935866879151,False
+Integrator 3,Integrator 4,Abs_Onset_Lag_sec,6.0,0.8125,-0.0006204304838135499,False
+Integrator 3,Integrator 5,Abs_Onset_Lag_sec,0.0,0.0625,0.147513736867942,True
+Integrator 3,Integrator 6,Abs_Onset_Lag_sec,0.0,0.0625,-0.46398944021557753,True
+Integrator 3,pDMP weight update,Abs_Onset_Lag_sec,6.0,0.8125,0.021830711180118145,False
+Integrator 3,pDMP coupled,Abs_Onset_Lag_sec,1.0,0.125,-0.043909275753279076,False
+Integrator 4,Integrator 5,Abs_Onset_Lag_sec,0.0,0.0625,0.1378437789870437,True
+Integrator 4,Integrator 6,Abs_Onset_Lag_sec,0.0,0.0625,-0.463369009731764,True
+Integrator 4,pDMP weight update,Abs_Onset_Lag_sec,6.0,0.8125,0.01216075329921984,False
+Integrator 4,pDMP coupled,Abs_Onset_Lag_sec,1.0,0.125,-0.043033131112821366,False
+Integrator 5,Integrator 6,Abs_Onset_Lag_sec,0.0,0.0625,-0.7985860227180979,True
+Integrator 5,pDMP weight update,Abs_Onset_Lag_sec,0.0,0.0625,-0.16145577293392854,True
+Integrator 5,pDMP coupled,Abs_Onset_Lag_sec,0.0,0.0625,-0.3320837361030762,True
+Integrator 6,pDMP weight update,Abs_Onset_Lag_sec,0.0,0.0625,0.5523582324963918,True
+Integrator 6,pDMP coupled,Abs_Onset_Lag_sec,4.0,0.4375,0.4665022866150217,False
+pDMP weight update,pDMP coupled,Abs_Onset_Lag_sec,0.0,0.0625,-0.10048510147836431,True

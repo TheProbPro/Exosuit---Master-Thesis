@@ -1,16 +1,16 @@
 filenames,optimizer,labels,jerk_data
-EMG_MoCap_jerk_EMG_Optimizer_ExoTestReal1_002.csv,EMG_Optimizer_ExoTestReal1,Optimizer 6,"[ 0.          0.          0.         ... 11.45074968 16.1748579
+EMG_MoCap_jerk_EMG_Optimizer_ExoTestReal1_002.csv,EMG_Optimizer_ExoTestReal1,Integrator 6,"[ 0.          0.          0.         ... 11.45074968 16.1748579
  14.83031742]"
 EMG_MoCap_jerk_None_ExoTestReal1_002.csv,None_ExoTestReal1,EMG to $q_d$,[0. 0. 0. ... 0. 0. 0.]
-EMG_MoCap_jerk_optimizer_1_ExoTestReal1_002.csv,optimizer_1_ExoTestReal1,Optimizer 1,[0.         0.         0.         ... 2.29796425 4.48751232 4.46583592]
-EMG_MoCap_jerk_optimizer_2_ExoTestReal1_002.csv,optimizer_2_ExoTestReal1,Optimizer 2,"[ 0.          0.          0.         ...  6.7666297  13.21388035
+EMG_MoCap_jerk_optimizer_1_ExoTestReal1_002.csv,optimizer_1_ExoTestReal1,Integrator 1,[0.         0.         0.         ... 2.29796425 4.48751232 4.46583592]
+EMG_MoCap_jerk_optimizer_2_ExoTestReal1_002.csv,optimizer_2_ExoTestReal1,Integrator 2,"[ 0.          0.          0.         ...  6.7666297  13.21388035
  13.15002487]"
-EMG_MoCap_jerk_optimizer_4_ExoTestReal1_002.csv,optimizer_4_ExoTestReal1,Optimizer 3,[0.         0.         0.         ... 2.2948069  4.48177546 4.46021431]
-EMG_MoCap_jerk_optimizer_5_pd_ExoTestReal1_002.csv,optimizer_5_pd_ExoTestReal1,Optimizer 4,[0.         0.         0.         ... 2.24366875 4.38121122 4.35999307]
-EMG_MoCap_jerk_optimizer_6_ExoTestReal1_002.csv,optimizer_6_ExoTestReal1,Optimizer 5,[0.         0.         0.         ... 0.05193056 0.10322759 0.10310083]
-EMG_MoCap_jerk_pDMP coupled_ExoTestReal1_002.csv,pDMP coupled_ExoTestReal1,pDMP coupled,"[ 0.          0.          0.         ... 18.69731125 36.51634595
+EMG_MoCap_jerk_optimizer_4_ExoTestReal1_002.csv,optimizer_4_ExoTestReal1,Integrator 3,[0.         0.         0.         ... 2.2948069  4.48177546 4.46021431]
+EMG_MoCap_jerk_optimizer_5_pd_ExoTestReal1_002.csv,optimizer_5_pd_ExoTestReal1,Integrator 4,[0.         0.         0.         ... 2.24366875 4.38121122 4.35999307]
+EMG_MoCap_jerk_optimizer_6_ExoTestReal1_002.csv,optimizer_6_ExoTestReal1,Integrator 5,[0.         0.         0.         ... 0.05193056 0.10322759 0.10310083]
+EMG_MoCap_jerk_pDMP coupled_ExoTestReal1_002.csv,pDMP coupled_ExoTestReal1,pDMP coupling term,"[ 0.          0.          0.         ... 18.69731125 36.51634595
  36.34073931]"
 EMG_MoCap_jerk_pDMP omega_ExoTestReal1_002.csv,pDMP omega_ExoTestReal1,pDMP omega,"[ 59.17046275  53.15586615  11.56638074 ...  56.75069126 104.0790687
  102.19092683]"
-EMG_MoCap_jerk_pDMP_ExoTestReal1_002.csv,pDMP_ExoTestReal1,pDMP,"[  0.           0.           0.         ...  56.47708612 114.29279745
+EMG_MoCap_jerk_pDMP_ExoTestReal1_002.csv,pDMP_ExoTestReal1,pDMP Weight update,"[  0.           0.           0.         ...  56.47708612 114.29279745
  114.55984605]"

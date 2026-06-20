@@ -13,12 +13,12 @@ mpl.rcParams.update({
     'font.family': 'serif',
     'text.latex.preamble': r'\usepackage{amsmath}',
     
-    'font.size': 10,          # default text size
+    'font.size': 12,          # default text size
     'axes.titlesize': 14,     # title
     'axes.labelsize': 12,     # x and y labels
     'xtick.labelsize': 10,    # x tick labels
     'ytick.labelsize': 10,    # y tick labels
-    'legend.fontsize': 11,    
+    'legend.fontsize': 13,    # legend
     'figure.titlesize': 16
 })
 
@@ -637,7 +637,7 @@ if __name__ == "__main__":
         df_norm = df_stats.copy()
 
         # Exclude the pDMP optimizers
-        df_norm = df_norm[~df_norm["optimizer"].str.contains("pDMP")]
+        df_norm = df_norm[~df_norm["optimizer"].str.contains("pDMP omega")]
 
         # Handle special cases first
         df_norm["Bias"] = df_norm["Bias"].abs()
@@ -865,25 +865,53 @@ if __name__ == "__main__":
 
     # Plot each optimizer
     cmap = mpl.colormaps["tab20"].resampled(len(df_norm))
+    # 12 unique dash patterns for each method
+    dash_patterns = [
+        (None, None),           # solid
+        (5, 5),                 # dashed
+        (1, 1),                 # dotted
+        (5, 2),                 # short dashes
+        (3, 3),                 # smaller dashes
+        (5, 2, 2, 2),           # dash-dot
+        (2, 2, 5, 2),           # dot-dash
+        (7, 3),                 # long dashes
+        (4, 4, 1, 4),           # dash-dash-dot
+        (6, 2, 2, 2, 2, 2),     # dash-dot-dot
+        (3, 1, 1, 1),           # dash-dot-dot (short)
+        (8, 2, 2, 2)            # long dash-dot
+    ]
+
+    # Mapping of integrator names to m1-m12 labels
+    method_labels = {
+        "EMG to $q_d$": "m1",
+        "IMU to $q_d$": "m2",
+        "Integrator 1": "m3",
+        "Integrator 2": "m4",
+        "Integrator 3": "m5",
+        "Integrator 4": "m6",
+        "Integrator 5": "m7",
+        "Integrator 6": "m8",
+        "Integrator 7": "m9",
+        "Integrator 8": "m10",
+        "pDMP Weight update": "m11",
+        "pDMP coupling term": "m12",
+    }
 
     for j, (_, row) in enumerate(df_norm.iterrows()):
         values = [row[m] for m in metrics]
         values += values[:1]
 
         color = cmap(j)
+        dashes = dash_patterns[j % len(dash_patterns)]
+        method_label = method_labels.get(row["Integrator"], row["Integrator"])
 
         ax.plot(
             angles,
             values,
-            label=row["Integrator"],   # or row["labels"] if using df_stats
+            label=method_label,
             color=color,
-            linewidth=1.8
-        )
-        ax.fill(
-            angles,
-            values,
-            color=color,
-            alpha=0.05
+            linewidth=1.8,
+            dashes=dashes
         )
 
     # ax.set_xticks(angles[:-1])
@@ -897,6 +925,7 @@ if __name__ == "__main__":
 
     # Add custom labels slightly outside the radar plot
     label_radius = 1.05
+    axis_label_artists = []
 
     for angle, label in zip(angles[:-1], labels):
         x = np.cos(angle)
@@ -916,24 +945,37 @@ if __name__ == "__main__":
         else:
             va = "center"
 
-        ax.text(
+        txt = ax.text(
             angle,
             label_radius,
             label,
             ha=ha,
             va=va,
-            fontsize=12,
+            fontsize=13,
             clip_on=False
         )
+
+        txt.set_in_layout(True)
+        axis_label_artists.append(txt)
 
     # Move plot left and reserve space for legend
     # fig.subplots_adjust(right=0.68)
     fig.subplots_adjust(left=0.08, right=0.62, top=0.90, bottom=0.10)
 
-    ax.legend(
+    legend = ax.legend(
         loc="center left",
-        bbox_to_anchor=(1.10, 0.5),
-        frameon=True
+        bbox_to_anchor=(1.13, 0.5),
+        frameon=False
+    )
+
+    GRAPH_SAVE_PATH = r"C:\Users\nvigg\Pictures\IEEE\New"
+
+    fig.savefig(
+        os.path.join(GRAPH_SAVE_PATH, "RadarPlotV3NoBorder.png"),
+        dpi=600,
+        bbox_inches="tight",
+        pad_inches=0.01,
+        bbox_extra_artists=[legend, *axis_label_artists]
     )
 
     plt.show()

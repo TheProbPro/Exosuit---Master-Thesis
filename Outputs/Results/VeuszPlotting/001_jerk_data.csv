@@ -1,20 +1,19 @@
 filenames,optimizer,labels,jerk_data
-EMG_MoCap_jerk_EMG_Optimizer_EMGTest6s_001.csv,EMG_Optimizer_EMGTest6s,Optimizer 6,[0.         0.         0.         ... 4.10791179 8.20418533 8.20194845]
+EMG_MoCap_jerk_EMG_Optimizer_EMGTest6s_001.csv,EMG_Optimizer_EMGTest6s,Integrator 6,[0.         0.         0.         ... 4.10791179 8.20418533 8.20194845]
 EMG_MoCap_jerk_None_EMGTest6s_001.csv,None_EMGTest6s,EMG to $q_d$,"[    0.             0.             0.         ...  4026.76881794
  12047.00143553 12843.3268447 ]"
-EMG_MoCap_jerk_optimizer_1_EMGTest6s_001.csv,optimizer_1_EMGTest6s,Optimizer 1,"[ 0.          0.          0.         ... 12.92285923 26.87865974
+EMG_MoCap_jerk_optimizer_1_EMGTest6s_001.csv,optimizer_1_EMGTest6s,Integrator 1,"[ 0.          0.          0.         ... 12.92285923 26.87865974
  27.0905911 ]"
-EMG_MoCap_jerk_optimizer_2_EMGTest6s_001.csv,optimizer_2_EMGTest6s,Optimizer 2,"[ 0.          0.          0.         ... 45.95232639 97.73764109
+EMG_MoCap_jerk_optimizer_2_EMGTest6s_001.csv,optimizer_2_EMGTest6s,Integrator 2,"[ 0.          0.          0.         ... 45.95232639 97.73764109
  98.93136177]"
-EMG_MoCap_jerk_optimizer_4_EMGTest6s_001.csv,optimizer_4_EMGTest6s,Optimizer 3,"[ 0.          0.          0.         ... 12.8195321  26.59074072
+EMG_MoCap_jerk_optimizer_4_EMGTest6s_001.csv,optimizer_4_EMGTest6s,Integrator 3,"[ 0.          0.          0.         ... 12.8195321  26.59074072
  26.78642019]"
-EMG_MoCap_jerk_optimizer_5_pd_EMGTest6s_001.csv,optimizer_5_pd_EMGTest6s,Optimizer 4,"[ 0.          0.          0.         ... 12.9186124  26.86517586
+EMG_MoCap_jerk_optimizer_5_pd_EMGTest6s_001.csv,optimizer_5_pd_EMGTest6s,Integrator 4,"[ 0.          0.          0.         ... 12.9186124  26.86517586
  27.07609159]"
-EMG_MoCap_jerk_optimizer_6_EMGTest6s_001.csv,optimizer_6_EMGTest6s,Optimizer 5,"[ 0.          0.          0.         ... 20.13767908 39.84103802
+EMG_MoCap_jerk_optimizer_6_EMGTest6s_001.csv,optimizer_6_EMGTest6s,Integrator 5,"[ 0.          0.          0.         ... 20.13767908 39.84103802
  39.75434737]"
-EMG_MoCap_jerk_pDMP coupled_EMGTest6s_001.csv,pDMP coupled_EMGTest6s,pDMP coupled,"[  0.           0.           0.         ... 137.85697917 251.91097919
- 247.03303225]"
+EMG_MoCap_jerk_pDMP coupled_EMGTest6s_001.csv,pDMP coupled_EMGTest6s,pDMP coupling term,[1.06524759 1.05842741 0.51288407 ... 0.00605649 0.0136966  0.0140199 ]
 EMG_MoCap_jerk_pDMP omega_EMGTest6s_001.csv,pDMP omega_EMGTest6s,pDMP omega,"[  59.17046275   53.15586615   11.56638074 ... 1483.64911823 2947.00306203
  2942.93818914]"
-EMG_MoCap_jerk_pDMP_EMGTest6s_001.csv,pDMP_EMGTest6s,pDMP,"[0.0000000e+00 0.0000000e+00 0.0000000e+00 ... 8.8817842e-07 8.8817842e-07
+EMG_MoCap_jerk_pDMP_EMGTest6s_001.csv,pDMP_EMGTest6s,pDMP Weight update,"[0.0000000e+00 0.0000000e+00 0.0000000e+00 ... 8.8817842e-07 8.8817842e-07
  0.0000000e+00]"

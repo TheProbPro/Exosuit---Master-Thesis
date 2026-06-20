@@ -261,9 +261,15 @@ class pDMPCoupling1:
     # GET STATE
     def get_state(self):
         dy = self.z / self.tau + self.dc_coup
+
+        if hasattr(self, "use_bounded_output") and self.use_bounded_output:
+            y_out = self._bounded_output(self.y)
+            dy_out = self._bounded_output_derivative(self.y) * dy
+            return y_out, dy_out, self.tau, self.phi
+
         return self.y, dy, self.tau, self.phi
     # def get_state(self):
-    #     dy = self.z / self.tau
+    #     dy = self.z / self.tau + self.dc_coup
     #     return self.y, dy, self.tau, self.phi
     
     # SET DMP PHASE
@@ -382,6 +388,61 @@ class pDMPCoupling1:
 
             self.y[i] += dy * self.dt
             self.z[i] += dz * self.dt
+
+    def set_output_limits(self, y_min, y_max, squash_gain=1.0):
+        self.y_min = np.asarray(y_min, dtype=float)
+        self.y_max = np.asarray(y_max, dtype=float)
+        self.squash_gain = squash_gain
+        self.use_bounded_output = True
+
+        if np.any(self.y_max <= self.y_min):
+            raise ValueError("y_max must be greater than y_min.")
+
+        if self.squash_gain <= 0:
+            raise ValueError("squash_gain must be positive.")
+
+
+    def _sigmoid(self, q):
+        q = np.asarray(q)
+        out = np.empty_like(q, dtype=float)
+
+        pos = q >= 0
+        out[pos] = 1.0 / (1.0 + np.exp(-q[pos]))
+
+        exp_q = np.exp(q[~pos])
+        out[~pos] = exp_q / (1.0 + exp_q)
+
+        return out
+
+
+    def _bounded_output(self, q):
+        s = self._sigmoid(self.squash_gain * q)
+        return self.y_min + (self.y_max - self.y_min) * s
+
+
+    def _bounded_output_derivative(self, q):
+        s = self._sigmoid(self.squash_gain * q)
+        return (self.y_max - self.y_min) * self.squash_gain * s * (1.0 - s)
+
+
+    def output_to_internal(self, x, eps=1e-6):
+        x = np.asarray(x, dtype=float)
+
+        s = (x - self.y_min) / (self.y_max - self.y_min)
+
+        # only used to avoid log(0), not to clip the DMP output
+        s = np.minimum(np.maximum(s, eps), 1.0 - eps)
+
+        return np.log(s / (1.0 - s)) / self.squash_gain
+
+
+    def set_output_state(self, x, reset_coupling=False):
+        self.y = self.output_to_internal(x)
+        self.z[:] = 0.0
+
+        if reset_coupling:
+            self.c_coup[:] = 0.0
+            self.dc_coup[:] = 0.0
 
 class pDMPCoupling2:
     # INITIALISATION

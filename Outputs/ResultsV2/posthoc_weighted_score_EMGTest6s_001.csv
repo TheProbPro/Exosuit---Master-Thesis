@@ -1,0 +1,37 @@
+Method_A,Method_B,Metric,Wilcoxon_stat,p_value,Median_Difference_A_minus_B,Significant_p_less_0_1
+EMG to q_d,Integrator 1,Weighted_Score,0.0,0.0625,-0.4313018746274881,True
+EMG to q_d,Integrator 2,Weighted_Score,0.0,0.0625,-0.47475661342683945,True
+EMG to q_d,Integrator 3,Weighted_Score,0.0,0.0625,-0.44222057589945557,True
+EMG to q_d,Integrator 4,Weighted_Score,0.0,0.0625,-0.4346825623343054,True
+EMG to q_d,Integrator 5,Weighted_Score,0.0,0.0625,-0.49031251337128207,True
+EMG to q_d,Integrator 6,Weighted_Score,0.0,0.0625,-0.30890062025328635,True
+EMG to q_d,pDMP weight update,Weighted_Score,0.0,0.0625,0.24053604416208785,True
+EMG to q_d,pDMP coupled,Weighted_Score,0.0,0.0625,0.1929750366542419,True
+Integrator 1,Integrator 2,Weighted_Score,0.0,0.0625,-0.04475418440668899,True
+Integrator 1,Integrator 3,Weighted_Score,1.0,0.125,-0.009945741538439412,False
+Integrator 1,Integrator 4,Weighted_Score,1.0,0.125,-0.0033223832262273545,False
+Integrator 1,Integrator 5,Weighted_Score,3.0,0.3125,-0.04399948466661319,False
+Integrator 1,Integrator 6,Weighted_Score,0.0,0.0625,0.13437063759522283,True
+Integrator 1,pDMP weight update,Weighted_Score,0.0,0.0625,0.671837918789576,True
+Integrator 1,pDMP coupled,Weighted_Score,0.0,0.0625,0.647102852697845,True
+Integrator 2,Integrator 3,Weighted_Score,0.0,0.0625,0.04704680304674447,True
+Integrator 2,Integrator 4,Weighted_Score,0.0,0.0625,0.04541696394340067,True
+Integrator 2,Integrator 5,Weighted_Score,3.0,0.3125,0.024081199799024677,False
+Integrator 2,Integrator 6,Weighted_Score,0.0,0.0625,0.2024513220608607,True
+Integrator 2,pDMP weight update,Weighted_Score,0.0,0.0625,0.7212307537084841,True
+Integrator 2,pDMP coupled,Weighted_Score,0.0,0.0625,0.7021096313620072,True
+Integrator 3,Integrator 4,Weighted_Score,1.0,0.125,0.006623358312212058,False
+Integrator 3,Integrator 5,Weighted_Score,4.0,0.4375,-0.03419039495770704,False
+Integrator 3,Integrator 6,Weighted_Score,0.0,0.0625,0.14417972730412898,True
+Integrator 3,pDMP weight update,Weighted_Score,0.0,0.0625,0.6827566200615434,True
+Integrator 3,pDMP coupled,Weighted_Score,0.0,0.0625,0.6569119424067511,True
+Integrator 4,Integrator 5,Weighted_Score,4.0,0.4375,-0.040770888961162655,False
+Integrator 4,Integrator 6,Weighted_Score,0.0,0.0625,0.13759923330067336,True
+Integrator 4,pDMP weight update,Weighted_Score,0.0,0.0625,0.6752186064963932,True
+Integrator 4,pDMP coupled,Weighted_Score,0.0,0.0625,0.6503314484032955,True
+Integrator 5,Integrator 6,Weighted_Score,0.0,0.0625,0.1641713892118174,True
+Integrator 5,pDMP weight update,Weighted_Score,0.0,0.0625,0.7032197820879131,True
+Integrator 5,pDMP coupled,Weighted_Score,0.0,0.0625,0.6503226427836655,True
+Integrator 6,pDMP weight update,Weighted_Score,0.0,0.0625,0.524849659826077,True
+Integrator 6,pDMP coupled,Weighted_Score,0.0,0.0625,0.4954091717464303,True
+pDMP weight update,pDMP coupled,Weighted_Score,0.0,0.0625,-0.012117444723454968,True
