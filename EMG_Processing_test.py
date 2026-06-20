@@ -5,6 +5,8 @@ from SignalProcessing.Interpretors import ProportionalMyoelectricalControl as PM
 
 # TODO: add includes
 import numpy as np
+import matplotlib
+matplotlib.use('TkAgg')  # or 'Qt5Agg'
 import matplotlib.pyplot as plt
 import queue
 import time
@@ -65,6 +67,26 @@ if __name__ == "__main__":
     net_a = []
     lowpassed_net_a = []
     processing_times = []
+
+    # --- Live plotting setup ---
+    plt.ion()
+
+    window_size = 2000
+    live_buffer = np.zeros(window_size)
+
+    fig, ax = plt.subplots()
+    line, = ax.plot(np.arange(window_size), live_buffer)
+
+    ax.set_ylim(-1.1, 1.1)
+    ax.set_xlim(0, window_size - 1)
+    ax.set_title("Live Lowpassed Net Activation")
+    ax.set_xlabel("Samples")
+    ax.set_ylabel("Activation")
+
+    fig.show()              # or: plt.show(block=False)
+    plt.show(block=False)
+    plt.pause(0.1)          # force window to appear before loop starts
+
     print("Press Enter to start test 1: EMG to position no optimization")
     input()
     start_time = time.time()
@@ -108,71 +130,82 @@ if __name__ == "__main__":
         tricep_a.append(activation[1])
         net_a.append(activation[0] - activation[1])
         lowpassed_net_a.append(float(net_a_lowpass.lowpass(np.atleast_1d(net_a[-1]))[0]))
+
+        # --- Update rolling buffer ---
+        live_buffer[:-1] = live_buffer[1:]
+        live_buffer[-1] = lowpassed_net_a[-1]
+
+        if len(lowpassed_net_a) % 10 == 0:
+            line.set_ydata(live_buffer)
+            fig.canvas.draw()
+            fig.canvas.flush_events()
            
         last_time = time.time()
         processing_times.append(time.time() - t)
+
+        # time.sleep(0.001)
     
     print(f"length of test1_desired_angles: {len(raw_emg_b)}, frequency {(len(raw_emg_b)/10):.2f} Hz, average processing time {10/len(raw_emg_b)} ms")
     print(f"mean processing time: {np.mean(processing_times)*1000:.4f} ms, std processing time: {np.std(processing_times)*1000:.2f} ms")
 
     emg.stop()
 
-    # plot results
-    plt.figure(figsize=(12, 8))
-    plt.subplot(2, 1, 1)
-    plt.plot(np.arange(len(raw_emg_b)) / FS, raw_emg_b, label='Raw Bicep EMG')
-    plt.xlabel('Time (s)')
-    plt.ylabel('Amplitude')
-    plt.title('Raw Bicep EMG')
-    plt.subplot(2, 1, 2)
-    plt.plot(np.arange(len(raw_emg_t)) / FS, raw_emg_t, label='Raw Tricep EMG')
-    plt.xlabel('Time (s)')
-    plt.ylabel('Amplitude')
-    plt.title('Raw Tricep EMG')
-    plt.tight_layout()
-    plt.show()
+    # # plot results
+    # plt.figure(figsize=(12, 8))
+    # plt.subplot(2, 1, 1)
+    # plt.plot(np.arange(len(raw_emg_b)) / FS, raw_emg_b, label='Raw Bicep EMG')
+    # plt.xlabel('Time (s)')
+    # plt.ylabel('Amplitude')
+    # plt.title('Raw Bicep EMG')
+    # plt.subplot(2, 1, 2)
+    # plt.plot(np.arange(len(raw_emg_t)) / FS, raw_emg_t, label='Raw Tricep EMG')
+    # plt.xlabel('Time (s)')
+    # plt.ylabel('Amplitude')
+    # plt.title('Raw Tricep EMG')
+    # plt.tight_layout()
+    # plt.show()
 
-    plt.figure(figsize=(12, 8))
-    plt.subplot(2, 1, 1)
-    plt.plot(np.arange(len(bandpassed_emg_b)) / FS, bandpassed_emg_b, label='Bandpassed Bicep EMG')
-    plt.xlabel('Time (s)')
-    plt.ylabel('Amplitude')
-    plt.title('Bandpassed Bicep EMG')
-    plt.subplot(2, 1, 2)
-    plt.plot(np.arange(len(bandpassed_emg_t)) / FS, bandpassed_emg_t, label='Bandpassed Tricep EMG')
-    plt.xlabel('Time (s)')
-    plt.ylabel('Amplitude')
-    plt.title('Bandpassed Tricep EMG')
-    plt.tight_layout()
-    plt.show()
+    # plt.figure(figsize=(12, 8))
+    # plt.subplot(2, 1, 1)
+    # plt.plot(np.arange(len(bandpassed_emg_b)) / FS, bandpassed_emg_b, label='Bandpassed Bicep EMG')
+    # plt.xlabel('Time (s)')
+    # plt.ylabel('Amplitude')
+    # plt.title('Bandpassed Bicep EMG')
+    # plt.subplot(2, 1, 2)
+    # plt.plot(np.arange(len(bandpassed_emg_t)) / FS, bandpassed_emg_t, label='Bandpassed Tricep EMG')
+    # plt.xlabel('Time (s)')
+    # plt.ylabel('Amplitude')
+    # plt.title('Bandpassed Tricep EMG')
+    # plt.tight_layout()
+    # plt.show()
 
-    plt.figure(figsize=(12, 8))
-    plt.subplot(2, 1, 1)
-    plt.plot(np.arange(len(rms_emg_b)) / FS, rms_emg_b, label='RMS Bicep EMG')
-    plt.xlabel('Time (s)')
-    plt.ylabel('Amplitude')
-    plt.title('RMS Bicep EMG')
-    plt.subplot(2, 1, 2)
-    plt.plot(np.arange(len(rms_emg_t)) / FS, rms_emg_t, label='RMS Tricep EMG')
-    plt.xlabel('Time (s)')
-    plt.ylabel('Amplitude')
-    plt.title('RMS Tricep EMG')
-    plt.tight_layout()
-    plt.show()
+    # plt.figure(figsize=(12, 8))
+    # plt.subplot(2, 1, 1)
+    # plt.plot(np.arange(len(rms_emg_b)) / FS, rms_emg_b, label='RMS Bicep EMG')
+    # plt.xlabel('Time (s)')
+    # plt.ylabel('Amplitude')
+    # plt.title('RMS Bicep EMG')
+    # plt.subplot(2, 1, 2)
+    # plt.plot(np.arange(len(rms_emg_t)) / FS, rms_emg_t, label='RMS Tricep EMG')
+    # plt.xlabel('Time (s)')
+    # plt.ylabel('Amplitude')
+    # plt.title('RMS Tricep EMG')
+    # plt.tight_layout()
+    # plt.show()
 
-    plt.figure(figsize=(12, 8))
-    plt.subplot(2, 1, 1)
-    plt.plot(np.arange(len(lowpassed_rms_emg_b)) / FS, lowpassed_rms_emg_b, label='Lowpassed RMS Bicep EMG')
-    plt.xlabel('Time (s)')
-    plt.ylabel('Amplitude')
-    plt.title('Lowpassed RMS Bicep EMG')
-    plt.subplot(2, 1, 2)
-    plt.plot(np.arange(len(lowpassed_rms_emg_t)) / FS, lowpassed_rms_emg_t, label='Lowpassed RMS Tricep EMG')
-    plt.xlabel('Time (s)')
-    plt.ylabel('Amplitude')
-    plt.title('Lowpassed RMS Tricep EMG')
-    plt.tight_layout()
-    plt.show()
+    # plt.figure(figsize=(12, 8))
+    # plt.subplot(2, 1, 1)
+    # plt.plot(np.arange(len(lowpassed_rms_emg_b)) / FS, lowpassed_rms_emg_b, label='Lowpassed RMS Bicep EMG')
+    # plt.xlabel('Time (s)')
+    # plt.ylabel('Amplitude')
+    # plt.title('Lowpassed RMS Bicep EMG')
+    # plt.subplot(2, 1, 2)
+    # plt.plot(np.arange(len(lowpassed_rms_emg_t)) / FS, lowpassed_rms_emg_t, label='Lowpassed RMS Tricep EMG')
+    # plt.xlabel('Time (s)')
+    # plt.ylabel('Amplitude')
+    # plt.title('Lowpassed RMS Tricep EMG')
+    # plt.tight_layout()
+    # plt.show()
 
     plt.figure(figsize=(12, 8))
     plt.subplot(4, 1, 1)
@@ -200,7 +233,7 @@ if __name__ == "__main__":
     plt.title('Lowpassed Net Activation')
     plt.ylim(-1.1, 1.1)
     plt.tight_layout()
-    plt.show()
+    plt.show(block=True)
 
 
     

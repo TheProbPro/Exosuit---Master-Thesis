@@ -4,6 +4,7 @@ from SignalProcessing.Filtering import rt_filtering, rt_desired_Angle_lowpass
 from SignalProcessing.Interpretors import ProportionalMyoelectricalControl as PMC
 from Optimizations import optimizer_6
 import AdaptiveEmbodiedControlSystems.LSTM as LSTM
+from Motors.DynamixelHardwareInterface import Motors
 
 # Control imports
 
@@ -11,6 +12,7 @@ import AdaptiveEmbodiedControlSystems.LSTM as LSTM
 
 # normal imports
 import time
+from collections import deque
 import queue
 import numpy as np
 import torch
@@ -30,6 +32,9 @@ TORQUE_MIN = -4.1  # Minimum torque for motors
 TORQUE_MAX = 4.1  # Maximum torque for motors
 MAX_VEL = np.pi
 
+EMG_B        = 4.0
+EMG_K        = np.pi * 10.0 * 2
+
 LSTM_PATH = "Outputs/models/LSTM/Windowed_LSTM.pth"
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
@@ -37,77 +42,119 @@ stop_event = threading.Event()
 
 #=================================================================
 
-def EMG_Processing(qd_queue):
-    # Initialize filters and interpreter
-    filter_bicep = rt_filtering(FS, 450, 20, 2)
+def emg_thread_fn(qd_queue: queue.Queue):
+    """
+    采集肌电 → 滤波 → 激活度 → optimizer_6 → LSTM → predicted_angle
+    结果写入 qd_queue，控制器取最新值。
+
+    qd_queue 元素格式：(theta_d_rad, timestamp)
+    """
+    # 滤波器
+    filter_bicep  = rt_filtering(FS, 450, 20, 2)
     filter_tricep = rt_filtering(FS, 450, 20, 2)
     net_a_lowpass = rt_desired_Angle_lowpass(FS, lp_cutoff=2, order=2)
-    interpreter = PMC(theta_min=THETA_MIN, theta_max=THETA_MAX, user_name=USER_NAME, BicepEMG=True, TricepEMG=True)
-    Bicep_RMS_queue = queue.Queue(maxsize=50)
+
+    # 激活度解释器
+    interpreter = PMC(
+        theta_min=THETA_MIN, theta_max=THETA_MAX,
+        user_name=USER_NAME, BicepEMG=True, TricepEMG=True
+    )
+
+    # RMS 滑动窗口
+    Bicep_RMS_queue  = queue.Queue(maxsize=50)
     Tricep_RMS_queue = queue.Queue(maxsize=50)
 
-    # Initialize LSTM model
-    model = LSTM.LSTMModel(input_size=1, hidden_size=64, output_size=1, num_layers=1, batch_first=True).to(device)
+    # LSTM 模型
+    model = LSTM.LSTMModel(
+        input_size=1, hidden_size=64,
+        output_size=1, num_layers=1, batch_first=True
+    ).to(device)
     model.load_state_dict(torch.load(LSTM_PATH, map_location=device))
     model.eval()
 
-    # Optimization parameters
-    q = 0
-    v = 0
-    optimized_angle = 0
-    delta_q_prev = 0
-    a_prev = 0
-    dif_a_prev = 0
+    # optimizer_6 状态
+    window = deque(maxlen=100)  # 50 samples at 2000Hz = 25ms window
+    emg_v             = 0.0
+    optimized_angle   = float(np.deg2rad(0))  # 从中心位置起步
+    sample_counter = 0
+    net_a_prev = 0.0
 
-    # Initialize EMG sensors
-    emg = DelsysEMG(channel_range=(0,1))
+    # 启动传感器
+    emg = DelsysEMG(channel_range=(0, 1))
     emg.start()
-    time.sleep(1.0)  # Allow some time for the EMG to start and gather data
+    # time.sleep(1.0)
+    print("[EMG] 线程启动，开始采集...")
 
-    # Main processing loop
     while not stop_event.is_set():
-        reading = emg.read()
-        time_stamp = time.time()
+        reading    = emg.read()
+        sample_counter += 1
 
-        filtered_bicep = filter_bicep.bandpass(reading[0])
+        # 带通滤波
+        filtered_bicep  = filter_bicep.bandpass(reading[0])
         filtered_tricep = filter_tricep.bandpass(reading[1])
 
+        # 滑动 RMS
         if Bicep_RMS_queue.full():
-            Bicep_RMS_queue.get()
-        Bicep_RMS_queue.put(filtered_bicep)
+            Bicep_RMS_queue.get_nowait()
+        Bicep_RMS_queue.put_nowait(filtered_bicep)
         if Tricep_RMS_queue.full():
-            Tricep_RMS_queue.get()
-        Tricep_RMS_queue.put(filtered_tricep)
+            Tricep_RMS_queue.get_nowait()
+        Tricep_RMS_queue.put_nowait(filtered_tricep)
 
-        Bicep_RMS = np.sqrt(np.mean(np.array(list(Bicep_RMS_queue.queue))**2))
+        Bicep_RMS  = np.sqrt(np.mean(np.array(list(Bicep_RMS_queue.queue))**2))
         Tricep_RMS = np.sqrt(np.mean(np.array(list(Tricep_RMS_queue.queue))**2))
 
-        filtered_bicep_rms = float(filter_bicep.lowpass(np.atleast_1d(Bicep_RMS))[0])
+        filtered_bicep_rms  = float(filter_bicep.lowpass(np.atleast_1d(Bicep_RMS))[0])
         filtered_tricep_rms = float(filter_tricep.lowpass(np.atleast_1d(Tricep_RMS))[0])
 
-        activation = interpreter.compute_activation([filtered_bicep_rms, filtered_tricep_rms])
-        net_a = activation[0] - activation[1]  # Compute net activation (bicep - tricep)
+        # 激活度 → 净激活
+        activation   = interpreter.compute_activation(
+            [filtered_bicep_rms, filtered_tricep_rms]
+        )
+        # Standard:
+        # net_a = activation[0] - activation[1]
+
+        # Normalize activation[0] (bicep activation) to [-1,1]
+        net_a = 2 * activation[0] - 1.0
+        # Alternatively use temporal differnece, Try with both standard and bicep.
+        # net_a = net_a - net_a_prev
+        # net_a_prev = net_a
+
+        # net_a        = activation[0] - activation[1]
         filtered_net_a = float(net_a_lowpass.lowpass(np.atleast_1d(net_a))[0])
 
-        b = 4.0 # File 2
-        k=np.pi*10.0*2 # File 1
-        optimized_angle, v, acc = optimizer_6(filtered_net_a, v, dt, optimized_angle, THETA_MIN, THETA_MAX, np.pi, b, k)
+        # optimizer_6 → 平滑角度
+        optimized_angle, emg_v, _ = optimizer_6(
+            filtered_net_a, emg_v, dt,
+            optimized_angle, THETA_MIN, THETA_MAX,
+            np.pi, EMG_B, EMG_K
+        )
 
-        # LSTM prediction
-        with torch.no_grad():
-            lstm_input = torch.tensor([[optimized_angle]], dtype=torch.float32).to(device)
-            lstm_output = model(lstm_input)
-            predicted_angle = lstm_output.item()
-        
-        try:
-            qd_queue.put_nowait((predicted_angle, time_stamp))
-        except queue.Full:
-            qd_queue.get_nowait()
-            qd_queue.put_nowait((predicted_angle, time_stamp))
+        window.append(optimized_angle)
+        if len(window) < window.maxlen:
+            continue
 
+        if len(window) == window.maxlen and sample_counter % 10 == 0:
+            with torch.inference_mode():
+                input_tensor = torch.as_tensor(
+                    window,
+                    dtype=torch.float32,
+                    device=device
+                ).unsqueeze(0).unsqueeze(-1)
+                lstm_output     = model(input_tensor)
+                predicted_angle = float(lstm_output.detach().cpu().item())
+
+            try:
+                qd_queue.put_nowait((predicted_angle))
+            except queue.Full:
+                qd_queue.get_nowait()
+                qd_queue.put_nowait((predicted_angle))
+
+    # 清理
     emg.stop()
     Bicep_RMS_queue.queue.clear()
     Tricep_RMS_queue.queue.clear()
+    print("[EMG] 线程已停止。")
 
 # ==========================================================================================================================
 # =========================================== Handle cntrl+c stop event ====================================================
@@ -125,9 +172,11 @@ if __name__ == "__main__":
     #TODO:Define parameters here if needed otherwise do it in global parameters section
 
     # TODO: Initialize motors here
+    motor = Motors(port="COM4")
+    motor.enable_torque()
     time.sleep(1.0)  # Allow some time for motor initialization
 
-    emg_thread = threading.Thread(target=EMG_Processing, args=(qd_queue,))
+    emg_thread = threading.Thread(target=emg_thread_fn, args=(qd_queue,))
     emg_thread.start()
 
     # TODO: Here you would add the code to read from qd_queue and send commands to the exoskeleton motors
