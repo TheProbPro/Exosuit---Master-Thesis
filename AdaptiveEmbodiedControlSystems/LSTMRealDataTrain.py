@@ -33,11 +33,11 @@ TRAIN_CSV = "Outputs/RecordedEMG/Optim2/TrainLSTM.csv"
 TEST_CSV = "Outputs/RecordedEMG/Optim2/TestLSTM.csv"
 COL = 'emg_pos'#'Processed EMG'#'Muscle Activation'
 
-PREDICT_X = 40 #20ms
+# PREDICT_X = 40 #20ms
 # PREDICT_X = 60 #30ms
-# PREDICT_X = 80 #40ms
+PREDICT_X = 80 #40ms
 
-Model_Save_Path = "Outputs/models/LSTM/Windowed_LSTM_40.pth"
+Model_Save_Path = "Outputs/models/LSTM/Windowed_LSTM_80.pth"
 # TRAIN = False
 TRAIN = False
 
@@ -422,6 +422,14 @@ if __name__ == "__main__":
         y_pred_w,
         title="Windowed LSTM Prediction vs True Sine"
     )
+
+    # Save Prediction and true values to CSV
+    results_df = pd.DataFrame({
+        'time': t_pred_w,
+        'y_true': y_true_w,
+        'y_pred': y_pred_w
+    })
+    results_df.to_csv("Outputs/PredictionResults/Windowed_LSTM_Predictions.csv", index=False)
 
     # metrics
     mae_w, mse_w, rmse_w, r2_w = compute_metrics(y_true_w, y_pred_w)
